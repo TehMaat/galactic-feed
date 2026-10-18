@@ -1,0 +1,2 @@
+# galactic-feed
+Selfhosted Newsletter 
