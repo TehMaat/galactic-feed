@@ -39,24 +39,30 @@
 
 <div class="stage">
   <aside class="brief" aria-label="Informazioni sul mockup">
-    <p class="eyebrow">Mockup interattivo · v0.1</p>
+    <p class="eyebrow">Mockup interattivo · v0.2</p>
     <h1 class="brief-title">Galactic Feed</h1>
-    <p class="brief-lede">La tua edizione personale di notizie: feed RSS, Reddit e YouTube raccolti da un server Docker a casa tua e letti da una PWA sull'iPhone.</p>
+    <p class="brief-lede">La tua edizione personale di notizie: siti e canali YouTube raccolti da un server Docker a casa tua, filtrati con parole chiave o con l'AI e letti da una PWA su telefono, tablet e computer.</p>
+    <h2 class="brief-h">Dispositivo</h2>
+    <div class="segmented device-switch" style="--cols:3" role="group" aria-label="Dispositivo">
+      <button type="button" data-action="device" data-value="phone" aria-pressed="true">Telefono</button>
+      <button type="button" data-action="device" data-value="tablet" aria-pressed="false">Tablet</button>
+      <button type="button" data-action="device" data-value="desktop" aria-pressed="false">Computer</button>
+    </div>
     <h2 class="brief-h">Prova le schermate</h2>
     <div class="brief-links">
       <button type="button" data-action="demo" data-demo="edizione">Edizione del giorno</button>
       <button type="button" data-action="demo" data-demo="flusso">Flusso con filtri</button>
       <button type="button" data-action="demo" data-demo="articolo">Lettura di un articolo</button>
-      <button type="button" data-action="demo" data-demo="reddit">Post da Reddit</button>
       <button type="button" data-action="demo" data-demo="fonti">Fonti</button>
       <button type="button" data-action="demo" data-demo="aggiungi">Aggiungi una fonte</button>
       <button type="button" data-action="demo" data-demo="interessi">Interessi e filtri</button>
-      <button type="button" data-action="demo" data-demo="impostazioni">Impostazioni</button>
+      <button type="button" data-action="demo" data-demo="impostazioni">Utenti, edizione, notifiche e AI</button>
     </div>
-    <p class="brief-note">Fonti e articoli sono inventati, solo per mostrare l'interfaccia. Sul telefono il mockup occupa tutto lo schermo, come farebbe la PWA installata.</p>
+    <p class="brief-note">Fonti e articoli sono inventati, solo per mostrare l'interfaccia. Sul telefono il mockup occupa tutto lo schermo, come farebbe la PWA installata. Niente commenti né voti: l'app è di sola lettura.</p>
   </aside>
 
   <div class="device" id="device">
+    <div class="browserbar" aria-hidden="true"><span class="lights"><i></i><i></i><i></i></span><span class="url">https://feed.casa.example</span></div>
     <div class="island" aria-hidden="true"></div>
     <div class="app" id="app">
       <div class="statusbar" aria-hidden="true">
@@ -76,7 +82,7 @@
               <button type="button" class="icon-btn" data-action="open-sheet" data-sheet="settings" aria-label="Impostazioni"><svg class="ico"><use href="#i-sliders"/></svg></button>
             </div>
           </header>
-          <div class="segmented" role="tablist" aria-label="Modalità di lettura">
+          <div class="segmented" id="mode-switch" role="tablist" aria-label="Modalità di lettura">
             <button type="button" role="tab" id="mode-edizione" data-action="mode" data-mode="edizione" aria-selected="true">Edizione</button>
             <button type="button" role="tab" id="mode-flusso" data-action="mode" data-mode="flusso" aria-selected="false">Flusso</button>
           </div>
