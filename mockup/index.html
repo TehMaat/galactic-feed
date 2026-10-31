@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Galactic Feed</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=Unbounded:wght@500;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-orbit" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><ellipse cx="12" cy="12" rx="10" ry="4.2" transform="rotate(-25 12 12)"/></symbol>
+    <symbol id="i-edition" viewBox="0 0 24 24"><path d="M4 5h12v14H6a2 2 0 0 1-2-2z"/><path d="M16 9h4v8a2 2 0 0 1-2 2h-2"/><path d="M7 9h6M7 12h6M7 15h4"/></symbol>
+    <symbol id="i-rss" viewBox="0 0 24 24"><circle cx="6" cy="18" r="1.6"/><path d="M4 11a9 9 0 0 1 9 9"/><path d="M4 4a16 16 0 0 1 16 16"/></symbol>
+    <symbol id="i-spark" viewBox="0 0 24 24"><path d="M11 3l1.8 5.2L18 10l-5.2 1.8L11 17l-1.8-5.2L4 10l5.2-1.8z"/><path d="M19 15l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7z"/></symbol>
+    <symbol id="i-bookmark" viewBox="0 0 24 24"><path d="M7 4h10v16l-5-3.5L7 20z"/></symbol>
+    <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></symbol>
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></symbol>
+    <symbol id="i-external" viewBox="0 0 24 24"><path d="M14 4h6v6"/><path d="M20 4l-9 9"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+    <symbol id="i-up" viewBox="0 0 24 24"><path d="M12 5l6 7h-4v7h-4v-7H6z"/></symbol>
+    <symbol id="i-comment" viewBox="0 0 24 24"><path d="M5 5h14v10H10l-5 4z"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5.5v13l10-6.5z"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7"/></symbol>
+    <symbol id="i-eye-off" viewBox="0 0 24 24"><path d="M3 3l18 18"/><path d="M10.6 6.1A9.8 9.8 0 0 1 12 6c5 0 8.5 4.5 9 6-.3.8-1.2 2.3-2.7 3.6M6.6 7.6C4.6 9 3.4 10.9 3 12c.5 1.5 4 6 9 6 1.5 0 2.9-.4 4.1-1"/></symbol>
+    <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 16v-5a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20a2 2 0 0 0 4 0"/></symbol>
+    <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 15V4M7.5 8.5L12 4l4.5 4.5"/><path d="M5 15v4h14v-4"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 4l9 16H3z"/><path d="M12 10v4M12 17.2v.1"/></symbol>
+  </defs>
+</svg>
+
+<div class="stage">
+  <aside class="brief" aria-label="Informazioni sul mockup">
+    <p class="eyebrow">Mockup interattivo · v0.1</p>
+    <h1 class="brief-title">Galactic Feed</h1>
+    <p class="brief-lede">La tua edizione personale di notizie: feed RSS, Reddit e YouTube raccolti da un server Docker a casa tua e letti da una PWA sull'iPhone.</p>
+    <h2 class="brief-h">Prova le schermate</h2>
+    <div class="brief-links">
+      <button type="button" data-action="demo" data-demo="edizione">Edizione del giorno</button>
+      <button type="button" data-action="demo" data-demo="flusso">Flusso con filtri</button>
+      <button type="button" data-action="demo" data-demo="articolo">Lettura di un articolo</button>
+      <button type="button" data-action="demo" data-demo="reddit">Post da Reddit</button>
+      <button type="button" data-action="demo" data-demo="fonti">Fonti</button>
+      <button type="button" data-action="demo" data-demo="aggiungi">Aggiungi una fonte</button>
+      <button type="button" data-action="demo" data-demo="interessi">Interessi e filtri</button>
+      <button type="button" data-action="demo" data-demo="impostazioni">Impostazioni</button>
+    </div>
+    <p class="brief-note">Fonti e articoli sono inventati, solo per mostrare l'interfaccia. Sul telefono il mockup occupa tutto lo schermo, come farebbe la PWA installata.</p>
+  </aside>
+
+  <div class="device" id="device">
+    <div class="island" aria-hidden="true"></div>
+    <div class="app" id="app">
+      <div class="statusbar" aria-hidden="true">
+        <span class="sb-time">9:41</span>
+        <span class="sb-icons">
+          <svg viewBox="0 0 18 12" width="18" height="12"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5.5" width="3" height="6.5" rx="1"/><rect x="10" y="3" width="3" height="9" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg>
+          <svg viewBox="0 0 26 12" width="26" height="12"><rect x="0.5" y="0.5" width="22" height="11" rx="3.5" fill="none" stroke="currentColor" opacity=".45"/><rect x="2.5" y="2.5" width="16" height="7" rx="2"/><rect x="23.8" y="4" width="1.6" height="4" rx=".8" opacity=".45"/></svg>
+        </span>
+      </div>
+
+      <main class="views">
+        <section class="view" id="view-oggi" data-view="oggi" aria-label="Oggi">
+          <header class="topbar">
+            <div class="wordmark"><svg class="ico"><use href="#i-orbit"/></svg><span>galactic feed</span></div>
+            <div class="topbar-actions">
+              <button type="button" class="icon-btn" id="btn-refresh" data-action="refresh" aria-label="Aggiorna le fonti"><svg class="ico"><use href="#i-refresh"/></svg></button>
+              <button type="button" class="icon-btn" data-action="open-sheet" data-sheet="settings" aria-label="Impostazioni"><svg class="ico"><use href="#i-sliders"/></svg></button>
+            </div>
+          </header>
+          <div class="segmented" role="tablist" aria-label="Modalità di lettura">
+            <button type="button" role="tab" id="mode-edizione" data-action="mode" data-mode="edizione" aria-selected="true">Edizione</button>
+            <button type="button" role="tab" id="mode-flusso" data-action="mode" data-mode="flusso" aria-selected="false">Flusso</button>
+          </div>
+          <div id="edition"></div>
+          <div id="stream" hidden></div>
+        </section>
+
+        <section class="view" id="view-fonti" data-view="fonti" aria-label="Fonti" hidden>
+          <header class="large-title">
+            <div><h2>Fonti</h2><p class="subtitle" id="sources-count"></p></div>
+            <button type="button" class="pill-btn" data-action="open-sheet" data-sheet="add"><svg class="ico"><use href="#i-plus"/></svg>Aggiungi</button>
+          </header>
+          <div id="sources"></div>
+        </section>
+
+        <section class="view" id="view-interessi" data-view="interessi" aria-label="Interessi" hidden>
+          <header class="large-title">
+            <div><h2>Interessi</h2><p class="subtitle">Quello che corrisponde finisce nell'Edizione. Il resto resta nel Flusso.</p></div>
+          </header>
+          <div id="interests"></div>
+        </section>
+
+        <section class="view" id="view-salvati" data-view="salvati" aria-label="Salvati" hidden>
+          <header class="large-title">
+            <div><h2>Salvati</h2><p class="subtitle">Disponibili anche offline</p></div>
+          </header>
+          <div id="saved"></div>
+        </section>
+      </main>
+
+      <nav class="tabbar" aria-label="Sezioni">
+        <button type="button" data-action="tab" data-tab="oggi" aria-current="page"><svg class="ico"><use href="#i-edition"/></svg><span>Oggi</span></button>
+        <button type="button" data-action="tab" data-tab="fonti"><svg class="ico"><use href="#i-rss"/></svg><span>Fonti</span></button>
+        <button type="button" data-action="tab" data-tab="interessi"><svg class="ico"><use href="#i-spark"/></svg><span>Interessi</span></button>
+        <button type="button" data-action="tab" data-tab="salvati"><svg class="ico"><use href="#i-bookmark"/></svg><span>Salvati</span><b class="tab-badge" id="saved-badge" hidden></b></button>
+      </nav>
+
+      <article class="reader" id="reader" aria-label="Articolo" aria-hidden="true">
+        <div class="reader-bar">
+          <button type="button" class="back-btn" data-action="close-reader"><svg class="ico"><use href="#i-back"/></svg><span>Indietro</span></button>
+          <div class="reader-actions">
+            <button type="button" class="icon-btn" data-action="text-size" aria-label="Dimensione del testo"><span class="aa">Aa</span></button>
+            <button type="button" class="icon-btn" id="reader-save" data-action="toggle-save" aria-label="Salva"><svg class="ico"><use href="#i-bookmark"/></svg></button>
+            <button type="button" class="icon-btn" data-action="open-original" aria-label="Apri l'originale"><svg class="ico"><use href="#i-external"/></svg></button>
+          </div>
+        </div>
+        <div class="reader-scroll" id="reader-scroll"></div>
+      </article>
+
+      <div class="scrim" id="scrim" data-action="close-sheet" hidden></div>
+
+      <section class="sheet" id="sheet-add" role="dialog" aria-modal="true" aria-labelledby="add-title" aria-hidden="true">
+        <div class="grabber" aria-hidden="true"></div>
+        <header class="sheet-head">
+          <h3 id="add-title">Aggiungi una fonte</h3>
+          <button type="button" class="icon-btn" data-action="close-sheet" aria-label="Chiudi"><svg class="ico"><use href="#i-close"/></svg></button>
+        </header>
+        <div id="add-body"></div>
+      </section>
+
+      <section class="sheet" id="sheet-settings" role="dialog" aria-modal="true" aria-labelledby="settings-title" aria-hidden="true">
+        <div class="grabber" aria-hidden="true"></div>
+        <header class="sheet-head">
+          <h3 id="settings-title">Impostazioni</h3>
+          <button type="button" class="icon-btn" data-action="close-sheet" aria-label="Chiudi"><svg class="ico"><use href="#i-close"/></svg></button>
+        </header>
+        <div id="settings-body"></div>
+      </section>
+
+      <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    </div>
+  </div>
+</div>
+
+<script src="js/data.js"></script>
+<script src="js/art.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
