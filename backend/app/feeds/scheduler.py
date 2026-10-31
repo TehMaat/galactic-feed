@@ -81,9 +81,17 @@ class Scheduler:
             await asyncio.to_thread(cleanup, self.ctx)
 
 
+SAVED = "EXISTS (SELECT 1 FROM user_articles ua WHERE ua.article_id = articles.id AND ua.saved_at IS NOT NULL)"
+
+
 def cleanup(ctx) -> None:
-    """Toglie i feed che nessuno segue più e gli articoli troppo vecchi."""
+    """Toglie gli articoli troppo vecchi e i feed che nessuno segue più. I salvati restano sempre."""
     limit = now() - ctx.settings.retention_days * 86400
     with ctx.db.session() as conn, conn:
-        conn.execute("DELETE FROM feeds WHERE NOT EXISTS (SELECT 1 FROM subscriptions s WHERE s.feed_id = feeds.id)")
-        conn.execute("DELETE FROM articles WHERE published_at < ? AND fetched_at < ?", (limit, limit))
+        conn.execute(f"DELETE FROM articles WHERE published_at < ? AND fetched_at < ? AND NOT {SAVED}", (limit, limit))
+        orphan = "NOT EXISTS (SELECT 1 FROM subscriptions s WHERE s.feed_id = articles.feed_id)"
+        conn.execute(f"DELETE FROM articles WHERE {orphan} AND NOT {SAVED}")
+        conn.execute(
+            "DELETE FROM feeds WHERE NOT EXISTS (SELECT 1 FROM subscriptions s WHERE s.feed_id = feeds.id)"
+            " AND NOT EXISTS (SELECT 1 FROM articles a WHERE a.feed_id = feeds.id)"
+        )

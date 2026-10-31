@@ -15,6 +15,9 @@ import sqlite3
 from dataclasses import dataclass, field
 
 from ..db import now
+from ..reading.dedupe import find_cluster
+from ..reading.matching import apply_new_articles
+from ..reading.text import title_key
 from .extract import initial_full_status
 from .net import FetchError, fetch
 from .parser import Entry, NotAFeed, parse_feed
@@ -58,16 +61,19 @@ def store_entries(conn: sqlite3.Connection, feed_id: int, entries: list[Entry]) 
                 "SELECT id, title, content_html FROM articles WHERE feed_id = ? AND guid = ?", (feed_id, e.guid)
             ).fetchone()
             if existing is None:
+                key = title_key(e.title)
                 cur = conn.execute(
-                    "INSERT INTO articles (feed_id, guid, url, canonical_url, title, author, excerpt, categories,"
+                    "INSERT INTO articles (feed_id, guid, url, canonical_url, title, title_key, author, excerpt, categories,"
                     " content_html, full_status, image_url, video_id, word_count, published_at, fetched_at)"
-                    " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                     (
-                        feed_id, e.guid, e.url, canon, e.title, e.author, e.excerpt, e.categories_json,
+                        feed_id, e.guid, e.url, canon, e.title, key, e.author, e.excerpt, e.categories_json,
                         e.content_html, initial_full_status(e.needs_full_text, published), e.image_url,
                         e.video_id, e.word_count, published, ts,
                     ),
                 )
+                cluster = find_cluster(conn, cur.lastrowid, feed_id, canon, key, published)
+                conn.execute("UPDATE articles SET cluster_id = ? WHERE id = ?", (cluster, cur.lastrowid))
                 conn.execute(
                     "INSERT INTO articles_fts (rowid, title, author, body) VALUES (?, ?, ?, ?)",
                     (cur.lastrowid, e.title, e.author, text or e.excerpt),
@@ -75,9 +81,10 @@ def store_entries(conn: sqlite3.Connection, feed_id: int, entries: list[Entry]) 
                 new_ids.append(cur.lastrowid)
             elif existing["title"] != e.title or existing["content_html"] != e.content_html:
                 conn.execute(
-                    "UPDATE articles SET title = ?, author = ?, excerpt = ?, categories = ?, content_html = ?,"
+                    "UPDATE articles SET title = ?, title_key = ?, author = ?, excerpt = ?, categories = ?, content_html = ?,"
                     " image_url = CASE WHEN ? != '' THEN ? ELSE image_url END WHERE id = ?",
-                    (e.title, e.author, e.excerpt, e.categories_json, e.content_html, e.image_url, e.image_url, existing["id"]),
+                    (e.title, title_key(e.title), e.author, e.excerpt, e.categories_json, e.content_html,
+                     e.image_url, e.image_url, existing["id"]),
                 )
                 conn.execute(
                     "UPDATE articles_fts SET title = ?, author = ? WHERE rowid = ?", (e.title, e.author, existing["id"])
@@ -130,6 +137,8 @@ class Fetcher:
         def save():
             with self.ctx.db.session() as conn:
                 new_ids = store_entries(conn, feed_id, parsed.entries)
+                # Interessi e parole silenziate di chi segue il feed, subito.
+                apply_new_articles(conn, feed_id, new_ids)
             return self._record_success(feed, got, parsed, new_ids)
 
         outcome = await asyncio.to_thread(save)

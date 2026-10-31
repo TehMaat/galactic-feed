@@ -13,6 +13,7 @@ from ..deps import AppContext, User, current_user, get_ctx, get_db
 from ..feeds.discovery import NothingFound, discover
 from ..feeds.net import FetchError, normalize_input_url
 from ..feeds.sanitize import normalize_feed_url
+from ..reading.matching import recompute_feed_for_user
 from .folders import check_folder
 
 router = APIRouter(prefix="/api/sources", tags=["fonti"])
@@ -71,13 +72,21 @@ def subscribe(conn: sqlite3.Connection, user_id: int, feed_id: int, folder_id: i
     if cur.rowcount == 0:
         return None
     recompute_interval(conn, feed_id)
+    # Gli articoli già scaricati per altri utenti passano subito per le regole del nuovo iscritto.
+    recompute_feed_for_user(conn, user_id, feed_id)
     return cur.lastrowid
 
 
 def remove_feed_if_orphan(conn: sqlite3.Connection, feed_id: int) -> None:
+    """Se nessuno segue più il feed lo si toglie, ma gli articoli salvati da qualcuno restano."""
+    if conn.execute("SELECT 1 FROM subscriptions WHERE feed_id = ?", (feed_id,)).fetchone():
+        return
     conn.execute(
-        "DELETE FROM feeds WHERE id = ? AND NOT EXISTS (SELECT 1 FROM subscriptions WHERE feed_id = ?)", (feed_id, feed_id)
+        "DELETE FROM articles WHERE feed_id = ? AND NOT EXISTS"
+        " (SELECT 1 FROM user_articles ua WHERE ua.article_id = articles.id AND ua.saved_at IS NOT NULL)",
+        (feed_id,),
     )
+    conn.execute("DELETE FROM feeds WHERE id = ? AND NOT EXISTS (SELECT 1 FROM articles WHERE feed_id = ?)", (feed_id, feed_id))
 
 
 def source_status(row: sqlite3.Row) -> str:
@@ -93,7 +102,11 @@ SOURCE_SELECT = (
     "SELECT s.id, s.feed_id, s.folder_id, s.title AS custom_title, s.interval_min, s.created_at,"
     " f.url, f.kind, f.title AS feed_title, f.site_url, f.last_fetch_at, f.last_success_at, f.next_fetch_at,"
     " f.error_message, f.error_since, f.error_count, f.last_status,"
-    " (SELECT COUNT(*) FROM articles a WHERE a.feed_id = f.id) AS articles"
+    " (SELECT COUNT(*) FROM articles a WHERE a.feed_id = f.id) AS articles,"
+    " (SELECT COUNT(*) FROM articles a"
+    "   LEFT JOIN user_articles ua ON ua.article_id = a.id AND ua.user_id = s.user_id"
+    "   LEFT JOIN user_matches m ON m.article_id = a.id AND m.user_id = s.user_id"
+    "   WHERE a.feed_id = f.id AND ua.read_at IS NULL AND COALESCE(m.muted, 0) = 0) AS unread"
     " FROM subscriptions s JOIN feeds f ON f.id = s.feed_id"
 )
 
@@ -118,6 +131,7 @@ def source_payload(row: sqlite3.Row) -> dict:
         "last_success_at": iso(row["last_success_at"]),
         "next_fetch_at": iso(row["next_fetch_at"]) if row["next_fetch_at"] else None,
         "articles": row["articles"],
+        "unread": row["unread"],
         "created_at": iso(row["created_at"]),
     }
 

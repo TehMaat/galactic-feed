@@ -11,7 +11,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from pydantic import ValidationError
 
-from .api import account, admin, auth, folders, invites, opml, sources
+from .api import account, admin, articles, auth, folders, images, interests, invites, opml, sources
 from .config import VERSION, Settings
 from .deps import AppContext
 from .feeds.extract import Extractor
@@ -52,6 +52,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         ctx.db.init()
+        ctx.load_secret()
         with ctx.db.session() as conn:
             no_users = conn.execute("SELECT 1 FROM users LIMIT 1").fetchone() is None
         ctx.refresh_setup_code(no_users)
@@ -109,7 +110,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             conn.execute("SELECT 1").fetchone()
         return {"status": "ok", "version": VERSION}
 
-    for module in (auth, invites, account, admin, folders, sources, opml):
+    for module in (auth, invites, account, admin, folders, sources, opml, articles, interests, images):
         app.include_router(module.router)
 
     @app.api_route("/api/{rest:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"], include_in_schema=False)

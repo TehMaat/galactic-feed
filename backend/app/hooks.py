@@ -5,9 +5,10 @@ La prima versione non li usa, ma il codice li chiama già nei momenti giusti:
 - `new_articles`: dopo ogni controllo di un feed, con gli articoli appena arrivati.
   Qui si collegheranno la composizione dell'Edizione e le notifiche push
   ("è arrivata una notizia importante per Anna").
-- `relevance` (aggiunto nella tappa sugli interessi): il calcolo della pertinenza di
-  un articolo per un utente. Oggi usa le parole chiave; con l'AI si aggiungerà un
-  secondo calcolo accanto al primo.
+- la pertinenza di un articolo per un utente è calcolata in
+  `reading/matching.py:evaluate` e salvata nella tabella `user_matches`. Oggi usa le
+  parole chiave; il filtro AI aggiungerà un secondo calcolo accanto a questo e
+  scriverà il suo esito nella stessa tabella, così elenchi e filtri non cambiano.
 
 Ogni funzione registrata riceve dati semplici (numeri e liste) e non deve bloccare:
 gli errori vengono scritti nel log e non fermano il download dei feed.

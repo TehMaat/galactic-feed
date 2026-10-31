@@ -61,11 +61,14 @@ I contenuti dei feed sono **condivisi**: un feed seguito da tre utenti si scaric
 **Interessi**
 - `interests` (per utente): parola chiave, priorità (alta / media / spento)
 - `muted_words` (per utente): parola
+- `user_matches` (per utente): esito delle regole su ogni articolo (interesse trovato e priorità, oppure silenziato). Calcolato all'arrivo degli articoli e quando l'utente cambia le regole, così filtri e contatori sono semplici query
 
 Regole:
 
-- **Interessi e silenziati**: confronto per parole intere su titolo, estratto e categorie, senza badare a maiuscole e accenti. "Per te" = articoli che toccano un interesse alto o medio.
-- **Doppioni**: all'arrivo, un articolo con lo stesso link normalizzato o un titolo quasi uguale a uno degli ultimi 3 giorni entra nello stesso cluster. Ogni utente vede la notizia una volta sola, con "anche su: …". Si può spegnere.
+- **Interessi e silenziati**: confronto per parole intere su titolo, estratto e categorie, senza badare a maiuscole e accenti. Per l'italiano si riconoscono singolare e plurale cambiando l'ultima vocale («razzo» ↔ «razzi», «amica» ↔ «amiche»). "Per te" = articoli che toccano un interesse alto o medio; se ne toccano più d'uno vale quello con priorità più alta.
+- **Doppioni**: all'arrivo, un articolo con lo stesso link normalizzato, oppure con un titolo quasi uguale (almeno 4 parole significative e il 75% in comune) in un altro feed nei 3 giorni intorno, entra nello stesso cluster. Prima si applicano i filtri, poi per ogni notizia si mostra l'articolo pubblicato per primo, con "anche su: …". Segnare come letto vale per tutta la notizia. Si può spegnere.
+- **Visibilità**: un utente vede gli articoli dei feed che segue e quelli che ha salvato, anche se ha smesso di seguire la fonte.
+- **Ricerca**: FTS5 su titolo, autore e testo (anche quello estratto), più il nome della fonte. Ogni parola deve comparire, anche come inizio di parola.
 - **Pulizia**: gli articoli più vecchi di `RETENTION_DAYS` (90) vengono cancellati, tranne quelli salvati da qualcuno.
 
 ## Endpoint API
