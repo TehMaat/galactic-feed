@@ -1,0 +1,285 @@
+/* Galactic Feed · mockup
+   Layout: on wide screens a short brief sits beside the app shown in a phone frame;
+   below 860px the app fills the screen, as the installed PWA would. */
+:root {
+  --bg: #E7EAF2;
+  --app-bg: #F4F5F9;
+  --surface: #FFFFFF;
+  --surface-2: #ECEEF4;
+  --ink: #13162A;
+  --ink-2: #4B5068;
+  --ink-3: #737891;
+  --line: rgba(19, 22, 42, 0.10);
+  --accent: #0A7A69;
+  --accent-soft: rgba(10, 122, 105, 0.12);
+  --on-accent: #FFFFFF;
+  --star: #8A5600;
+  --star-soft: rgba(201, 138, 20, 0.16);
+  --warn: #9A6212;
+  --warn-soft: rgba(154, 98, 18, 0.12);
+  --danger: #B42318;
+  --sky-1: #11152F;
+  --sky-2: #2C2559;
+  --sky-ink: #F3F0FA;
+  --sky-ink-2: rgba(243, 240, 250, 0.72);
+  --sky-star: #F2C46B;
+  --frame: #0A0B12;
+  --glass: rgba(244, 245, 249, 0.84);
+  --scrim: rgba(10, 12, 26, 0.38);
+  --shadow-card: 0 1px 2px rgba(19, 22, 42, 0.06), 0 8px 24px -16px rgba(19, 22, 42, 0.25);
+  --shadow-device: 0 40px 90px -36px rgba(17, 21, 47, 0.6);
+
+  --c-spazio: #4E58D8;
+  --c-tech: #1D6FD1;
+  --c-selfhost: #2E8B45;
+  --c-scienza: #8648C9;
+  --c-italia: #C0365E;
+  --c-video: #C4502A;
+  --c-reddit: #D2420E;
+
+  --font-display: "Unbounded", "Arial Black", system-ui, sans-serif;
+  --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-read: "Newsreader", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  --fs-xs: 0.75rem;
+  --fs-sm: 0.8125rem;
+  --fs-md: 0.9375rem;
+  --fs-lg: 1.0625rem;
+  --fs-xl: 1.375rem;
+  --fs-2xl: 2.125rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #06070D;
+    --app-bg: #0C0F1C;
+    --surface: #151A2D;
+    --surface-2: #1C2238;
+    --ink: #ECEAF3;
+    --ink-2: #A8ACC3;
+    --ink-3: #7B809C;
+    --line: rgba(236, 234, 243, 0.09);
+    --accent: #5FE0C7;
+    --accent-soft: rgba(95, 224, 199, 0.14);
+    --on-accent: #06221D;
+    --star: #F2C46B;
+    --star-soft: rgba(242, 196, 107, 0.14);
+    --warn: #F2B35B;
+    --warn-soft: rgba(242, 179, 91, 0.14);
+    --danger: #FF7B72;
+    --sky-1: #0E1230;
+    --sky-2: #2A1F57;
+    --frame: #000000;
+    --glass: rgba(12, 15, 28, 0.82);
+    --scrim: rgba(0, 0, 0, 0.55);
+    --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 10px 30px -18px rgba(0, 0, 0, 0.8);
+    --shadow-device: 0 40px 100px -30px rgba(0, 0, 0, 0.9);
+    --c-spazio: #98A0FF;
+    --c-tech: #6FAEFF;
+    --c-selfhost: #7FD98F;
+    --c-scienza: #C49CFF;
+    --c-italia: #FF8FB0;
+    --c-video: #FF9A73;
+    --c-reddit: #FF7A45;
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #06070D;
+  --app-bg: #0C0F1C;
+  --surface: #151A2D;
+  --surface-2: #1C2238;
+  --ink: #ECEAF3;
+  --ink-2: #A8ACC3;
+  --ink-3: #7B809C;
+  --line: rgba(236, 234, 243, 0.09);
+  --accent: #5FE0C7;
+  --accent-soft: rgba(95, 224, 199, 0.14);
+  --on-accent: #06221D;
+  --star: #F2C46B;
+  --star-soft: rgba(242, 196, 107, 0.14);
+  --warn: #F2B35B;
+  --warn-soft: rgba(242, 179, 91, 0.14);
+  --danger: #FF7B72;
+  --sky-1: #0E1230;
+  --sky-2: #2A1F57;
+  --frame: #000000;
+  --glass: rgba(12, 15, 28, 0.82);
+  --scrim: rgba(0, 0, 0, 0.55);
+  --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 10px 30px -18px rgba(0, 0, 0, 0.8);
+  --shadow-device: 0 40px 100px -30px rgba(0, 0, 0, 0.9);
+  --c-spazio: #98A0FF;
+  --c-tech: #6FAEFF;
+  --c-selfhost: #7FD98F;
+  --c-scienza: #C49CFF;
+  --c-italia: #FF8FB0;
+  --c-video: #FF9A73;
+  --c-reddit: #FF7A45;
+  color-scheme: dark;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+
+html {
+  height: 100%;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+body {
+  height: 100%;
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: 1rem;
+  line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; background: none; border: 0; padding: 0; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 10px; }
+h1, h2, h3, h4 { text-wrap: balance; }
+
+.ico {
+  width: 22px;
+  height: 22px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* ---------- Page around the device ---------- */
+.stage {
+  min-height: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 360px) auto;
+  gap: clamp(40px, 6vw, 96px);
+  align-items: center;
+  justify-content: center;
+  padding-block: 40px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+
+.brief { display: grid; gap: 14px; max-width: 360px; }
+.eyebrow {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.brief-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 2.5rem;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+}
+.brief-lede {
+  margin: 0;
+  font-family: var(--font-read);
+  font-size: 1.1875rem;
+  line-height: 1.5;
+  color: var(--ink-2);
+}
+.brief-h {
+  margin: 14px 0 0;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.brief-links { display: flex; flex-wrap: wrap; gap: 8px; }
+.brief-links button {
+  padding: 8px 13px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  font-size: 0.875rem;
+  transition: border-color 0.15s, background-color 0.15s, color 0.15s;
+}
+.brief-links button:hover { border-color: var(--accent); }
+.brief-links button.is-active { background: var(--accent); border-color: transparent; color: var(--on-accent); }
+.brief-note { margin: 4px 0 0; font-size: var(--fs-sm); line-height: 1.55; color: var(--ink-3); }
+
+/* ---------- Phone frame ---------- */
+.device {
+  position: relative;
+  box-sizing: content-box;
+  width: 390px;
+  height: 844px;
+  border: 11px solid var(--frame);
+  border-radius: 58px;
+  background: var(--app-bg);
+  box-shadow: var(--shadow-device);
+  overflow: hidden;
+  isolation: isolate;
+}
+.island {
+  position: absolute;
+  top: 11px;
+  left: 50%;
+  z-index: 60;
+  width: 122px;
+  height: 35px;
+  border-radius: 20px;
+  background: #000;
+  transform: translateX(-50%);
+}
+.statusbar {
+  position: absolute;
+  inset: 0 0 auto;
+  z-index: 55;
+  height: 54px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 30px 0 40px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--ink);
+  pointer-events: none;
+}
+.sb-icons { display: flex; align-items: center; gap: 6px; }
+.sb-icons svg { fill: currentColor; }
+
+@media (min-width: 860px) and (max-height: 940px) {
+  .device { zoom: 0.86; }
+}
+
+/* ---------- Phone: the app fills the screen ---------- */
+@media (max-width: 859px) {
+  .stage { display: block; height: 100%; min-height: 0; padding: 0; }
+  .brief { display: none; }
+  .device {
+    width: 100%;
+    height: 100%;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+  .island, .statusbar { display: none; }
+  .app { --top-inset: 8px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
