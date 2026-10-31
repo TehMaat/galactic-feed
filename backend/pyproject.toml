@@ -1,0 +1,11 @@
+[project]
+name = "galactic-feed"
+version = "0.1.0"
+description = "Lettore di notizie self-hosted e multiutente"
+requires-python = ">=3.12"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-q"
+filterwarnings = ["ignore:Using `httpx` with `starlette.testclient`"]
