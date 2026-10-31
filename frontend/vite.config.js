@@ -47,4 +47,6 @@ export default defineConfig({
     proxy: { "/api": { target: backend, changeOrigin: false } },
   },
   build: { target: "es2020", sourcemap: false },
+  // vitest esegue solo i test unitari; quelli nel browser (e2e/) li esegue Playwright.
+  test: { include: ["tests/**/*.test.js"] },
 });
