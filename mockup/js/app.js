@@ -9,6 +9,7 @@
   const byId = Object.fromEntries(D.articles.map((a) => [a.id, a]));
   const root = document.documentElement;
   const hostTheme = root.dataset.theme;
+  const app = $("#app");
 
   const store = {
     get(key, fallback) {
@@ -25,11 +26,17 @@
   };
 
   // Non letti già presenti sul server prima di oggi, per rendere realistici i contatori.
-  const BACKLOG = { orbita: 6, cronache: 1, rspace: 12, bitbyte: 9, fronte: 3, rselfhosted: 21, rhomelab: 7, diario: 0, gazzetta: 4, bussola: 10, ritaly: 28 };
+  const BACKLOG = { orbita: 6, cronache: 1, cielo: 3, bitbyte: 9, fronte: 3, settimanale: 5, laboratorio: 2, diario: 0, gazzetta: 4, bussola: 10, borgo: 7 };
   const LEVEL = { alta: "alta", media: "media", off: "spento" };
   const NEXT_LEVEL = { alta: "media", media: "off", off: "alta" };
-  const FILTERS = [["tutti", "Tutti"], ["perte", "Per te"], ["nonletti", "Non letti"], ["reddit", "Reddit"], ["video", "Video"]]
+  const FILTERS = [["tutti", "Tutti"], ["perte", "Per te"], ["nonletti", "Non letti"], ["video", "Video"]]
     .concat(Object.entries(D.topics).map(([k, t]) => [k, t.label]));
+  const AI_MODES = { parole: "Parole chiave", ai: "AI", entrambi: "Entrambi" };
+  const AI_HINTS = {
+    parole: "Un articolo entra nell'Edizione se il titolo o i tag contengono un tuo interesse.",
+    ai: "Un modello AI legge titolo e inizio di ogni articolo e lo confronta con la tua descrizione.",
+    entrambi: "Prima le parole chiave, poi l'AI recupera gli articoli pertinenti che non le contengono."
+  };
 
   const state = {
     tab: "oggi",
@@ -41,17 +48,22 @@
     saved: new Set(store.get("saved", ["a6"])),
     interests: D.interests.map((i) => ({ ...i })),
     muted: D.muted.slice(),
-    rules: { minVotes: true, dedupe: true, summaries: true, push: true, evening: false },
+    rules: { dedupe: true, summaries: true, edition: true, push: true },
+    aiMode: "entrambi",
+    aiProvider: "locale",
+    aiText: "Esplorazione spaziale e astronomia spiegata bene, self-hosting con Docker, novità su iPhone. Niente finanza.",
+    times: ["07:00", "18:00"],
+    notifyTopics: new Set(["spazio", "selfhost"]),
     sources: D.sources.map((s) => ({ ...s })),
     current: null,
     ts: 1,
     theme: store.get("theme", "auto"),
+    device: "phone",
     lastFetch: "07:00",
     addType: "rss",
     addUrl: "",
     addFound: false,
     addChoice: 0,
-    addSort: 1,
     addTopic: "spazio"
   };
 
@@ -61,13 +73,10 @@
   const srcOf = (a) => state.sources.find((s) => s.id === a.src);
   const haystack = (a) => (a.title + " " + a.tags.join(" ")).toLowerCase();
   const ago = (t) => (t === "ieri" ? "ieri" : t + " fa");
-  const typeLabel = (t) => ({ rss: "RSS", reddit: "Reddit", youtube: "YouTube" }[t]);
+  const typeLabel = (t) => ({ rss: "RSS", youtube: "YouTube" }[t]);
+  const isWide = () => app.offsetWidth >= 1100;
 
-  function srcColor(s) {
-    if (s.type === "reddit") return "var(--c-reddit)";
-    if (s.type === "youtube") return "var(--c-video)";
-    return D.topics[s.topic].color;
-  }
+  const srcColor = (s) => (s.type === "youtube" ? "var(--c-video)" : D.topics[s.topic].color);
 
   function isMuted(a) {
     const t = haystack(a);
@@ -100,9 +109,7 @@
     return `<span class="thumb-wrap">${img}<span class="play">${icon("play")}</span><span class="dur">${esc(a.video.dur)}</span></span>`;
   }
 
-  function avatar(s) {
-    return `<span class="mono-av" style="--src-c:${srcColor(s)}">${esc(s.initials)}</span>`;
-  }
+  const avatar = (s) => `<span class="mono-av" style="--src-c:${srcColor(s)}">${esc(s.initials)}</span>`;
 
   function meta(a) {
     const s = srcOf(a);
@@ -110,6 +117,7 @@
   }
 
   const matchTag = (m) => `<span class="match">${icon("spark")}${esc(m.k)}</span>`;
+  const itemState = (a) => `${state.read.has(a.id) ? "is-read" : ""} ${state.current === a.id ? "is-current" : ""}`;
 
   function saveBtn(a) {
     const on = state.saved.has(a.id);
@@ -120,6 +128,11 @@
     return `<button type="button" class="switch" role="switch" aria-checked="${state.rules[key]}" data-action="rule" data-key="${key}" aria-label="${esc(label)}"></button>`;
   }
 
+  function segmented(action, options, current, label) {
+    return `<div class="segmented" style="--cols:${options.length}" role="group" aria-label="${esc(label)}">${options.map(([k, l]) =>
+      `<button type="button" aria-pressed="${current === k}" data-action="${action}" data-value="${k}">${esc(l)}</button>`).join("")}</div>`;
+  }
+
   // ---------- Edizione ----------
   function greeting() {
     const h = new Date().getHours();
@@ -128,19 +141,30 @@
     return "Buonasera.";
   }
 
+  function editionSlots() {
+    const now = new Date();
+    const mins = now.getHours() * 60 + now.getMinutes();
+    const toMin = (t) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3));
+    const sorted = state.times.slice().sort();
+    const past = sorted.filter((t) => toMin(t) <= mins);
+    const last = past.length ? past[past.length - 1] : sorted[sorted.length - 1];
+    const next = sorted.find((t) => toMin(t) > mins) || sorted[0];
+    return { last, next };
+  }
+
   function renderEdition() {
     const items = editionItems();
     const visible = D.articles.filter((a) => !isMuted(a));
     const hidden = D.articles.length - visible.length;
     const hero = items.find((x) => x.m.level === "alta") || items[0];
     const rest = items.filter((x) => x !== hero);
-    const evening = new Date().getHours() >= 18;
+    const { last, next } = editionSlots();
     const date = new Intl.DateTimeFormat("it-IT", { weekday: "long", day: "numeric", month: "long" }).format(new Date());
 
     let html = `
       <section class="masthead" aria-label="Edizione di oggi">
         <canvas class="stars" aria-hidden="true"></canvas>
-        <p class="mast-kicker">${evening ? "Edizione della sera" : "Edizione del mattino"} · n. 214</p>
+        <p class="mast-kicker">Edizione delle ${last} · n. 214</p>
         <h2 class="mast-title">${greeting()}<br>Ecco cosa conta oggi.</h2>
         <p class="mast-date">${esc(date)}</p>
         <div class="mast-stats">
@@ -149,13 +173,13 @@
           <div class="is-star"><b>${items.length}</b><span>per te</span></div>
           <div><b>${hidden}</b><span>nascosti</span></div>
         </div>
-        <p class="mast-foot">Composta alle ${evening ? "18:00 · prossima alle 07:00" : "07:00 · prossima alle 18:00"}</p>
+        <p class="mast-foot">Composta alle ${last} · prossima alle ${next} · filtri: ${AI_MODES[state.aiMode].toLowerCase()}</p>
       </section>`;
 
     if (hero) {
       const a = hero.a;
       html += `
-      <article class="hero tap ${state.read.has(a.id) ? "is-read" : ""}" role="button" tabindex="0" data-action="open" data-id="${a.id}">
+      <article class="hero tap ${itemState(a)}" role="button" tabindex="0" data-action="open" data-id="${a.id}">
         ${thumb(a, "wide")}
         <div class="hero-body">
           <div class="hero-label"><span class="count">In primo piano</span>${matchTag(hero.m)}</div>
@@ -172,7 +196,7 @@
       html += `
       <div class="section-h"><h3><span class="dot" style="--topic-c:${t.color}"></span>${esc(t.label)}</h3><span class="count">${group.length}</span></div>
       <div class="list">${group.map(({ a, m }) => `
-        <article class="row tap ${state.read.has(a.id) ? "is-read" : ""}" role="button" tabindex="0" data-action="open" data-id="${a.id}">
+        <article class="row tap ${itemState(a)}" role="button" tabindex="0" data-action="open" data-id="${a.id}">
           <div class="row-text">
             <h4 class="row-title clamp-3">${esc(a.title)}</h4>
             <div class="row-foot">${meta(a)}${matchTag(m)}</div>
@@ -198,22 +222,18 @@
       case "tutti": return true;
       case "perte": return !!matchOf(a);
       case "nonletti": return !state.read.has(a.id);
-      case "reddit": return srcOf(a).type === "reddit";
       case "video": return !!a.video;
       default: return a.topic === filter;
     }
   }
 
   function card(a) {
-    const s = srcOf(a);
     const m = matchOf(a);
-    const tag = s.type === "reddit" ? `<span class="type-tag reddit">Reddit</span>` : a.video ? `<span class="type-tag video">Video</span>` : "";
-    const stats = a.reddit
-      ? `<span>${icon("up")}${esc(a.reddit.up)}</span><span>${icon("comment")}${a.reddit.comments}</span><span>${esc(a.reddit.flair)}</span>`
-      : `<span>${a.video ? "Video · " + esc(a.video.dur) : a.mins ? a.mins + " min di lettura" : ""}</span>`;
+    const tag = a.video ? `<span class="type-tag video">Video</span>` : "";
+    const info = a.video ? "Video · " + esc(a.video.dur) : a.mins ? a.mins + " min di lettura" : "";
     const badge = m ? matchTag(m) : isMuted(a) ? `<span class="match">Silenziato</span>` : "";
     return `
-      <article class="card tap ${state.read.has(a.id) ? "is-read" : ""}" role="button" tabindex="0" data-action="open" data-id="${a.id}">
+      <article class="card tap ${itemState(a)}" role="button" tabindex="0" data-action="open" data-id="${a.id}">
         <div class="card-top">${meta(a)}${tag}</div>
         <div class="card-main">
           <div class="card-text">
@@ -222,7 +242,7 @@
           </div>
           ${thumb(a)}
         </div>
-        <div class="card-foot"><div class="stats">${stats}</div><div class="foot-r">${badge}${saveBtn(a)}</div></div>
+        <div class="card-foot"><div class="stats"><span>${info}</span></div><div class="foot-r">${badge}${saveBtn(a)}</div></div>
       </article>`;
   }
 
@@ -261,8 +281,8 @@
 
   // ---------- Fonti ----------
   function srcRow(s) {
-    const dot = s.status === "err" ? "err" : s.status === "warn" ? "warn" : "";
-    const sub = s.note || (s.type === "reddit" ? `Reddit · RSS fino al 13/11 · ogni ${s.every}` : `${typeLabel(s.type)} · ogni ${s.every}`);
+    const dot = s.status === "err" ? "err" : s.status === "slow" ? "warn" : "";
+    const sub = s.note || `${typeLabel(s.type)} · ogni ${s.every}`;
     return `
       <div class="src-row" role="button" tabindex="0" data-action="filter-source" data-id="${s.id}" aria-label="Mostra gli articoli di ${esc(s.name)}">
         <span class="src-av" style="--src-c:${srcColor(s)}">${esc(s.initials)}</span>
@@ -272,9 +292,8 @@
   }
 
   function renderSources() {
-    const reddit = state.sources.filter((s) => s.type === "reddit").length;
-    $("#sources-count").textContent = `${state.sources.length} fonti in ${Object.keys(D.topics).length} cartelle`;
-    let html = `<div class="banner">${icon("alert")}<p><b>Reddit chiude i feed RSS il 13 novembre 2026.</b> Le ${reddit} fonti Reddit funzionano fino a quella data. Dopo servirà l'accesso alle API, da richiedere a Reddit, oppure un'alternativa.</p></div>`;
+    $("#sources-count").textContent = `${state.sources.length} fonti in ${Object.keys(D.topics).length} cartelle · solo tue`;
+    let html = "";
     for (const [key, t] of Object.entries(D.topics)) {
       const list = state.sources.filter((s) => s.topic === key);
       if (!list.length) continue;
@@ -293,10 +312,21 @@
   function renderInterests() {
     const n = editionItems().length;
     const total = D.articles.filter((a) => !isMuted(a)).length;
+    const usesAi = state.aiMode !== "parole";
     $("#interests").innerHTML = `
       <div class="preview"><b>${n}</b><span>notizie di oggi entrano nell'Edizione con queste regole, su ${total} arrivate.</span></div>
       <section class="panel">
-        <h3>Mi interessa <span class="count">tocca per la priorità</span></h3>
+        <h3>Come scegliere le notizie</h3>
+        ${segmented("ai-mode", Object.entries(AI_MODES), state.aiMode, "Metodo di selezione")}
+        <p class="hint">${esc(AI_HINTS[state.aiMode])}</p>
+      </section>
+      ${usesAi ? `<section class="panel">
+        <h3>Descrivi cosa ti interessa <span class="count">per l'AI</span></h3>
+        <textarea class="textarea" id="ai-text" rows="4" aria-label="Descrizione degli interessi per l'AI">${esc(state.aiText)}</textarea>
+        <p class="hint">Scrivi come lo diresti a un amico. Il fornitore AI si sceglie nelle Impostazioni.</p>
+      </section>` : ""}
+      <section class="panel">
+        <h3>Parole chiave <span class="count">tocca per la priorità</span></h3>
         <div class="tags">${state.interests.map((it, i) => `<button type="button" class="tag" data-level="${it.level}" data-action="cycle-interest" data-i="${i}">${esc(it.k)}<span class="lvl">${LEVEL[it.level]}</span></button>`).join("")}</div>
         <form class="add-inline" data-form="interest"><input id="new-interest" placeholder="Parola o argomento" autocomplete="off" aria-label="Nuovo interesse"><button type="submit">Aggiungi</button></form>
       </section>
@@ -308,9 +338,8 @@
       </section>
       <section class="panel">
         <h3>Regole</h3>
-        ${rule("minVotes", "Reddit: solo post sopra i 100 voti", "Salta i post appena pubblicati e senza discussione.")}
         ${rule("dedupe", "Unisci i doppioni", "La stessa notizia da più fonti compare una volta sola.")}
-        ${rule("summaries", "Riassunto automatico", "Tre punti in cima agli articoli lunghi, scritti da un modello AI. Facoltativo.")}
+        ${rule("summaries", "Riassunto automatico", "Tre punti in cima agli articoli lunghi, scritti dall'AI.")}
       </section>`;
   }
 
@@ -340,6 +369,11 @@
     return `<blockquote>${esc(p.q)}</blockquote>`;
   }
 
+  function renderReaderEmpty() {
+    $("#reader").classList.add("is-empty");
+    $("#reader-scroll").innerHTML = `<div class="empty reader-empty">${icon("edition")}<h3>Scegli un articolo</h3><p>Lo leggi qui, con il testo completo e senza pubblicità.</p></div>`;
+  }
+
   function openReader(id) {
     const a = byId[id];
     if (!a) return;
@@ -348,48 +382,48 @@
     state.current = id;
     state.read.add(id);
 
-    const byline = a.reddit
-      ? [a.reddit.author, ago(a.time), `${a.reddit.up} voti`, `${a.reddit.comments} commenti`]
-      : [a.author || s.name, ago(a.time), a.mins ? `${a.mins} min di lettura` : a.video ? `durata ${a.video.dur}` : ""];
+    const byline = [a.author || s.name, ago(a.time), a.mins ? `${a.mins} min di lettura` : a.video ? `durata ${a.video.dur}` : ""];
     const summary = a.summary && state.rules.summaries
       ? `<div class="ai-summary"><div class="lbl">${icon("spark")}Riassunto automatico</div><ul>${a.summary.map((x) => `<li>${esc(x)}</li>`).join("")}</ul></div>`
       : "";
     const body = a.body
       ? a.body.map(paragraph).join("")
       : `<p>${esc(a.excerpt)}</p><p class="hint">In questo mockup il testo completo c'è solo per alcuni articoli. Nell'app vera il server lo estrae dalla pagina originale, senza pubblicità.</p>`;
-    const comments = a.comments
-      ? `<h4 class="comments-h">Commenti più votati</h4><div class="comments">${a.comments.map((c) => `
-          <div class="comment"><div class="who"><b>${esc(c.who)}</b>${c.op ? `<span class="type-tag">autore</span>` : ""}<span>↑ ${esc(c.up)}</span></div>${esc(c.text)}</div>`).join("")}</div>`
-      : "";
-    const cta = a.reddit ? "Apri la discussione su Reddit" : a.video ? "Guarda su YouTube" : "Apri l'articolo originale";
 
     $("#reader-scroll").innerHTML = `
       ${thumb(a, "wide")}
-      <div class="reader-kicker"><div class="meta">${avatar(s)}<span class="src">${esc(s.name)}</span></div>${a.reddit ? `<span class="type-tag reddit">${esc(a.reddit.flair)}</span>` : ""}${m ? matchTag(m) : ""}</div>
+      <div class="reader-kicker"><div class="meta">${avatar(s)}<span class="src">${esc(s.name)}</span></div>${m ? matchTag(m) : ""}<span class="offline">${icon("check")}Disponibile offline</span></div>
       <h1 class="reader-title">${esc(a.title)}</h1>
       <div class="byline">${byline.filter(Boolean).map(esc).join(`<span class="sep"></span>`)}</div>
       ${summary}
       <div class="reader-body">${body}</div>
-      ${comments}
       <div class="reader-end">
-        <button type="button" class="btn-primary" data-action="open-original">${icon("external")}${cta}</button>
+        <button type="button" class="btn-primary" data-action="open-original">${icon("external")}${a.video ? "Guarda su YouTube" : "Apri l'articolo originale"}</button>
         <button type="button" class="btn-secondary" data-action="mark-unread">Segna come non letto</button>
       </div>`;
 
     const reader = $("#reader");
+    reader.classList.remove("is-empty");
     $("#reader-scroll").scrollTop = 0;
     reader.classList.add("is-open");
     reader.setAttribute("aria-hidden", "false");
     updateReaderSave();
     renderAll();
-    setTimeout(() => $(".back-btn", reader).focus({ preventScroll: true }), 360);
+    if (!isWide()) setTimeout(() => $(".back-btn", reader).focus({ preventScroll: true }), 360);
   }
 
   function closeReader() {
     const reader = $("#reader");
+    const had = state.current;
     reader.classList.remove("is-open");
     reader.setAttribute("aria-hidden", "true");
     state.current = null;
+    if (isWide()) {
+      renderReaderEmpty();
+      if (had) renderAll();
+    } else {
+      setTimeout(() => { if (!state.current) renderReaderEmpty(); }, 380);
+    }
   }
 
   function updateReaderSave() {
@@ -403,14 +437,11 @@
   // ---------- Schede (aggiungi fonte, impostazioni) ----------
   const ADD_TYPES = {
     rss: { label: "Sito o feed", ph: "https://sito.it o l'indirizzo del feed", hint: "Incolla l'indirizzo di un sito: il server cerca da solo i feed RSS o Atom disponibili." },
-    reddit: { label: "Reddit", ph: "r/nome-del-subreddit", hint: "" },
-    youtube: { label: "YouTube", ph: "Link del canale o @nome", hint: "Ogni canale YouTube ha un feed pubblico con gli ultimi video: non serve nessun account." }
+    youtube: { label: "Canale YouTube", ph: "Link del canale o @nome", hint: "Ogni canale YouTube ha un feed pubblico con gli ultimi video: non serve nessun account." }
   };
-  const REDDIT_SORT = ["Hot", "Top del giorno", "Nuovi"];
 
   function guessName() {
     const raw = state.addUrl.trim();
-    if (state.addType === "reddit") return "r/" + (raw.replace(/^.*r\//, "").replace(/[^\w]/g, "") || "fotografia");
     if (state.addType === "youtube") return raw.replace(/^.*@/, "@").replace(/[^\w@.-]/g, "") || "@divulgazione";
     let host = "astrofili.example";
     try { host = new URL(/^https?:\/\//.test(raw) ? raw : "https://" + raw).hostname || host; } catch (err) { /* indirizzo non valido: si usa l'esempio */ }
@@ -420,26 +451,16 @@
 
   function candidates() {
     const name = guessName();
-    if (state.addType === "reddit") {
-      return [
-        { name, sub: `${REDDIT_SORT[state.addSort]} · circa 40 post al giorno` },
-        { name: `${name} · solo con immagini`, sub: "filtro sui post con foto o video" }
-      ];
-    }
     if (state.addType === "youtube") return [{ name, sub: "ultimi 15 video · feed pubblico del canale" }];
     return [
-      { name: `${name} · tutte le notizie`, sub: "/feed.xml · circa 25 articoli al giorno" },
-      { name: `${name} · solo approfondimenti`, sub: "/categoria/approfondimenti/feed · 3 a settimana" },
+      { name: `${name} · tutte le notizie`, sub: "/feed.xml · circa 25 articoli al giorno · testo completo" },
+      { name: `${name} · solo approfondimenti`, sub: "/categoria/approfondimenti/feed · 3 a settimana · solo estratto" },
       { name: `${name} · commenti`, sub: "/comments/feed" }
     ];
   }
 
   function renderAdd() {
     const t = ADD_TYPES[state.addType];
-    const options = state.addType === "reddit"
-      ? `<div class="field"><span class="label">Ordina per</span><div class="segmented" style="--cols:3">${REDDIT_SORT.map((x, i) => `<button type="button" aria-pressed="${state.addSort === i}" data-action="add-sort" data-i="${i}">${x}</button>`).join("")}</div></div>
-         <div class="banner">${icon("alert")}<p><b>Dal 13 novembre 2026</b> Reddit non offre più i feed RSS. Fino ad allora funziona; dopo servirà l'accesso alle API approvato da Reddit, oppure un'alternativa.</p></div>`
-      : `<p class="hint">${esc(t.hint)}</p>`;
     const found = state.addFound
       ? `<div class="field"><span class="label">Feed trovati</span><div class="found" role="radiogroup" aria-label="Feed trovati">${candidates().map((c, i) => `
           <button type="button" class="found-item" role="radio" aria-checked="${state.addChoice === i}" data-action="add-choice" data-i="${i}"><span class="radio">${icon("check")}</span><span><span class="found-name">${esc(c.name)}</span><br><span class="found-sub">${esc(c.sub)}</span></span></button>`).join("")}</div></div>
@@ -448,10 +469,10 @@
       : "";
     $("#add-body").innerHTML = `
       <div class="form-stack">
-        <div class="segmented" style="--cols:3" role="tablist" aria-label="Tipo di fonte">${Object.entries(ADD_TYPES).map(([k, v]) => `<button type="button" role="tab" aria-selected="${state.addType === k}" data-action="add-type" data-type="${k}">${v.label}</button>`).join("")}</div>
+        ${segmented("add-type", Object.entries(ADD_TYPES).map(([k, v]) => [k, v.label]), state.addType, "Tipo di fonte")}
         <form class="form-stack" data-form="find">
           <div class="field"><label for="add-url">Indirizzo</label><input class="input" id="add-url" placeholder="${esc(t.ph)}" value="${esc(state.addUrl)}" autocomplete="off" autocapitalize="off" spellcheck="false"></div>
-          ${options}
+          <p class="hint">${esc(t.hint)}</p>
           <button type="submit" class="btn-secondary">${icon("search")}Cerca feed</button>
         </form>
         ${found}
@@ -459,19 +480,43 @@
   }
 
   function renderSettings() {
+    const ed = state.rules.edition;
+    const push = state.rules.push;
     $("#settings-body").innerHTML = `
-      <div class="set-label">Aspetto</div>
+      <div class="set-label">Account</div>
       <div class="set-group">
-        <div class="set-row"><span>Tema</span><div class="segmented" style="--cols:3">${[["auto", "Auto"], ["light", "Chiaro"], ["dark", "Scuro"]].map(([k, l]) => `<button type="button" aria-pressed="${state.theme === k}" data-action="theme" data-value="${k}">${l}</button>`).join("")}</div></div>
-        <div class="set-row"><span>Dimensione del testo</span><span class="val">${Math.round(state.ts * 100)}%</span></div>
+        <div class="set-row"><span class="who"><span class="user-av">TU</span><span><b>Il tuo profilo</b><br><small>amministratore</small></span></span><span class="val">3 utenti</span></div>
+        <button type="button" class="link-row" data-action="toast" data-msg="Nell'app vera generi un link d'invito valido 48 ore">${icon("plus")}Invita un utente</button>
       </div>
+      <p class="set-note">Ogni utente ha fonti, interessi, letti e salvati propri. I feed in comune vengono scaricati una volta sola.</p>
+
       <div class="set-label">Edizione</div>
       <div class="set-group">
-        <div class="set-row"><span>Edizione del mattino</span><span class="val">07:00</span></div>
-        <div class="set-row"><span>Edizione della sera</span>${switchBtn("evening", "Edizione della sera")}</div>
-        <div class="set-row"><span>Notifica per le priorità alte</span>${switchBtn("push", "Notifica per le priorità alte")}</div>
+        <div class="set-row"><span>Componi l'Edizione</span>${switchBtn("edition", "Componi l'Edizione")}</div>
+        ${ed ? `<div class="set-block"><span class="label">Orari</span><div class="tags">${state.times.map((t, i) => `<button type="button" class="tag mono" data-action="remove-time" data-i="${i}" aria-label="Togli l'edizione delle ${t}">${t}${icon("close")}</button>`).join("")}<button type="button" class="tag" data-action="add-time">${icon("plus")}Orario</button></div></div>` : ""}
+      </div>
+      <p class="set-note">${ed ? "L'Edizione si legge solo nell'app, niente email." : "Senza Edizione la schermata Oggi mostra solo il Flusso."}</p>
+
+      <div class="set-label">Notifiche</div>
+      <div class="set-group">
+        <div class="set-row"><span>Notizie importanti</span>${switchBtn("push", "Notifiche per le notizie importanti")}</div>
+        ${push ? `<div class="set-block"><span class="label">Categorie importanti</span><div class="tags">${Object.entries(D.topics).map(([k, tp]) => `<button type="button" class="tag" aria-pressed="${state.notifyTopics.has(k)}" data-action="notify-topic" data-k="${k}"><span class="dot" style="--topic-c:${tp.color}"></span>${esc(tp.label)}</button>`).join("")}</div></div>` : ""}
       </div>
       <p class="set-note">Su iPhone le notifiche arrivano solo se l'app è aggiunta alla schermata Home (iOS 16.4 o successivo).</p>
+
+      <div class="set-label">AI</div>
+      <div class="set-group">
+        <div class="set-row"><span>Fornitore</span>${segmented("ai-provider", [["locale", "Locale"], ["cloud", "Cloud"]], state.aiProvider, "Fornitore AI")}</div>
+        <div class="set-row"><span>${state.aiProvider === "locale" ? "Ollama" : "Servizio"}</span><span class="val">${state.aiProvider === "locale" ? "http://ollama:11434" : "chiave API impostata"}</span></div>
+      </div>
+      <p class="set-note">${state.aiProvider === "locale" ? "I testi non escono dalla tua rete. Su un Raspberry Pi è lento: meglio Ollama su un PC più potente." : "Veloce anche su hardware piccolo. Si paga a consumo e i testi vengono inviati al servizio."}</p>
+
+      <div class="set-label">Aspetto</div>
+      <div class="set-group">
+        <div class="set-row"><span>Tema</span>${segmented("theme", [["auto", "Auto"], ["light", "Chiaro"], ["dark", "Scuro"]], state.theme, "Tema")}</div>
+        <div class="set-row"><span>Dimensione del testo</span><span class="val">${Math.round(state.ts * 100)}%</span></div>
+      </div>
+
       <div class="set-label">Server</div>
       <div class="set-group">
         <div class="set-row"><span>Indirizzo</span><span class="val">feed.casa.example</span></div>
@@ -479,8 +524,8 @@
         <div class="set-row"><span>Ultimo controllo</span><span class="val">${state.lastFetch}</span></div>
       </div>
       <div class="set-label">Dati</div>
-      <div class="set-group"><button type="button" class="link-row" data-action="toast" data-msg="Nell'app vera scarichi un file .opml con tutte le fonti">${icon("upload")}Esporta le fonti (OPML)</button></div>
-      <p class="set-note">Mockup v0.1 · tutti i contenuti sono di esempio.</p>`;
+      <div class="set-group"><button type="button" class="link-row" data-action="toast" data-msg="Nell'app vera scarichi un file .opml con tutte le tue fonti">${icon("upload")}Esporta le fonti (OPML)</button></div>
+      <p class="set-note">Mockup v0.2 · tutti i contenuti sono di esempio.</p>`;
   }
 
   function openSheet(name) {
@@ -508,9 +553,10 @@
 
   // ---------- Navigazione ----------
   function switchTab(tab) {
-    closeReader();
+    if (!isWide()) closeReader();
     closeSheet();
     state.tab = tab;
+    app.dataset.tab = tab;
     $$(".view").forEach((v) => {
       const on = v.dataset.view === tab;
       v.hidden = !on;
@@ -524,12 +570,18 @@
   }
 
   function setMode(mode) {
+    if (!state.rules.edition) mode = "flusso";
     state.mode = mode;
     $("#edition").hidden = mode !== "edizione";
     $("#stream").hidden = mode !== "flusso";
     $("#mode-edizione").setAttribute("aria-selected", String(mode === "edizione"));
     $("#mode-flusso").setAttribute("aria-selected", String(mode === "flusso"));
     if (mode === "edizione") ART.paintStars($("#edition .stars"), 214);
+  }
+
+  function applyEdition() {
+    $("#mode-switch").hidden = !state.rules.edition;
+    setMode(state.rules.edition ? "edizione" : "flusso");
   }
 
   function applyTheme(theme) {
@@ -541,6 +593,35 @@
     } else {
       root.dataset.theme = theme;
     }
+  }
+
+  // Dimensioni esterne delle cornici (contenuto + bordi + barra del browser).
+  const FRAMES = { phone: [412, 866], tablet: [1056, 800], desktop: [1282, 842] };
+
+  function fitDevice() {
+    const device = $("#device");
+    if (window.matchMedia("(max-width: 859px)").matches) {
+      device.style.zoom = "";
+      if (state.device !== "phone") setDevice("phone");
+      return;
+    }
+    const [w, h] = FRAMES[state.device];
+    const stacked = state.device !== "phone";
+    const availW = stacked ? window.innerWidth - 48 : 640;
+    const availH = window.innerHeight - 80 - (stacked ? $(".brief").offsetHeight + 24 : 0);
+    device.style.zoom = Math.min(1, availW / w, availH / h).toFixed(3);
+  }
+
+  function setDevice(d) {
+    state.device = d;
+    const device = $("#device");
+    device.classList.remove("is-phone", "is-tablet", "is-desktop");
+    device.classList.add("is-" + d);
+    $(".stage").classList.toggle("is-stacked", d !== "phone");
+    $$('[data-action="device"]').forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.value === d)));
+    fitDevice();
+    if (d === "desktop" && !state.current && state.tab === "oggi") openReader("a1");
+    ART.paintStars($("#edition .stars"), 214);
   }
 
   let toastTimer;
@@ -556,7 +637,6 @@
     edizione: () => { switchTab("oggi"); setMode("edizione"); },
     flusso: () => { switchTab("oggi"); setMode("flusso"); },
     articolo: () => { switchTab("oggi"); openReader("a1"); },
-    reddit: () => { switchTab("oggi"); openReader("a2"); },
     fonti: () => switchTab("fonti"),
     aggiungi: () => { switchTab("fonti"); openSheet("add"); },
     interessi: () => switchTab("interessi"),
@@ -583,10 +663,10 @@
     "text-size": () => {
       const sizes = [1, 1.12, 0.92];
       state.ts = sizes[(sizes.indexOf(state.ts) + 1) % sizes.length];
-      $("#app").style.setProperty("--ts", state.ts);
+      app.style.setProperty("--ts", state.ts);
       toast(state.ts > 1 ? "Testo più grande" : state.ts < 1 ? "Testo più piccolo" : "Testo standard");
     },
-    "open-original": () => toast("Nell'app vera si apre la pagina originale in Safari"),
+    "open-original": () => toast("Nell'app vera si apre la pagina originale nel browser"),
     "mark-unread": () => {
       if (state.current) state.read.delete(state.current);
       closeReader();
@@ -627,23 +707,46 @@
       const key = el.dataset.key;
       state.rules[key] = !state.rules[key];
       el.setAttribute("aria-checked", String(state.rules[key]));
+      if (key === "edition") { applyEdition(); renderSettings(); }
+      if (key === "push") renderSettings();
+    },
+    "ai-mode": (el) => { state.aiMode = el.dataset.value; renderInterests(); renderEdition(); },
+    "ai-provider": (el) => { state.aiProvider = el.dataset.value; renderSettings(); },
+    "add-time": () => {
+      const next = ["12:30", "21:00", "09:00", "15:00"].find((t) => !state.times.includes(t));
+      if (!next) { toast("Massimo 6 edizioni al giorno"); return; }
+      state.times.push(next);
+      state.times.sort();
+      renderSettings();
+      renderEdition();
+      toast(`Nuova edizione alle ${next}`);
+    },
+    "remove-time": (el) => {
+      if (state.times.length === 1) { toast("Serve almeno un orario, oppure spegni l'Edizione"); return; }
+      const [t] = state.times.splice(Number(el.dataset.i), 1);
+      renderSettings();
+      renderEdition();
+      toast(`Edizione delle ${t} tolta`);
+    },
+    "notify-topic": (el) => {
+      const k = el.dataset.k;
+      if (state.notifyTopics.has(k)) state.notifyTopics.delete(k); else state.notifyTopics.add(k);
+      renderSettings();
     },
     "open-sheet": (el) => openSheet(el.dataset.sheet),
     "close-sheet": () => closeSheet(),
-    "add-type": (el) => { state.addType = el.dataset.type; state.addFound = false; state.addUrl = ""; renderAdd(); },
-    "add-sort": (el) => { state.addSort = Number(el.dataset.i); renderAdd(); },
+    "add-type": (el) => { state.addType = el.dataset.value; state.addFound = false; state.addUrl = ""; renderAdd(); },
     "add-choice": (el) => { state.addChoice = Number(el.dataset.i); renderAdd(); },
     "add-topic": (el) => { state.addTopic = el.dataset.k; renderAdd(); },
     "add-confirm": () => {
       const c = candidates()[state.addChoice];
       const name = c.name.split(" · ")[0];
-      const type = state.addType;
       state.sources.push({
         id: "nuova-" + state.sources.length,
         name,
-        type,
+        type: state.addType,
         topic: state.addTopic,
-        initials: type === "reddit" ? "r/" : name.replace(/[^\p{L}\p{N}]/gu, "").slice(0, 2) || "N",
+        initials: name.replace(/[^\p{L}\p{N}]/gu, "").slice(0, 2) || "N",
         status: "ok",
         every: "30 min",
         note: "Appena aggiunta · primo controllo in corso"
@@ -655,6 +758,7 @@
       toast(`${name} aggiunta a ${D.topics[state.addTopic].label}`);
     },
     theme: (el) => { applyTheme(el.dataset.value); renderSettings(); },
+    device: (el) => setDevice(el.dataset.value),
     toast: (el) => toast(el.dataset.msg),
     demo: (el) => {
       $$(".brief-links button").forEach((b) => b.classList.toggle("is-active", b === el));
@@ -679,6 +783,10 @@
       e.preventDefault();
       actions[el.dataset.action](el, e);
     }
+  });
+
+  document.addEventListener("input", (e) => {
+    if (e.target.id === "ai-text") state.aiText = e.target.value;
   });
 
   document.addEventListener("submit", (e) => {
@@ -709,13 +817,19 @@
   let resizeTimer;
   window.addEventListener("resize", () => {
     clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(() => ART.paintStars($("#edition .stars"), 214), 150);
+    resizeTimer = setTimeout(() => {
+      fitDevice();
+      ART.paintStars($("#edition .stars"), 214);
+    }, 150);
   });
 
   // ---------- Avvio ----------
   if (state.theme !== "auto") applyTheme(state.theme);
+  app.dataset.tab = state.tab;
   renderStreamShell();
   renderAll();
+  renderReaderEmpty();
+  setDevice("phone");
   if (window.matchMedia("(max-width: 859px)").matches) {
     setTimeout(() => toast("Mockup interattivo: tocca un articolo o prova il Flusso"), 900);
   }

@@ -11,15 +11,15 @@ window.GF_DATA = {
   sources: [
     { id: "orbita", name: "Orbita", type: "rss", topic: "spazio", initials: "Or", url: "orbita.example/feed.xml", status: "ok", every: "30 min" },
     { id: "cronache", name: "Cronache Spaziali", type: "youtube", topic: "spazio", initials: "CS", url: "youtube.com/@cronachespaziali", status: "ok", every: "1 h" },
-    { id: "rspace", name: "r/space", type: "reddit", topic: "spazio", initials: "r/", url: "reddit.com/r/space · top del giorno", status: "warn", every: "1 h" },
+    { id: "cielo", name: "Cielo Profondo", type: "rss", topic: "spazio", initials: "CP", url: "cieloprofondo.example/feed", status: "ok", every: "3 h" },
     { id: "bitbyte", name: "Bit & Byte", type: "rss", topic: "tech", initials: "BB", url: "bitebyte.example/rss", status: "ok", every: "30 min" },
     { id: "fronte", name: "Il Fronte Digitale", type: "rss", topic: "tech", initials: "FD", url: "frontedigitale.example/feed", status: "ok", every: "1 h" },
-    { id: "rselfhosted", name: "r/selfhosted", type: "reddit", topic: "selfhost", initials: "r/", url: "reddit.com/r/selfhosted · più di 100 voti", status: "warn", every: "1 h" },
-    { id: "rhomelab", name: "r/homelab", type: "reddit", topic: "selfhost", initials: "r/", url: "reddit.com/r/homelab · top della settimana", status: "warn", every: "3 h" },
+    { id: "settimanale", name: "Settimanale Self-hosted", type: "rss", topic: "selfhost", initials: "SS", url: "settimanaleselfhosted.example/rss", status: "ok", every: "1 h" },
+    { id: "laboratorio", name: "Laboratorio Domestico", type: "youtube", topic: "selfhost", initials: "LD", url: "youtube.com/@laboratoriodomestico", status: "ok", every: "1 h" },
     { id: "diario", name: "Diario di un homelab", type: "rss", topic: "selfhost", initials: "Dh", url: "diariohomelab.example/index.xml", status: "err", every: "6 h", note: "Errore 404 da 2 giorni" },
     { id: "gazzetta", name: "Gazzetta della Scienza", type: "rss", topic: "scienza", initials: "GS", url: "gazzettascienza.example/feed", status: "ok", every: "1 h" },
     { id: "bussola", name: "La Bussola", type: "rss", topic: "italia", initials: "Lb", url: "labussola.example/rss/ultime", status: "ok", every: "15 min" },
-    { id: "ritaly", name: "r/italy", type: "reddit", topic: "italia", initials: "r/", url: "reddit.com/r/italy · hot", status: "warn", every: "1 h" }
+    { id: "borgo", name: "Notizie dal Borgo", type: "rss", topic: "italia", initials: "NB", url: "notiziedalborgo.example/feed", status: "slow", every: "1 h", note: "Risponde lentamente · ultimo controllo 12 s" }
   ],
 
   interests: [
@@ -57,20 +57,15 @@ window.GF_DATA = {
       ]
     },
     {
-      id: "a2", src: "rselfhosted", topic: "selfhost", time: "1 h", seed: 23,
+      id: "a2", src: "settimanale", topic: "selfhost", time: "1 h", mins: 6, seed: 23,
       title: "Ho sostituito 6 abbonamenti con un mini PC da 150 €: ecco il mio stack Docker",
       excerpt: "Foto, password, documenti, musica e backup: elenco dei container, consumi reali e cosa rifarei diversamente.",
       tags: ["docker", "self-hosting", "mini pc"],
-      reddit: { up: "2,4k", comments: 318, author: "u/stack_di_casa", flair: "Guida" },
+      author: "Andrea Conti",
       body: [
         "Due anni fa pagavo sei abbonamenti diversi: foto, password, note, musica, VPN e un backup nel cloud. Ho preso un mini PC usato con 16 GB di RAM e un SSD da 1 TB e ho spostato quasi tutto in casa.",
         "Lo stack gira con Docker Compose: un reverse proxy davanti, un gestore di password, una libreria foto con riconoscimento dei volti, un server musicale, un archivio per i documenti scansionati e un job notturno che cifra i backup e li copia su un disco esterno e su un secondo sito.",
         "Cosa rifarei diversamente: impostare i backup automatici subito, non dopo il primo spavento, e documentare ogni container in un README. Tra sei mesi non ricorderai perché hai aperto quella porta."
-      ],
-      comments: [
-        { who: "u/nas_e_basta", up: "412", text: "Ottimo elenco. Aggiungerei un container di monitoraggio: quando qualcosa si rompe alle 2 di notte vuoi saperlo prima della famiglia." },
-        { who: "u/watt_contati", up: "230", text: "Quanto consuma a riposo? Sto valutando lo stesso modello." },
-        { who: "u/stack_di_casa", up: "198", op: true, text: "Circa 9 W a riposo e 25 W quando converte i video. In bolletta non me ne sono accorto." }
       ]
     },
     {
@@ -100,11 +95,11 @@ window.GF_DATA = {
       video: { dur: "12:48" }
     },
     {
-      id: "a5", src: "rhomelab", topic: "selfhost", time: "4 h", seed: 53,
-      title: "Il mio homelab in uno sgabuzzino: rumore, consumi e lezioni imparate",
-      excerpt: "Dopo un anno: 38 W di media, una ventola sostituita e un UPS che mi ha salvato due volte.",
+      id: "a5", src: "laboratorio", topic: "selfhost", time: "4 h", seed: 53,
+      title: "Un homelab in uno sgabuzzino: rumore, consumi e lezioni imparate",
+      excerpt: "Dopo un anno: 38 W di media, una ventola sostituita e un UPS che ha salvato i dati due volte.",
       tags: ["homelab", "self-hosting", "consumi"],
-      reddit: { up: "1,1k", comments: 142, author: "u/rack_in_sgabuzzino", flair: "Setup" }
+      video: { dur: "18:05" }
     },
     {
       id: "a6", src: "gazzetta", topic: "scienza", time: "5 h", mins: 8, seed: 67,
@@ -126,11 +121,11 @@ window.GF_DATA = {
       tags: ["backup", "nas", "self-hosting"]
     },
     {
-      id: "a8", src: "rspace", topic: "spazio", time: "7 h", seed: 83,
+      id: "a8", src: "cielo", topic: "spazio", time: "7 h", mins: 5, seed: 83,
       title: "La Via Lattea fotografata con uno smartphone da un rifugio sulle Dolomiti",
       excerpt: "Treppiede, modalità notte e 4 minuti di esposizione totale. Nessun ritocco oltre a un po' di contrasto.",
       tags: ["astrofotografia", "via lattea", "smartphone"],
-      reddit: { up: "5,8k", comments: 204, author: "u/cielo_buio_88", flair: "Foto" }
+      author: "Giulia Sartori"
     },
     {
       id: "a9", src: "bitbyte", topic: "tech", time: "8 h", mins: 5, seed: 97,
@@ -139,11 +134,10 @@ window.GF_DATA = {
       tags: ["rss", "lettori", "web"]
     },
     {
-      id: "a10", src: "ritaly", topic: "italia", time: "9 h", seed: 101,
-      title: "Consigli per una connessione stabile in una casa di campagna?",
-      excerpt: "La fibra non arriva e il 4G va a singhiozzo. Qualcuno ha provato antenne esterne o connessioni satellitari?",
-      tags: ["fibra", "connessione", "casa"],
-      reddit: { up: "412", comments: 167, author: "u/collina_offline", flair: "Tecnologia" }
+      id: "a10", src: "borgo", topic: "italia", time: "9 h", mins: 6, seed: 101,
+      title: "Internet in campagna: antenne esterne e satellite a confronto",
+      excerpt: "Dove la fibra non arriva e il 4G va a singhiozzo: costi, velocità reali e installazione delle alternative.",
+      tags: ["fibra", "connessione", "casa"]
     },
     {
       id: "a11", src: "bussola", topic: "italia", time: "10 h", mins: 4, seed: 113,

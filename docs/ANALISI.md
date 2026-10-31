@@ -138,7 +138,13 @@ La cartella [`mockup/`](../mockup) contiene il prototipo cliccabile della GUI, d
 python3 -m http.server 8000 --directory mockup
 ```
 
-Va allineato alle decisioni: va tolto Reddit (fonti, post e commenti) e va aggiunta la versione tablet/desktop. La lettura resta senza commenti né voti.
+La versione 0.2 è allineata alle decisioni:
+
+- niente Reddit, commenti o voti: solo siti, canali YouTube e il link all'articolo originale;
+- selettore **Telefono / Tablet / Computer**. Su tablet la navigazione passa in una barra laterale; su computer navigazione, lista e lettura sono affiancate;
+- **Interessi**: scelta tra parole chiave, AI o entrambi, e una descrizione libera per l'AI;
+- **Impostazioni**: account e inviti (multiutenza), Edizione accendibile con orari a scelta, notifiche per categorie importanti, fornitore AI locale o cloud;
+- articoli segnati come disponibili offline.
 
 ## Postilla: app nativa
 

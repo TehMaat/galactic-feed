@@ -214,7 +214,8 @@
   }
 
   function paintStars(canvas, seed = 7) {
-    const rect = canvas.getBoundingClientRect();
+    // offsetWidth/Height ignorano lo zoom della cornice, a differenza di getBoundingClientRect.
+    const rect = { width: canvas.offsetWidth, height: canvas.offsetHeight };
     if (!rect.width) return;
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     canvas.width = Math.round(rect.width * dpr);
