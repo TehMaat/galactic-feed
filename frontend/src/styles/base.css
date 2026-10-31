@@ -1,0 +1,163 @@
+/* Galactic Feed · token e basi, presi dal mockup (mockup/css/base.css).
+   Colori, font e dimensioni sono gli stessi; manca solo la cornice del telefono. */
+:root {
+  --bg: #E7EAF2;
+  --app-bg: #F4F5F9;
+  --surface: #FFFFFF;
+  --surface-2: #ECEEF4;
+  --ink: #13162A;
+  --ink-2: #4B5068;
+  --ink-3: #737891;
+  --line: rgba(19, 22, 42, 0.10);
+  --accent: #0A7A69;
+  --accent-soft: rgba(10, 122, 105, 0.12);
+  --on-accent: #FFFFFF;
+  --star: #8A5600;
+  --star-soft: rgba(201, 138, 20, 0.16);
+  --warn: #9A6212;
+  --warn-soft: rgba(154, 98, 18, 0.12);
+  --danger: #B42318;
+  --sky-1: #11152F;
+  --sky-2: #2C2559;
+  --sky-ink: #F3F0FA;
+  --sky-ink-2: rgba(243, 240, 250, 0.72);
+  --sky-star: #F2C46B;
+  --glass: rgba(244, 245, 249, 0.84);
+  --scrim: rgba(10, 12, 26, 0.38);
+  --shadow-card: 0 1px 2px rgba(19, 22, 42, 0.06), 0 8px 24px -16px rgba(19, 22, 42, 0.25);
+
+  --c-indaco: #4E58D8;
+  --c-blu: #1D6FD1;
+  --c-verde: #2E8B45;
+  --c-viola: #8648C9;
+  --c-rosa: #C0365E;
+  --c-video: #C4502A;
+  --c-ambra: #A86400;
+  --c-azzurro: #0B7896;
+  --c-grigio: #646A84;
+
+  --font-display: "Unbounded", "Arial Black", system-ui, sans-serif;
+  --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-read: "Newsreader", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  --fs-xs: 0.75rem;
+  --fs-sm: 0.8125rem;
+  --fs-md: 0.9375rem;
+  --fs-lg: 1.0625rem;
+  --fs-xl: 1.375rem;
+  --fs-2xl: 2.125rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #06070D;
+    --app-bg: #0C0F1C;
+    --surface: #151A2D;
+    --surface-2: #1C2238;
+    --ink: #ECEAF3;
+    --ink-2: #A8ACC3;
+    --ink-3: #7B809C;
+    --line: rgba(236, 234, 243, 0.09);
+    --accent: #5FE0C7;
+    --accent-soft: rgba(95, 224, 199, 0.14);
+    --on-accent: #06221D;
+    --star: #F2C46B;
+    --star-soft: rgba(242, 196, 107, 0.14);
+    --warn: #F2B35B;
+    --warn-soft: rgba(242, 179, 91, 0.14);
+    --danger: #FF7B72;
+    --sky-1: #0E1230;
+    --sky-2: #2A1F57;
+    --glass: rgba(12, 15, 28, 0.82);
+    --scrim: rgba(0, 0, 0, 0.55);
+    --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 10px 30px -18px rgba(0, 0, 0, 0.8);
+    --c-indaco: #98A0FF;
+    --c-blu: #6FAEFF;
+    --c-verde: #7FD98F;
+    --c-viola: #C49CFF;
+    --c-rosa: #FF8FB0;
+    --c-video: #FF9A73;
+    --c-ambra: #F2B35B;
+    --c-azzurro: #5CC8E8;
+    --c-grigio: #A8ACC3;
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #06070D;
+  --app-bg: #0C0F1C;
+  --surface: #151A2D;
+  --surface-2: #1C2238;
+  --ink: #ECEAF3;
+  --ink-2: #A8ACC3;
+  --ink-3: #7B809C;
+  --line: rgba(236, 234, 243, 0.09);
+  --accent: #5FE0C7;
+  --accent-soft: rgba(95, 224, 199, 0.14);
+  --on-accent: #06221D;
+  --star: #F2C46B;
+  --star-soft: rgba(242, 196, 107, 0.14);
+  --warn: #F2B35B;
+  --warn-soft: rgba(242, 179, 91, 0.14);
+  --danger: #FF7B72;
+  --sky-1: #0E1230;
+  --sky-2: #2A1F57;
+  --glass: rgba(12, 15, 28, 0.82);
+  --scrim: rgba(0, 0, 0, 0.55);
+  --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 10px 30px -18px rgba(0, 0, 0, 0.8);
+  --c-indaco: #98A0FF;
+  --c-blu: #6FAEFF;
+  --c-verde: #7FD98F;
+  --c-viola: #C49CFF;
+  --c-rosa: #FF8FB0;
+  --c-video: #FF9A73;
+  --c-ambra: #F2B35B;
+  --c-azzurro: #5CC8E8;
+  --c-grigio: #A8ACC3;
+  color-scheme: dark;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+
+html { height: 100%; background: var(--app-bg); }
+
+body {
+  height: 100%;
+  margin: 0;
+  background: var(--app-bg);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: 1rem;
+  line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; background: none; border: 0; padding: 0; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 10px; }
+h1, h2, h3, h4 { text-wrap: balance; }
+
+.ico {
+  width: 22px;
+  height: 22px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

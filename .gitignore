@@ -8,3 +8,5 @@ data/
 *.db
 *.db-wal
 *.db-shm
+frontend/test-results/
+frontend/playwright-report/

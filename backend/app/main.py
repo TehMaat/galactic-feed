@@ -139,7 +139,7 @@ def _mount_frontend(app: FastAPI, dist: Path) -> None:
         media = "application/manifest+json" if rel.endswith(".webmanifest") else None
         return FileResponse(path, headers=headers, media_type=media)
 
-    @app.get("/{path:path}", include_in_schema=False)
+    @app.api_route("/{path:path}", methods=["GET", "HEAD"], include_in_schema=False)
     def frontend(path: str):
         index = dist / "index.html"
         if not index.is_file():
