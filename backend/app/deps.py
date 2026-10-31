@@ -13,6 +13,7 @@ from fastapi import Depends, HTTPException, Request
 
 from .config import Settings
 from .db import Database, now
+from .hooks import Hooks
 from .security import SESSION_COOKIE, SESSION_TOUCH_SECONDS, Passwords, RateLimiter, new_setup_code, token_hash
 
 log = logging.getLogger("galactic_feed")
@@ -28,6 +29,12 @@ class AppContext:
         self.passwords = Passwords(settings)
         # 10 tentativi sbagliati in 15 minuti per indirizzo o per nome utente.
         self.login_limiter = RateLimiter(max_failures=10, window_seconds=15 * 60)
+        self.hooks = Hooks()
+        # Creati all'avvio del server (vedi main.lifespan).
+        self.http = None
+        self.fetcher = None
+        self.extractor = None
+        self.scheduler = None
         self._setup_code: str | None = None
         self._setup_failures = 0
         self._lock = threading.Lock()
