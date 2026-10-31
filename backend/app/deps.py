@@ -13,6 +13,7 @@ from fastapi import Depends, HTTPException, Request
 
 from .config import Settings
 from .db import Database, now
+from .hooks import Hooks
 from .security import SESSION_COOKIE, SESSION_TOUCH_SECONDS, Passwords, RateLimiter, new_setup_code, token_hash
 
 log = logging.getLogger("galactic_feed")
@@ -28,11 +29,32 @@ class AppContext:
         self.passwords = Passwords(settings)
         # 10 tentativi sbagliati in 15 minuti per indirizzo o per nome utente.
         self.login_limiter = RateLimiter(max_failures=10, window_seconds=15 * 60)
+        self.hooks = Hooks()
+        # Creati all'avvio del server (vedi main.lifespan).
+        self.http = None
+        self.fetcher = None
+        self.extractor = None
+        self.scheduler = None
+        self.secret = b""  # chiave per firmare gli indirizzi delle immagini (data/secret.key)
         self._setup_code: str | None = None
         self._setup_failures = 0
         self._lock = threading.Lock()
 
     # ---- Codice di primo avvio ----
+    def load_secret(self) -> None:
+        """Chiave casuale creata al primo avvio e conservata nel volume dei dati."""
+        import os
+        import secrets as _secrets
+
+        path = self.settings.data_dir / "secret.key"
+        if not path.exists():
+            path.write_bytes(_secrets.token_bytes(32))
+            try:
+                os.chmod(path, 0o600)
+            except OSError:
+                pass
+        self.secret = path.read_bytes()
+
     def refresh_setup_code(self, needed: bool) -> None:
         with self._lock:
             self._setup_failures = 0

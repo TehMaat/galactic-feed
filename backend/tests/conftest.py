@@ -17,6 +17,7 @@ def settings(tmp_path):
         public_url="https://feed.example.org",
         data_dir=tmp_path / "data",
         frontend_dir=tmp_path / "dist",
+        scheduler_enabled=False,
         # Argon2 leggero: nei test conta la velocità, non la resistenza agli attacchi.
         argon2_time_cost=1,
         argon2_memory_cost=1024,

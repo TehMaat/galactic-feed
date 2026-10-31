@@ -11,9 +11,13 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from pydantic import ValidationError
 
-from .api import account, admin, auth, invites
+from .api import account, admin, articles, auth, folders, images, interests, invites, opml, sources
 from .config import VERSION, Settings
 from .deps import AppContext
+from .feeds.extract import Extractor
+from .feeds.fetcher import Fetcher
+from .feeds.net import make_client
+from .feeds.scheduler import Scheduler
 from .security import same_origin_request
 
 log = logging.getLogger("galactic_feed")
@@ -48,11 +52,22 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         ctx.db.init()
+        ctx.load_secret()
         with ctx.db.session() as conn:
             no_users = conn.execute("SELECT 1 FROM users LIMIT 1").fetchone() is None
         ctx.refresh_setup_code(no_users)
+        ctx.http = make_client(settings)
+        ctx.fetcher = Fetcher(ctx)
+        ctx.extractor = Extractor(ctx)
+        ctx.scheduler = Scheduler(ctx)
+        if settings.scheduler_enabled:
+            ctx.scheduler.start()
         log.info("Galactic Feed %s pronto su %s (dati in %s)", VERSION, settings.public_url, settings.data_dir)
-        yield
+        try:
+            yield
+        finally:
+            await ctx.scheduler.stop()
+            await ctx.http.aclose()
 
     app = FastAPI(
         title="Galactic Feed",
@@ -95,7 +110,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             conn.execute("SELECT 1").fetchone()
         return {"status": "ok", "version": VERSION}
 
-    for module in (auth, invites, account, admin):
+    for module in (auth, invites, account, admin, folders, sources, opml, articles, interests, images):
         app.include_router(module.router)
 
     @app.api_route("/api/{rest:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"], include_in_schema=False)
@@ -124,7 +139,7 @@ def _mount_frontend(app: FastAPI, dist: Path) -> None:
         media = "application/manifest+json" if rel.endswith(".webmanifest") else None
         return FileResponse(path, headers=headers, media_type=media)
 
-    @app.get("/{path:path}", include_in_schema=False)
+    @app.api_route("/{path:path}", methods=["GET", "HEAD"], include_in_schema=False)
     def frontend(path: str):
         index = dist / "index.html"
         if not index.is_file():

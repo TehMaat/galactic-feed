@@ -40,6 +40,8 @@ class Settings:
     block_private_networks: bool = False
     log_level: str = "info"
     frontend_dir: Path = field(default_factory=lambda: Path(__file__).resolve().parent.parent.parent / "frontend" / "dist")
+    # Nei test lo scheduler resta spento e i feed si controllano a comando.
+    scheduler_enabled: bool = True
     session_days: int = 90
     invite_hours: int = 48
     # Parametri argon2: i test li abbassano per andare più veloci.

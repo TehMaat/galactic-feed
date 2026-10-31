@@ -129,3 +129,27 @@ def test_cookie_not_secure_over_plain_http(app):
         assert r.status_code == 200
         assert "Secure" not in r.headers["set-cookie"]
         assert c.get("/api/me").status_code == 200
+
+
+def test_frontend_is_served_with_cache_headers(tmp_path, settings):
+    from fastapi.testclient import TestClient
+    from app.main import create_app
+
+    dist = tmp_path / "dist"
+    (dist / "assets").mkdir(parents=True)
+    (dist / "index.html").write_text("<!doctype html><title>GF</title>")
+    (dist / "sw.js").write_text("// sw")
+    (dist / "manifest.webmanifest").write_text("{}")
+    (dist / "assets" / "app-abc.js").write_text("//")
+    settings.frontend_dir = dist
+    with TestClient(create_app(settings), base_url="https://feed.example.org") as c:
+        r = c.get("/fonti")
+        assert r.status_code == 200 and "<title>GF</title>" in r.text
+        assert c.head("/").status_code == 200
+        sw = c.get("/sw.js")
+        assert sw.headers["cache-control"] == "no-cache" and sw.headers["service-worker-allowed"] == "/"
+        assert c.get("/manifest.webmanifest").headers["content-type"].startswith("application/manifest+json")
+        assert "immutable" in c.get("/assets/app-abc.js").headers["cache-control"]
+        assert c.get("/../secret.key").status_code in (200, 404)  # mai fuori dalla cartella dist
+        assert "GF" in c.get("/%2e%2e/%2e%2e/etc/passwd").text
+        assert c.get("/api/non-esiste").status_code == 404
