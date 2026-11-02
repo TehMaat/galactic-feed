@@ -1,6 +1,7 @@
 // Stato dell'app e azioni. I componenti leggono da qui e chiamano queste funzioni.
 
 import { api, qs, setUnauthorizedHandler } from "./api.js";
+import { disablePush, setBadge } from "./push.js";
 import { clearAll, enqueue, flushQueue, hasPending, overlay, prepareForUser, refreshCopy, syncSaved } from "./offline.js";
 
 const TABS = { "/": "oggi", "/fonti": "fonti", "/interessi": "interessi", "/salvati": "salvati" };
@@ -142,6 +143,12 @@ export async function boot() {
     if (session.phase === "ready") backOnline();
   });
   window.addEventListener("offline", () => (ui.online = false));
+  // Una notifica push arrivata mentre l'app è aperta: contatori e Edizione si aggiornano.
+  navigator.serviceWorker?.addEventListener("message", (event) => {
+    if (event.data?.type !== "gf-push" || session.phase !== "ready") return;
+    loadCounts();
+    if (event.data.data?.tag === "edizione") loadEdition();
+  });
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible" && session.phase === "ready") {
       sendQueued();
@@ -206,6 +213,9 @@ async function startData(user) {
 export async function logout() {
   // Le azioni fatte offline partono prima di uscire, se c'è la rete.
   if (ui.online) await flushQueue();
+  // Dopo l'uscita questo dispositivo non riceve più notifiche dell'account, né il numero sull'icona.
+  await disablePush().catch(() => {});
+  setBadge(0);
   try {
     await api("/auth/logout", { method: "POST" });
   } catch {
@@ -293,6 +303,7 @@ export async function loadInterests() {
 export async function loadCounts() {
   try {
     data.counts = await api("/articles/counts" + qs({ q: stream.q, show_muted: stream.showMuted }));
+    if (!stream.q) setBadge(data.counts.nonletti);
   } catch {
     /* i contatori non sono essenziali */
   }

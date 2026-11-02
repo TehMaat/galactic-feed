@@ -80,6 +80,9 @@ class Scheduler:
         # Filtro AI sugli articoli nuovi, prima di comporre le edizioni.
         if self.ctx.relevance:
             await self.ctx.relevance.run()
+        # Notifiche delle notizie importanti appena arrivate.
+        if self.ctx.notifier:
+            await self.ctx.notifier.notify_news()
         # Edizioni arrivate all'orario.
         made = await asyncio.to_thread(edition.run_due, self.ctx)
         for user_id, edition_id in made:

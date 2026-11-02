@@ -12,7 +12,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from pydantic import ValidationError
 
-from .api import account, admin, ai, articles, auth, editions, folders, images, interests, invites, opml, sources
+from .api import account, admin, ai, articles, auth, editions, push, folders, images, interests, invites, opml, sources
 from .config import VERSION, Settings
 from .deps import AppContext
 from .feeds.extract import Extractor
@@ -20,6 +20,7 @@ from .feeds.fetcher import Fetcher
 from .feeds.net import make_client
 from .ai.relevance import RelevanceWorker
 from .feeds.scheduler import Scheduler
+from .push.notifier import Notifier
 from .security import same_origin_request
 
 log = logging.getLogger("galactic_feed")
@@ -87,6 +88,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         ctx.fetcher = Fetcher(ctx)
         ctx.extractor = Extractor(ctx)
         ctx.relevance = RelevanceWorker(ctx)
+        ctx.notifier = Notifier(ctx)
+        ctx.notifier.start()
+        ctx.hooks.edition_ready.append(ctx.notifier.edition_ready)
         ctx.scheduler = Scheduler(ctx)
         if settings.scheduler_enabled:
             ctx.scheduler.start()
@@ -96,6 +100,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         finally:
             await ctx.scheduler.stop()
             await ctx.http.aclose()
+            await ctx.notifier.close()
 
     app = FastAPI(
         title="Galactic Feed",
@@ -138,7 +143,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             conn.execute("SELECT 1").fetchone()
         return {"status": "ok", "version": VERSION}
 
-    for module in (auth, invites, account, admin, folders, sources, opml, ai, articles, editions, interests, images):
+    for module in (auth, invites, account, admin, folders, sources, opml, ai, articles, editions, interests, images, push):
         app.include_router(module.router)
 
     @app.api_route("/api/{rest:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"], include_in_schema=False)

@@ -314,3 +314,34 @@ test("AI: l'amministratore la configura, sceglie le notizie e scrive i riassunti
   await oggi.locator(".card").click();
   await expect(page.locator(".reader .ai-summary li")).toHaveText(["Si misura con la parallasse.", "Poi con le Cefeidi.", "Infine con il redshift."]);
 });
+
+test("notifiche: il service worker riceve il messaggio push", async ({ page, context }) => {
+  await page.setViewportSize(PHONE);
+  await page.goto("/");
+  await page.getByLabel("Nome utente").fill("anna");
+  await page.getByLabel("Password").fill(PASSWORD);
+  await page.getByRole("button", { name: "Entra" }).click();
+  await page.waitForFunction(() => Boolean(navigator.serviceWorker.controller));
+
+  // Le impostazioni delle notifiche ci sono; l'iscrizione vera richiede il servizio push di Google.
+  await page.getByRole("button", { name: "Impostazioni" }).click();
+  await expect(page.getByRole("switch", { name: "Notifiche su questo dispositivo" })).toBeVisible();
+  await page.locator(".sheet.is-open").getByRole("button", { name: "Chiudi" }).click();
+
+  // Un messaggio push consegnato al service worker come farebbe il browser.
+  const cdp = await context.newCDPSession(page);
+  const registration = new Promise((resolve) =>
+    cdp.on("ServiceWorker.workerRegistrationUpdated", ({ registrations }) => {
+      const r = registrations.find((x) => x.scopeURL === "http://127.0.0.1:8097/" && !x.isDeleted);
+      if (r) resolve(r.registrationId);
+    }),
+  );
+  await cdp.send("ServiceWorker.enable");
+  const registrationId = await registration;
+  await page.evaluate(() => navigator.serviceWorker.addEventListener("message", (e) => (window.__gfPush = e.data.data)));
+  const payload = { title: "Orbita", body: "Una notizia per te", url: "/?a=1", tag: "art-1", badge: 3 };
+  await cdp.send("ServiceWorker.deliverPushMessage", { origin: "http://127.0.0.1:8097", registrationId, data: JSON.stringify(payload) });
+  // L'app aperta riceve il messaggio dal service worker (la notifica di sistema, in questo
+  // browser senza schermo, non si può mostrare).
+  await expect.poll(() => page.evaluate(() => window.__gfPush || null)).toEqual(payload);
+});

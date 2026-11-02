@@ -30,6 +30,8 @@ class PrefsPatch(BaseModel):
     ai_mode: str | None = None
     ai_text: str | None = None
     summaries: bool | None = None
+    notify_folders: list[str] | None = None
+    notify_edition: bool | None = None
 
 
 class MePatch(BaseModel):

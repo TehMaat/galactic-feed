@@ -78,8 +78,23 @@ class Prefs(BaseModel):
     ai_mode: Literal["parole", "ai", "entrambi"] = "parole"
     ai_text: str = Field(default="", max_length=1500)
     summaries: bool = True
+    # Notifiche: cartelle importanti (id, oppure «none» per le fonti senza cartella) ed Edizione.
+    notify_folders: list[str] = Field(default_factory=list, max_length=200)
+    notify_edition: bool = True
 
     _t = field_validator("edition_times")(check_times)
+
+    @field_validator("notify_folders")
+    @classmethod
+    def _folders(cls, values: list[str]) -> list[str]:
+        out = []
+        for v in values:
+            v = str(v).strip()
+            if v != "none" and not v.isdigit():
+                raise ValueError("Cartella non valida.")
+            if v not in out:
+                out.append(v)
+        return out
 
 
 def prefs_with_defaults(stored: dict[str, Any]) -> dict[str, Any]:
