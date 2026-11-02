@@ -1,0 +1,22 @@
+# Nel contesto della build entra solo quello che serve all'immagine.
+**/node_modules
+**/__pycache__
+**/*.pyc
+.venv
+.git
+.github
+data
+docs
+mockup
+backend/tests
+backend/.pytest_cache
+frontend/dist
+frontend/e2e
+frontend/tests
+frontend/test-results
+frontend/playwright-report
+*.db
+*.db-*
+docker-compose.yml
+Dockerfile
+.dockerignore

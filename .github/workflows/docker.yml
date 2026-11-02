@@ -1,0 +1,99 @@
+name: Immagine Docker
+
+# Costruisce l'immagine per amd64, arm64 e armv7.
+# - Sulle pull request: solo la build e una prova del container (niente pubblicazione).
+# - Su main: pubblica ghcr.io/<proprietario>/galactic-feed:latest.
+# - Sui tag v1.2.3: pubblica anche :1.2.3 e :1.2.
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    paths:
+      - Dockerfile
+      - .dockerignore
+      - docker-compose.yml
+      - backend/requirements.txt
+      - backend/app/**
+      - frontend/package.json
+      - frontend/package-lock.json
+      - .github/workflows/docker.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: docker-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Nome dell'immagine (GHCR vuole le minuscole)
+        run: echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
+
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build per questa macchina (amd64)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          load: true
+          tags: galactic-feed:prova
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Prova del container
+        run: |
+          docker run -d --name prova -p 8080:8080 -e PUBLIC_URL=http://localhost:8080 galactic-feed:prova
+          for i in $(seq 1 30); do
+            [ "$(docker inspect -f '{{.State.Health.Status}}' prova)" = healthy ] && break
+            sleep 2
+          done
+          docker logs prova
+          test "$(docker inspect -f '{{.State.Health.Status}}' prova)" = healthy
+          test "$(docker exec prova id -u)" != 0
+          docker logs prova 2>&1 | grep -q "Codice di primo avvio: [0-9]\{6\}"
+          curl -fsS http://localhost:8080/api/health
+          curl -fsS http://localhost:8080/ | grep -q "<title>"
+          curl -fsS http://localhost:8080/manifest.webmanifest | grep -q '"Galactic Feed"'
+          curl -fsSI http://localhost:8080/sw.js | grep -qi "cache-control: no-cache"
+          docker rm -f prova
+
+      - name: Etichette
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,format=short
+
+      - uses: docker/login-action@v3
+        if: github.event_name != 'pull_request'
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build per amd64, arm64 e armv7 (e pubblicazione, fuori dalle PR)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64,linux/arm/v7
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

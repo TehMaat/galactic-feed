@@ -8,6 +8,7 @@ Proposta approvata il 31/10/2026. Descrive come è fatto il codice; i requisiti 
 backend/                  Server Python (FastAPI)
   app/
     main.py               avvio: API, PWA, scheduler
+    healthcheck.py        controllo di salute usato dal container (python -m app.healthcheck)
     config.py             variabili d'ambiente (PUBLIC_URL, TZ, …)
     db.py + migrations/   SQLite, schema versionato con file .sql numerati
     security.py           password argon2, sessioni, protezione CSRF
@@ -25,7 +26,7 @@ frontend/                 PWA Svelte + Vite
     sw.js                 service worker
   public/icons/
   tests/                  vitest (logica) + Playwright (prova nel browser)
-Dockerfile                build in più fasi: PWA → backend → immagine finale
+Dockerfile                build in più fasi: PWA → dipendenze Python → immagine finale (utente non root, uid 1000)
 docker-compose.yml
 .github/workflows/        test e build multi-architettura
 docs/  mockup/  README.md
