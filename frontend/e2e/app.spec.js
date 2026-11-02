@@ -32,6 +32,7 @@ test("primo avvio, fonti, interessi, lettura e salvati sul telefono", async ({ p
   await page.getByLabel("Il tuo nome").fill("Anna");
   await page.getByRole("button", { name: "Crea l'account" }).click();
   await expect(page.getByText("Nessuna fonte, per ora")).toBeVisible();
+  await expect(page.locator(".appbar")).toContainText("galactic feed");
 
   // Aggiungi una fonte dal sito: il feed dei commenti non viene proposto.
   await page.getByRole("button", { name: "Aggiungi una fonte" }).click();
@@ -147,6 +148,11 @@ test("accesso e tre colonne sul computer", async ({ page }) => {
   expect(nav.width).toBe(220);
   expect(list.x).toBe(220);
   expect(reader.x).toBeGreaterThanOrEqual(640);
+  // Il nome dell'app in cima alla barra laterale, le Impostazioni in basso a sinistra.
+  await expect(page.locator(".tabbar .nav-brand")).toHaveText("galactic feed");
+  const settings = await page.getByRole("button", { name: "Impostazioni" }).boundingBox();
+  expect(settings.x + settings.width).toBeLessThanOrEqual(220);
+  expect(settings.y + settings.height).toBeGreaterThan(900 - 80);
   await page.locator("section[aria-label='Oggi'] .card").first().click();
   await expect(page.locator(".reader .reader-title")).toBeVisible();
   await expect(page.locator("section[aria-label='Oggi'] .card").first()).toHaveClass(/is-current/);

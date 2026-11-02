@@ -50,17 +50,17 @@
     return () => io.disconnect();
   });
 
+  const today = new Intl.DateTimeFormat("it-IT", { weekday: "long", day: "numeric", month: "long" }).format(new Date()).replace(/^./, (c) => c.toUpperCase());
   const noSources = $derived(data.loaded && data.sources.length === 0);
   const filtering = $derived(stream.q || stream.view !== "tutti" || stream.folder || stream.source);
 </script>
 
 <section class="view" class:is-entering={active} hidden={!active} aria-label="Oggi">
-  <header class="topbar">
-    <div class="wordmark"><Icon name="orbit" /><span>galactic feed</span></div>
+  <header class="large-title">
+    <div><h2>Oggi</h2><p class="subtitle">{today}</p></div>
     <div class="topbar-actions">
       {#if !ui.online}<span class="offline-pill" title="Sei offline: vedi gli articoli già scaricati"><Icon name="cloud-off" />offline</span>{/if}
       <button type="button" class="icon-btn" class:is-spinning={ui.refreshing} aria-label="Aggiorna le fonti" onclick={refreshAll}><Icon name="refresh" /></button>
-      <button type="button" class="icon-btn" aria-label="Impostazioni" onclick={() => openSheet("settings")}><Icon name="sliders" /></button>
     </div>
   </header>
 
