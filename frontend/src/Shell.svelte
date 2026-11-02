@@ -2,13 +2,15 @@
   // L'app vera e propria: viste, barra di navigazione, lettore, schede e avvisi.
   // Il layout cambia con la larghezza (container query in app.css, come nel mockup):
   // barra in basso sul telefono, barra laterale sul tablet, tre colonne sul computer.
+  // Il nome dell'app sta nella barra in alto sul telefono e in cima alla barra laterale
+  // altrove; le Impostazioni in fondo alla barra laterale (in alto a destra sul telefono).
   import Icon from "./components/Icon.svelte";
   import Reader from "./components/Reader.svelte";
   import AddSource from "./sheets/AddSource.svelte";
   import FolderSheet from "./sheets/FolderSheet.svelte";
   import Settings from "./sheets/Settings.svelte";
   import SourceSheet from "./sheets/SourceSheet.svelte";
-  import { closeReader, closeSheet, data, session, switchTab, ui } from "./lib/store.svelte.js";
+  import { closeReader, closeSheet, data, openSheet, session, switchTab, ui } from "./lib/store.svelte.js";
   import Fonti from "./views/Fonti.svelte";
   import Interessi from "./views/Interessi.svelte";
   import Oggi from "./views/Oggi.svelte";
@@ -48,13 +50,22 @@
     <Salvati active={ui.tab === "salvati"} />
   </main>
 
+  <header class="appbar">
+    <div class="wordmark"><Icon name="orbit" /><span>galactic feed</span></div>
+    <button type="button" class="icon-btn" aria-label="Impostazioni" onclick={() => openSheet("settings")}><Icon name="sliders" /></button>
+  </header>
+
   <nav class="tabbar" aria-label="Sezioni">
+    <div class="nav-brand wordmark"><Icon name="orbit" /><span>galactic feed</span></div>
     {#each TABS as [key, icon, label]}
       <button type="button" aria-current={ui.tab === key ? "page" : undefined} onclick={() => switchTab(key)}>
         <Icon name={icon} /><span>{label}</span>
         {#if key === "salvati" && data.counts.salvati}<b class="tab-badge">{data.counts.salvati}</b>{/if}
       </button>
     {/each}
+    <button type="button" class="nav-settings" aria-pressed={ui.sheet === "settings"} onclick={() => openSheet("settings")}>
+      <Icon name="sliders" /><span>Impostazioni</span>
+    </button>
   </nav>
 
   <Reader />
