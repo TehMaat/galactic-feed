@@ -24,6 +24,20 @@
   });
 
   const me = $derived(session.user);
+  const edOn = $derived(Boolean(me?.prefs?.edition));
+  const times = $derived(me?.prefs?.edition_times || ["07:30"]);
+  let newTime = $state("19:00");
+
+  async function addTime() {
+    if (!newTime) return;
+    if (times.includes(newTime)) return toast(`L'edizione delle ${newTime} c'è già`);
+    if (await savePrefs({ edition_times: [...times, newTime] })) toast(`Nuova edizione alle ${newTime}`);
+  }
+
+  async function removeTime(t) {
+    if (times.length === 1) return toast("Serve almeno un orario, oppure spegni l'Edizione");
+    if (await savePrefs({ edition_times: times.filter((x) => x !== t) })) toast(`Edizione delle ${t} tolta`);
+  }
   const theme = $derived(me?.prefs?.theme || "auto");
   const lastCheck = $derived(
     data.sources.map((s) => s.last_fetch_at).filter(Boolean).sort().at(-1) || null,
@@ -191,10 +205,28 @@
       <p class="set-note">Ogni utente ha fonti, interessi, letti e salvati propri. I feed in comune vengono scaricati una volta sola.</p>
 
       <div class="set-label">Edizione</div>
-      <div class="set-group is-later">
-        <div class="set-row"><span>Componi l'Edizione</span><button type="button" class="switch" role="switch" aria-checked="false" aria-label="Componi l'Edizione" disabled></button></div>
+      <div class="set-group">
+        <div class="set-row"><span>Componi l'Edizione</span>
+          <button type="button" class="switch" role="switch" aria-checked={edOn} aria-label="Componi l'Edizione" onclick={() => savePrefs({ edition: !edOn })}></button>
+        </div>
+        {#if edOn}
+          <div class="set-block">
+            <span class="label">Orari</span>
+            <div class="tags">
+              {#each times as t (t)}
+                <button type="button" class="tag mono" aria-label="Togli l'edizione delle {t}" onclick={() => removeTime(t)}>{t}<Icon name="close" /></button>
+              {/each}
+              {#if times.length < 6}
+                <span class="time-add">
+                  <input type="time" class="input time-input" aria-label="Nuovo orario" bind:value={newTime} />
+                  <button type="button" class="tag" onclick={addTime}><Icon name="plus" />Orario</button>
+                </span>
+              {/if}
+            </div>
+          </div>
+        {/if}
       </div>
-      <p class="set-note">Nella prossima versione: un'edizione in stile newsletter agli orari che scegli, da leggere nell'app.</p>
+      <p class="set-note">{edOn ? "Una selezione delle notizie per te a ogni orario, da leggere nell'app (niente email)." : "Senza Edizione la schermata Oggi mostra solo il Flusso."}</p>
 
       <div class="set-label">Notifiche</div>
       <div class="set-group is-later">

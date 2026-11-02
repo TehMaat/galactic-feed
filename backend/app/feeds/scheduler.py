@@ -10,6 +10,7 @@ import asyncio
 import logging
 
 from ..db import now
+from ..reading import edition
 
 log = logging.getLogger("galactic_feed.scheduler")
 
@@ -76,6 +77,10 @@ class Scheduler:
         for _ in range(5):
             if not await self.ctx.extractor.extract_pending():
                 break
+        # Edizioni arrivate all'orario.
+        made = await asyncio.to_thread(edition.run_due, self.ctx)
+        for user_id, edition_id in made:
+            await self.ctx.hooks.emit_edition_ready(user_id, edition_id)
         if now() - self._last_cleanup > CLEANUP_EVERY:
             self._last_cleanup = now()
             await asyncio.to_thread(cleanup, self.ctx)

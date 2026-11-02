@@ -49,7 +49,7 @@ def test_update_profile_and_prefs(admin):
     r = admin.patch("/api/me", json={"display_name": "  Anna   Rossi ", "prefs": {"theme": "dark"}})
     user = r.json()["user"]
     assert user["display_name"] == "Anna Rossi"
-    assert user["prefs"] == {"theme": "dark", "text_size": 1.0, "dedupe": True}
+    assert {k: user["prefs"][k] for k in ("theme", "text_size", "dedupe", "edition")} == {"theme": "dark", "text_size": 1.0, "dedupe": True, "edition": False}
     r = admin.patch("/api/me", json={"prefs": {"text_size": 1.12}})
     assert r.json()["user"]["prefs"]["theme"] == "dark"
     assert r.json()["user"]["prefs"]["text_size"] == 1.12

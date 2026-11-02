@@ -24,6 +24,8 @@ class PrefsPatch(BaseModel):
     theme: str | None = None
     text_size: float | None = None
     dedupe: bool | None = None
+    edition: bool | None = None
+    edition_times: list[str] | None = None
 
 
 class MePatch(BaseModel):

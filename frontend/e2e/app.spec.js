@@ -236,3 +236,36 @@ test("offline: salvati e letti restano leggibili, le azioni partono al ritorno d
   await expect.poll(savedOnServer).toBe(0);
   await expect(page.locator(".offline-pill")).toHaveCount(0);
 });
+
+test("Edizione: si accende dalle Impostazioni e si compone", async ({ page }) => {
+  await page.setViewportSize(PHONE);
+  await page.goto("/");
+  await page.getByLabel("Nome utente").fill("anna");
+  await page.getByLabel("Password").fill(PASSWORD);
+  await page.getByRole("button", { name: "Entra" }).click();
+  await expect(page.locator("section[aria-label='Oggi'] .card").first()).toBeVisible();
+
+  await page.getByRole("button", { name: "Impostazioni" }).click();
+  await page.getByRole("switch", { name: "Componi l'Edizione" }).click();
+  await expect(page.locator(".sheet.is-open .tag.mono")).toHaveText(["07:30"]);
+  await page.getByLabel("Nuovo orario").fill("21:15");
+  await page.locator(".sheet.is-open").getByRole("button", { name: "Orario" }).click();
+  await expect(page.locator(".sheet.is-open .tag.mono")).toHaveText(["07:30", "21:15"]);
+  await page.locator(".sheet.is-open").getByRole("button", { name: "Chiudi" }).click();
+
+  // La prima la compone il server al giro successivo; qui la chiediamo subito.
+  const oggi = page.locator("section[aria-label='Oggi']");
+  await expect(oggi.getByRole("tab", { name: "Edizione" })).toHaveAttribute("aria-selected", "true");
+  const compose = oggi.getByRole("button", { name: "Componi adesso" });
+  if (await compose.isVisible()) await compose.click();
+  await expect(oggi.locator(".masthead")).toContainText("n. 1");
+  await expect(oggi.locator(".hero .hero-title")).toHaveText("Perché le prossime missioni lunari puntano tutte al polo sud");
+  await oggi.locator(".hero").click();
+  await expect(page.locator(".reader.is-open .reader-title")).toHaveText("Perché le prossime missioni lunari puntano tutte al polo sud");
+  await page.locator(".reader.is-open").getByRole("button", { name: "Indietro" }).click();
+  await expect(oggi.locator(".hero")).toHaveClass(/is-read/);
+
+  // Il Flusso resta a un tocco.
+  await oggi.getByRole("tab", { name: "Flusso" }).click();
+  await expect(oggi.locator(".card").first()).toBeVisible();
+});
