@@ -1,6 +1,6 @@
 # Galactic Feed
 
-Lettore di notizie self-hosted e multiutente. Il server raccoglie feed RSS/Atom e canali YouTube, sceglie le notizie che ti interessano con parole chiave e toglie i doppioni. Le leggi da una PWA per telefono, tablet e computer, anche offline.
+Lettore di notizie self-hosted e multiutente. Il server raccoglie feed RSS/Atom e canali YouTube, sceglie le notizie che ti interessano con parole chiave o con l'AI e toglie i doppioni. Se vuoi, agli orari che scegli compone un'Edizione in stile giornale e ti avvisa con una notifica. Le leggi da una PWA per telefono, tablet e computer, anche offline.
 
 - Un solo container Docker, con il server e l'app.
 - Gira su PC e server (amd64), Raspberry Pi 4/5 e Mac con Apple Silicon (arm64), Raspberry Pi a 32 bit (armv7).
@@ -53,7 +53,7 @@ Il database si aggiorna da solo all'avvio.
 
 ### Backup
 
-Tutto sta nel volume `galactic-data`: il database `galactic-feed.db` e la chiave `secret.key`. Per una copia, ferma il container e salva il volume in un archivio:
+Tutto sta nel volume `galactic-data`: il database `galactic-feed.db` e le chiavi `secret.key` e `vapid.pem` (quest'ultima serve alle notifiche: se la perdi, ogni dispositivo deve riaccenderle). Per una copia, ferma il container e salva il volume in un archivio:
 
 ```bash
 docker compose stop
@@ -92,6 +92,20 @@ Si impostano con le variabili d'ambiente nel `docker-compose.yml`.
 | `FORWARDED_ALLOW_IPS` | `*` | Da quali indirizzi accettare gli header `X-Forwarded-*` (vedi sotto) |
 | `LOG_LEVEL` | `info` | Dettaglio del log (`debug`, `info`, `warning`) |
 | `PORT` | `8080` | Porta interna del container |
+
+## Edizione, AI e notifiche
+
+Sono tutte facoltative e si accendono dalle Impostazioni.
+
+- **Edizione**: in Impostazioni → Edizione scegli uno o più orari. A ogni orario il server prepara una selezione delle notizie per te, divisa per cartelle, che trovi in Oggi → Edizione. Il Flusso resta a un tocco.
+- **AI**: la configura l'amministratore in Impostazioni → AI.
+  - **Locale**: [Ollama](https://ollama.com) su un computer della tua rete. Scrivi l'indirizzo con `/v1` in fondo (per esempio `http://192.168.1.20:11434/v1`) e il nome del modello (quello che vedi con `ollama list`). I testi non escono da casa; su un Raspberry Pi è molto lento, meglio un PC.
+  - **Cloud**: Anthropic (Claude) oppure OpenAI, con la chiave API del servizio. Il modello predefinito per Claude è `claude-opus-5-5`; per scegliere e riassumere notizie basta `claude-haiku-5-5`, che costa molto meno. Si paga a consumo e titoli e testi degli articoli vengono inviati al servizio.
+  - Il tetto di richieste al giorno limita la spesa; «Prova il collegamento» dice subito se qualcosa non va.
+  - Poi ogni utente, negli Interessi, sceglie tra parole chiave, AI o entrambi, descrive cosa gli interessa e può accendere i riassunti automatici.
+- **Notifiche**: in Impostazioni → Notifiche si accendono per ogni dispositivo. Poi scegli le categorie importanti (le cartelle): ti avviso quando arriva una notizia per te, al massimo una volta ogni 10 minuti. Sull'icona dell'app compare il numero di non letti.
+  - Su iPhone e iPad le notifiche arrivano solo nell'app aggiunta alla schermata Home (iOS 16.4 o successivo), e serve HTTPS.
+  - Il server deve poter raggiungere i servizi push dei browser (Google, Mozilla, Apple, Microsoft) su Internet.
 
 ## Dietro un reverse proxy
 

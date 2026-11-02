@@ -14,8 +14,10 @@ backend/                  Server Python (FastAPI)
     security.py           password argon2, sessioni, protezione CSRF
     api/                  un file per area: auth, admin, folders, sources, opml, articles, interests, images
     feeds/                discovery, fetcher, parser, youtube, extract (testo completo), sanitize, scheduler
-    reading/              matching (interessi e silenziati), dedupe (doppioni), search (FTS5)
-    hooks.py              punti di aggancio per la v2 (edizione, AI, push)
+    reading/              matching (interessi e silenziati), dedupe (doppioni), query, edition (Edizione)
+    ai/                   configurazione, fornitori (Ollama/OpenAI, Anthropic), filtro AI, riassunti
+    push/                 Web Push (VAPID, cifratura) e regole delle notifiche
+    hooks.py              agganci tra le parti: nuovi articoli, Edizione pronta
   tests/                  pytest, con feed e siti finti: nessuna chiamata a Internet
 frontend/                 PWA Svelte + Vite
   src/
@@ -45,7 +47,7 @@ Scelte:
 I contenuti dei feed sono **condivisi**: un feed seguito da tre utenti si scarica una volta. Tutto ciò che è personale sta in tabelle **per utente**. Lo schema cresce con migrazioni numerate in `backend/app/migrations/`; la versione applicata è in `PRAGMA user_version`.
 
 **Account**
-- `users`: username (unico, senza distinzione tra maiuscole e minuscole), nome visualizzato, hash della password, amministratore, disattivato, preferenze (JSON: tema, dimensione del testo, unione dei doppioni), creato il, ultimo accesso
+- `users`: username (unico, senza distinzione tra maiuscole e minuscole), nome visualizzato, hash della password, amministratore, disattivato, preferenze (JSON: tema, dimensione del testo, unione dei doppioni, Edizione e orari, metodo e descrizione per l'AI, riassunti, cartelle importanti per le notifiche), creato il, ultimo accesso
 - `sessions`: hash del token, utente, creata il, ultimo uso, scadenza, dispositivo
 - `invites`: hash del token, tipo (`invite` o `reset`), nota, creato da, utente destinatario (solo reset), scadenza, usato da, usato il
 
@@ -62,7 +64,15 @@ I contenuti dei feed sono **condivisi**: un feed seguito da tre utenti si scaric
 **Interessi**
 - `interests` (per utente): parola chiave, priorità (alta / media / spento)
 - `muted_words` (per utente): parola
-- `user_matches` (per utente): esito delle regole su ogni articolo (interesse trovato e priorità, oppure silenziato). Calcolato all'arrivo degli articoli e quando l'utente cambia le regole, così filtri e contatori sono semplici query
+- `user_matches` (per utente): esito delle regole su ogni articolo (interesse o tema dell'AI e priorità, oppure silenziato; `source` dice se viene dalle parole o dall'AI). Calcolato all'arrivo degli articoli, quando l'utente cambia le regole e quando l'AI valuta nuovi articoli, così filtri e contatori sono semplici query
+
+**Seconda versione**
+- `editions` ed `edition_items` (per utente): numero, orario, notizie e sezioni di ogni Edizione (si tengono le ultime 60)
+- `app_settings`: configurazione dell'AI (fornitore, indirizzo, modello, chiave, tetto giornaliero, ultimo errore)
+- `ai_usage`: richieste e token al giorno
+- `ai_matches` (per utente): esito dell'AI per articolo, anche «non pertinente», così ogni articolo si valuta una volta sola
+- `article_summaries` (condivisa): riassunto in tre punti
+- `push_subscriptions` (per dispositivo) e `push_sent` (notizie già notificate)
 
 Regole:
 
@@ -87,6 +97,9 @@ Tutti sotto `/api`; salvo `auth`, `invites` e `health` richiedono l'accesso. Gli
 | OPML | `POST opml/import` · `GET opml/export` |
 | Articoli | `GET articles` (filtri `tutti`, `perte`, `nonletti`, `video`, `salvati`, cartella, fonte, ricerca, cursore) · `GET articles/counts` · `GET articles/{id}` · `PUT`/`DELETE articles/{id}/read` · `PUT`/`DELETE articles/{id}/saved` · `POST articles/mark-read` · `POST articles/sync` |
 | Interessi | `GET interests` · `POST`/`PATCH`/`DELETE interests/keywords[/{id}]` · `POST`/`DELETE interests/muted[/{id}]` · `GET interests/preview` |
+| Edizione | `GET editions/latest` · `GET editions/{id}` · `POST editions` (componi adesso) |
+| AI | `GET ai/status` · `GET`/`PUT admin/ai` · `POST admin/ai/test` · `POST articles/{id}/summary` |
+| Notifiche | `GET push/key` · `GET`/`POST`/`DELETE push/subscriptions` · `POST push/test` |
 | Immagini | `GET img?u=…&s=…` (proxy firmato) |
 | Sistema | `GET health` |
 
@@ -106,7 +119,9 @@ Fuori da `/api`: la PWA, `/manifest.webmanifest`, `/sw.js`, `/icons/*`. Devono r
   - Un indice in IndexedDB dice quali articoli sono salvati e quando sono stati letti: oltre i 300 letti si tolgono i più vecchi, con le loro immagini. I salvati fatti su un altro dispositivo vengono scaricati da soli all'apertura dell'app.
   - Letto e salvato fatti senza rete vanno in una coda in IndexedDB, inviata a `POST articles/sync` quando torna la rete, quando si riapre l'app e ogni minuto. Non si usa la sincronizzazione in background dei service worker, che su iPhone non c'è.
   - All'uscita, o se entra un altro account, le copie e la coda si cancellano dal dispositivo.
-- **Seconda versione**: `hooks.py` contiene i punti di aggancio ("nuovi articoli arrivati" e "calcolo della pertinenza"). Nelle Impostazioni le sezioni Edizione, Notifiche e AI compaiono disattivate con "Nella prossima versione".
+- **Edizione**: a ogni orario scelto (nel fuso `TZ`) lo scheduler compone una selezione delle notizie pubblicate dall'edizione precedente: prima quelle «per te» (priorità alta in primo piano), raggruppate per cartella; se sono meno di 3 si aggiungono le ultime di ogni fonte. Se il server era spento all'orario, la compone appena riparte.
+- **AI** (facoltativa): la configura l'amministratore, locale (Ollama o un server compatibile con OpenAI) o cloud (Anthropic con l'SDK ufficiale, oppure OpenAI), con un tetto di richieste al giorno. Ogni utente sceglie parole chiave, AI o entrambi e descrive i suoi interessi. Lo scheduler manda al modello gli articoli delle ultime 48 ore a lotti di 20, con risposta in JSON strutturato; dopo un errore si ferma 15 minuti. Con Claude si usa effort basso e, sui modelli che lo permettono, il ripiego lato server se il modello rifiuta una richiesta. I riassunti (tre punti) si scrivono alla prima apertura di un articolo lungo e valgono per tutti.
+- **Notifiche**: Web Push standard. Chiavi VAPID create al primo avvio in `data/vapid.pem`; contenuto cifrato (RFC 8291), così i servizi push dei browser non lo leggono. Si accettano solo gli indirizzi dei servizi push di Google, Mozilla, Apple e Microsoft. Per ogni utente: le notizie «per te» nelle cartelle importanti, non lette e mai notificate, in una notifica sola, al massimo una ogni 10 minuti; più, a scelta, l'Edizione pronta. Il numero di non letti va sull'icona dell'app (Badging API).
 - **Reti locali**: le fonti possono stare sulla rete di casa; `BLOCK_PRIVATE_NETWORKS=true` lo impedisce.
 
 ## Variabili d'ambiente
