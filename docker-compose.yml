@@ -1,0 +1,28 @@
+# Esempio di avvio con Docker Compose:
+#   docker compose up -d
+#   docker compose logs galactic-feed     ← qui trovi il codice di primo avvio
+#
+# Cambia PUBLIC_URL con l'indirizzo da cui aprirai l'app (quello del reverse proxy).
+
+services:
+  galactic-feed:
+    image: ghcr.io/tehmaat/galactic-feed:latest
+    container_name: galactic-feed
+    restart: unless-stopped
+    ports:
+      # Con il reverse proxy sulla stessa macchina puoi usare "127.0.0.1:8080:8080",
+      # così l'app si raggiunge solo passando dal proxy.
+      - "8080:8080"
+    environment:
+      PUBLIC_URL: "https://notizie.example.org"
+      TZ: "Europe/Rome"
+      # Facoltative (vedi il README):
+      # RETENTION_DAYS: "90"
+      # BLOCK_PRIVATE_NETWORKS: "false"
+      # FORWARDED_ALLOW_IPS: "*"
+      # LOG_LEVEL: "info"
+    volumes:
+      - galactic-data:/data
+
+volumes:
+  galactic-data:

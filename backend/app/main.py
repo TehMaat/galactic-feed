@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -45,12 +46,37 @@ def _request_origin(request: Request) -> str:
     return f"{request.url.scheme}://{host}"
 
 
+class DataDirError(RuntimeError):
+    pass
+
+
+def check_data_dir(path: Path) -> None:
+    """La cartella dei dati deve esistere ed essere scrivibile: altrimenti un messaggio chiaro."""
+    try:
+        path.mkdir(parents=True, exist_ok=True)
+        writable = os.access(path, os.W_OK | os.X_OK)
+    except OSError:
+        writable = False
+    if writable:
+        return
+    uid = os.getuid() if hasattr(os, "getuid") else "?"
+    gid = os.getgid() if hasattr(os, "getgid") else "?"
+    message = (
+        f"La cartella dei dati {path} non è scrivibile dall'utente del server (uid {uid}). "
+        f"Se nel container hai montato una cartella del computer, rendila sua con: "
+        f"sudo chown -R {uid}:{gid} <cartella>. Oppure usa un volume Docker, come in docker-compose.yml."
+    )
+    log.error(message)
+    raise DataDirError(message)
+
+
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or Settings.from_env()
     ctx = AppContext(settings)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
+        check_data_dir(settings.data_dir)
         ctx.db.init()
         ctx.load_secret()
         with ctx.db.session() as conn:
