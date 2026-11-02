@@ -101,6 +101,10 @@ Fuori da `/api`: la PWA, `/manifest.webmanifest`, `/sw.js`, `/icons/*`. Devono r
 - **YouTube**: dal link del canale o da `@nome` il server ricava il feed pubblico.
 - **Immagini**: passano da un proxy firmato del server, così il service worker le può tenere offline.
 - **Offline**: l'interfaccia è sempre in cache; restano disponibili tutti i salvati e gli ultimi 300 articoli letti. Le azioni fatte senza rete partono al ritorno della connessione.
+  - Il service worker (`src/sw.js`) tiene la copia di ogni articolo aperto (`gf-articles`) e le sue immagini (`gf-img-offline`), più l'ultima risposta di account, fonti, contatori ed elenchi (`gf-api`, `gf-lists`): prima la rete, senza rete la copia.
+  - Un indice in IndexedDB dice quali articoli sono salvati e quando sono stati letti: oltre i 300 letti si tolgono i più vecchi, con le loro immagini. I salvati fatti su un altro dispositivo vengono scaricati da soli all'apertura dell'app.
+  - Letto e salvato fatti senza rete vanno in una coda in IndexedDB, inviata a `POST articles/sync` quando torna la rete, quando si riapre l'app e ogni minuto. Non si usa la sincronizzazione in background dei service worker, che su iPhone non c'è.
+  - All'uscita, o se entra un altro account, le copie e la coda si cancellano dal dispositivo.
 - **Seconda versione**: `hooks.py` contiene i punti di aggancio ("nuovi articoli arrivati" e "calcolo della pertinenza"). Nelle Impostazioni le sezioni Edizione, Notifiche e AI compaiono disattivate con "Nella prossima versione".
 - **Reti locali**: le fonti possono stare sulla rete di casa; `BLOCK_PRIVATE_NETWORKS=true` lo impedisce.
 
