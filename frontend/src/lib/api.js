@@ -23,8 +23,8 @@ export function setUnauthorizedHandler(fn) {
   onUnauthorized = fn;
 }
 
-export async function api(path, { method = "GET", body, form, signal, quiet401 = false } = {}) {
-  const headers = { Accept: "application/json" };
+export async function api(path, { method = "GET", body, form, signal, headers: extra, quiet401 = false } = {}) {
+  const headers = { Accept: "application/json", ...extra };
   let payload;
   if (form) {
     payload = form;

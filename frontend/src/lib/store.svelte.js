@@ -1,6 +1,7 @@
 // Stato dell'app e azioni. I componenti leggono da qui e chiamano queste funzioni.
 
 import { api, qs, setUnauthorizedHandler } from "./api.js";
+import { clearAll, enqueue, flushQueue, hasPending, overlay, prepareForUser, refreshCopy, syncSaved } from "./offline.js";
 
 const TABS = { "/": "oggi", "/fonti": "fonti", "/interessi": "interessi", "/salvati": "salvati" };
 const PATHS = { oggi: "/", fonti: "/fonti", interessi: "/interessi", salvati: "/salvati" };
@@ -125,11 +126,21 @@ export async function boot() {
     ui.reader = loc.article;
     ui.sheet = null;
   });
-  window.addEventListener("online", () => (ui.online = true));
+  window.addEventListener("online", () => {
+    ui.online = true;
+    if (session.phase === "ready") backOnline();
+  });
   window.addEventListener("offline", () => (ui.online = false));
   document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible" && session.phase === "ready") refreshQuietly();
+    if (document.visibilityState === "visible" && session.phase === "ready") {
+      sendQueued();
+      refreshQuietly();
+    }
   });
+  // Se il telefono dice di essere online ma la rete non c'era, la coda riparte da sola.
+  setInterval(() => {
+    if (session.phase === "ready" && ui.online && hasPending()) sendQueued();
+  }, 60000);
 
   const loc = readLocation();
   const link = loc.path.match(/^\/(invito|reimposta)\/([\w-]+)$/);
@@ -170,15 +181,26 @@ export function enter(user, { goHome = false } = {}) {
     ui.reader = null;
     history.replaceState({ gf: true }, "", "/");
   }
-  loadAll();
+  startData(user);
+}
+
+async function startData(user) {
+  // Prima la coda delle azioni fatte offline, così gli elenchi arrivano già aggiornati.
+  await prepareForUser(user.id);
+  if (ui.online) await flushQueue();
+  await loadAll();
+  syncSaved();
 }
 
 export async function logout() {
+  // Le azioni fatte offline partono prima di uscire, se c'è la rete.
+  if (ui.online) await flushQueue();
   try {
     await api("/auth/logout", { method: "POST" });
   } catch {
     /* si esce comunque */
   }
+  await clearAll();
   session.user = null;
   session.phase = "login";
   data.loaded = false;
@@ -236,7 +258,7 @@ export async function loadSources() {
     data.folders = f.folders;
     data.colors = f.colors;
   } catch (err) {
-    if (err.status !== 401) toast(err.message);
+    if (err.status !== 401 && ui.online) toast(err.message);
   }
 }
 
@@ -246,7 +268,7 @@ export async function loadInterests() {
     data.interests = i;
     data.preview = p;
   } catch (err) {
-    if (err.status !== 401) toast(err.message);
+    if (err.status !== 401 && ui.online) toast(err.message);
   }
 }
 
@@ -277,6 +299,7 @@ export async function loadStream(reset = false) {
         }),
     );
     if (ticket !== streamRequest) return;
+    overlay(r.items);
     stream.items = reset ? r.items : [...stream.items, ...r.items];
     stream.cursor = r.next_cursor;
     stream.done = !r.next_cursor;
@@ -305,7 +328,9 @@ export async function loadSaved(reset = false) {
   saved.error = "";
   try {
     const r = await api("/articles" + qs({ view: "salvati", cursor: reset ? null : saved.cursor }));
-    saved.items = reset ? r.items : [...saved.items, ...r.items];
+    // Senza rete l'elenco può venire dalla cache: valgono le azioni ancora in coda.
+    const items = overlay(r.items).filter((a) => a.saved);
+    saved.items = reset ? items : [...saved.items, ...items];
     saved.cursor = r.next_cursor;
     saved.done = !r.next_cursor;
   } catch (err) {
@@ -339,6 +364,7 @@ export async function refreshAll() {
   } finally {
     ui.refreshing = false;
   }
+  sendQueued();
 }
 
 // ---------- Lettore, letti e salvati ----------
@@ -361,31 +387,70 @@ function patchItems(id, changes) {
   }
 }
 
+// Senza rete (o con altre azioni ancora in coda) l'azione va nella coda offline;
+// con la rete parte subito. Restituisce «sent» o «queued»; gli errori del server passano.
+async function sendAction(id, key, value) {
+  if (!ui.online || hasPending()) {
+    await enqueue(id, { [key]: value });
+    if (ui.online) sendQueued();
+    return "queued";
+  }
+  try {
+    await api(`/articles/${id}/${key}`, { method: value ? "PUT" : "DELETE" });
+    return "sent";
+  } catch (err) {
+    if (err.status !== 0) throw err;
+    await enqueue(id, { [key]: value });
+    return "queued";
+  }
+}
+
 export async function setRead(article, read) {
   if (article.read === read) return;
   patchItems(article.id, { read });
   data.counts.nonletti = Math.max(0, data.counts.nonletti + (read ? -1 : 1));
   try {
-    await api(`/articles/${article.id}/read`, { method: read ? "PUT" : "DELETE" });
+    await sendAction(article.id, "read", read);
   } catch (err) {
     patchItems(article.id, { read: !read });
-    if (err.status !== 0) toast(err.message);
+    data.counts.nonletti = Math.max(0, data.counts.nonletti + (read ? 1 : -1));
+    toast(err.message);
   }
 }
 
+/** Salva o toglie dai salvati. Finisce quando anche la copia offline è aggiornata; false se non riesce. */
 export async function setSaved(article, value) {
   patchItems(article.id, { saved: value });
   data.counts.salvati = Math.max(0, data.counts.salvati + (value ? 1 : -1));
+  let how;
   try {
-    await api(`/articles/${article.id}/saved`, { method: value ? "PUT" : "DELETE" });
-    toast(value ? "Salvato: lo trovi anche offline" : "Rimosso dai salvati");
-    if (!value) saved.items = saved.items.filter((a) => a.id !== article.id);
-    else if (!saved.items.some((a) => a.id === article.id)) saved.items = [{ ...article, saved: true }, ...saved.items];
+    how = await sendAction(article.id, "saved", value);
   } catch (err) {
     patchItems(article.id, { saved: !value });
-    data.counts.salvati += value ? -1 : 1;
+    data.counts.salvati = Math.max(0, data.counts.salvati + (value ? -1 : 1));
     toast(err.message);
+    return false;
   }
+  if (how === "queued") toast(value ? "Salvato: lo invio al server appena torna la rete" : "Tolto dai salvati: lo invio al server appena torna la rete");
+  else toast(value ? "Salvato: lo trovi anche offline" : "Rimosso dai salvati");
+  if (!value) saved.items = saved.items.filter((a) => a.id !== article.id);
+  else if (!saved.items.some((a) => a.id === article.id)) saved.items = [{ ...article, saved: true }, ...saved.items];
+  // La copia sul dispositivo prende lo stato nuovo (e, se salvato, anche le immagini).
+  if (how === "sent") await refreshCopy(article.id);
+  return true;
+}
+
+// ---------- Offline ----------
+
+async function sendQueued() {
+  const ids = await flushQueue();
+  if (ids?.length) await Promise.all([loadCounts(), loadSaved(true)]);
+}
+
+async function backOnline() {
+  await sendQueued();
+  await Promise.all([loadCounts(), stream.error ? loadStream(true) : null]);
+  syncSaved({ force: true });
 }
 
 export async function markAllRead() {

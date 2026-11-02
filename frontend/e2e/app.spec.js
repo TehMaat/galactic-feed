@@ -167,3 +167,66 @@ test("la PWA si può installare", async ({ request }) => {
   expect(sw.headers()["cache-control"]).toBe("no-cache");
   expect((await request.get("/icons/apple-touch-icon.png")).status()).toBe(200);
 });
+
+test("offline: salvati e letti restano leggibili, le azioni partono al ritorno della rete", async ({ page, context }) => {
+  await page.setViewportSize(PHONE);
+  await page.goto("/");
+  await page.getByLabel("Nome utente").fill("anna");
+  await page.getByLabel("Password").fill(PASSWORD);
+  await page.getByRole("button", { name: "Entra" }).click();
+  const cards = page.locator("section[aria-label='Oggi'] .card");
+  await expect(cards.first()).toBeVisible();
+
+  // Alla prima visita il service worker si installa; dalla successiva gestisce le richieste.
+  await page.waitForFunction(() => Boolean(navigator.serviceWorker.controller));
+  await page.reload();
+  await expect(cards.first()).toBeVisible();
+
+  // Un articolo letto con la rete resta sul dispositivo.
+  await cards.filter({ hasText: "Come si misura la distanza" }).click();
+  const reader = page.locator(".reader.is-open");
+  await expect(reader.locator(".reader-title")).toHaveText("Come si misura la distanza di una galassia lontana");
+  await expect(reader.locator(".offline")).toHaveText("Disponibile offline");
+  await reader.getByRole("button", { name: "Indietro" }).click();
+
+  // Il salvato (dal primo test, su un altro dispositivo) viene scaricato da solo, con l'immagine.
+  const cached = (name) => page.evaluate(async (n) => (await (await caches.open(n)).keys()).length, name);
+  await expect.poll(() => cached("gf-articles")).toBe(2);
+  await expect.poll(() => cached("gf-img-offline")).toBe(1);
+
+  // Senza rete l'app si apre lo stesso, con l'ultimo elenco.
+  await context.setOffline(true);
+  await page.reload();
+  await expect(page.locator(".offline-pill")).toBeVisible();
+  await expect(cards.filter({ hasText: "Le PWA su iPhone" })).toBeVisible();
+
+  await cards.filter({ hasText: "Come si misura la distanza" }).click();
+  await expect(reader.locator(".reader-title")).toHaveText("Come si misura la distanza di una galassia lontana");
+  await expect(reader.locator(".offline")).toBeVisible();
+  await reader.getByRole("button", { name: "Indietro" }).click();
+
+  // Un articolo mai aperto non c'è: lo dice in modo chiaro.
+  await cards.filter({ hasText: "Docker in un mini PC" }).click();
+  await expect(reader.locator(".reader-empty")).toContainText("non è sul dispositivo");
+  await reader.getByRole("button", { name: "Indietro" }).click();
+
+  // Salvati: l'articolo si legge, con la sua immagine presa dalla cache.
+  await page.locator(".tabbar").getByRole("button", { name: "Salvati" }).click();
+  await page.locator("[aria-label='Salvati'] .card", { hasText: "Le PWA su iPhone" }).click();
+  await expect(reader.locator(".reader-title")).toHaveText("Le PWA su iPhone: cosa possono fare davvero e cosa no");
+  await expect(reader.locator(".offline")).toBeVisible();
+  const image = reader.locator("img.thumb");
+  await expect(image).toHaveAttribute("src", /^\/api\/img\?/);
+  await expect.poll(() => image.evaluate((img) => img.complete && img.naturalWidth)).toBeGreaterThan(0);
+
+  // Tolto dai salvati senza rete: l'azione resta in coda...
+  await reader.getByRole("button", { name: "Rimuovi dai salvati" }).click();
+  await expect(page.locator(".toast")).toContainText("appena torna la rete");
+  const savedOnServer = async () => (await (await page.request.get("/api/articles?view=salvati")).json()).items.length;
+  expect(await savedOnServer()).toBe(1);
+
+  // ...e parte da sola quando torna la rete.
+  await context.setOffline(false);
+  await expect.poll(savedOnServer).toBe(0);
+  await expect(page.locator(".offline-pill")).toHaveCount(0);
+});

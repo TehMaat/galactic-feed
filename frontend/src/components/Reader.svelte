@@ -2,6 +2,7 @@
   // Lettura di un articolo. Sul telefono scorre sopra l'elenco; sul computer sta nella
   // terza colonna, sempre visibile (come nel mockup).
   import { api } from "../lib/api.js";
+  import { isAvailableOffline, overlay } from "../lib/offline.js";
   import { initials, sourceColor, timeAgoLong } from "../lib/format.js";
   import { TEXT_SIZES, closeReader, foldersById, savePrefs, session, setRead, setSaved, stream, saved, ui, toast } from "../lib/store.svelte.js";
   import Icon from "./Icon.svelte";
@@ -10,6 +11,7 @@
   let article = $state(null);
   let error = $state("");
   let loading = $state(false);
+  let available = $state(false); // c'è una copia sul dispositivo, leggibile senza rete
   let scroller = $state();
   let backBtn = $state();
 
@@ -27,10 +29,12 @@
     let cancelled = false;
     loading = true;
     error = "";
+    available = false;
     api(`/articles/${id}`)
       .then((r) => {
         if (cancelled) return;
-        article = r.article;
+        article = overlay([r.article])[0];
+        checkOffline(id);
         if (scroller) scroller.scrollTop = 0;
         const inList = listed(id);
         if (!article.read) {
@@ -42,7 +46,9 @@
       .catch((err) => {
         if (!cancelled) {
           article = null;
-          error = err.message;
+          error = err.status === 0 && !ui.online
+            ? "Questo articolo non è sul dispositivo: lo puoi leggere quando torna la rete. Gli articoli salvati e quelli già letti restano disponibili anche offline."
+            : err.message;
         }
       })
       .finally(() => {
@@ -51,12 +57,21 @@
     return () => (cancelled = true);
   });
 
-  function toggleSave() {
+  async function checkOffline(id) {
+    const yes = await isAvailableOffline(id);
+    if (article?.id === id) available = yes;
+  }
+
+  async function toggleSave() {
     if (!article) return;
-    const target = listed(article.id) || article;
+    const id = article.id;
+    const target = listed(id) || article;
     const value = !article.saved;
-    setSaved(target, value);
     article.saved = value;
+    const ok = await setSaved(target, value);
+    if (article?.id !== id) return;
+    if (!ok) article.saved = !value;
+    checkOffline(id);
   }
 
   function markUnread() {
@@ -120,6 +135,7 @@
           <span class="src">{article.source.title}</span>
         </div>
         {#if article.match}<span class="match"><Icon name="spark" />{article.match.keyword}</span>{/if}
+        {#if available}<span class="offline"><Icon name="check" />Disponibile offline</span>{/if}
       </div>
       <h1 class="reader-title">{article.title}</h1>
       <div class="byline">
