@@ -3,6 +3,7 @@
   // seconda versione: le sezioni si vedono già, spente.
   import Icon from "../components/Icon.svelte";
   import Sheet from "../components/Sheet.svelte";
+  import AiSettings from "./AiSettings.svelte";
   import { api } from "../lib/api.js";
   import { initials, timeAgoLong } from "../lib/format.js";
   import { TEXT_SIZES, data, logout, savePrefs, session, toast, ui } from "../lib/store.svelte.js";
@@ -42,7 +43,9 @@
   const lastCheck = $derived(
     data.sources.map((s) => s.last_fetch_at).filter(Boolean).sort().at(-1) || null,
   );
-  const TITLES = { main: "Impostazioni", users: "Utenti e inviti", user: "Utente", password: "Cambia password", sessions: "Dispositivi collegati" };
+  const ai = $derived(data.interests.ai);
+  const aiLabel = $derived(ai?.enabled ? `${ai.kind === "locale" ? "Locale" : "Cloud"} · ${ai.label}` : "Spenta");
+  const TITLES = { ai: "AI", main: "Impostazioni", users: "Utenti e inviti", user: "Utente", password: "Cambia password", sessions: "Dispositivi collegati" };
 
   function go(p) {
     page = p;
@@ -235,12 +238,14 @@
       <p class="set-note">Nella prossima versione. Su iPhone le notifiche arrivano solo se l'app è aggiunta alla schermata Home (iOS 16.4 o successivo).</p>
 
       <div class="set-label">AI</div>
-      <div class="set-group is-later">
-        <div class="set-row"><span>Fornitore</span>
-          <div class="segmented" role="group" aria-label="Fornitore AI"><button type="button" aria-pressed="false" disabled>Locale</button><button type="button" aria-pressed="false" disabled>Cloud</button></div>
-        </div>
+      <div class="set-group">
+        {#if me.is_admin}
+          <button type="button" class="set-row as-button" onclick={() => go("ai")}><span>Fornitore</span><span class="val">{aiLabel}</span></button>
+        {:else}
+          <div class="set-row"><span>Fornitore</span><span class="val">{aiLabel}</span></div>
+        {/if}
       </div>
-      <p class="set-note">Nella prossima versione: filtri e riassunti con un modello locale (Ollama) o con un servizio cloud, a scelta.</p>
+      <p class="set-note">{ai?.enabled ? "Filtri e riassunti si scelgono negli Interessi." : me.is_admin ? "Filtri e riassunti con un modello locale (Ollama) o con un servizio cloud, a scelta." : "L'AI la configura l'amministratore."}</p>
 
       <div class="set-label">Aspetto</div>
       <div class="set-group">
@@ -304,6 +309,8 @@
         </div>
         {#if newLink}{@render linkBox(newLink)}{/if}
       {/if}
+    {:else if page === "ai"}
+      <AiSettings />
     {:else if page === "password"}
       <form class="form-stack" onsubmit={changePassword}>
         <div class="field"><label for="pw-cur">Password attuale</label><input class="input" id="pw-cur" type="password" autocomplete="current-password" bind:value={pw.current} /></div>

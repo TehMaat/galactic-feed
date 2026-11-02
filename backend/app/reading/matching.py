@@ -9,8 +9,11 @@ semplici query SQL. Si ricalcola:
 - per gli articoli nuovi, appena arrivano (apply_new_articles);
 - per tutti gli articoli di un utente, quando cambia le sue regole (recompute_user).
 
-Punto di aggancio per la v2: `evaluate` è il calcolo della pertinenza. Il filtro AI
-aggiungerà un secondo calcolo accanto a questo e scriverà nella stessa tabella.
+Con il filtro AI (ai/relevance.py) l'utente sceglie il metodo:
+- «parole»: solo gli interessi;
+- «ai»: solo l'AI (le parole silenziate valgono sempre);
+- «entrambi»: prima gli interessi, poi l'AI per gli articoli che non li contengono.
+Gli esiti dell'AI stanno in ai_matches e qui si uniscono a quelli delle parole.
 """
 
 from __future__ import annotations
@@ -40,14 +43,18 @@ def word_pattern(phrase: str) -> re.Pattern | None:
     return re.compile(r"(?<![0-9a-z])" + r"\s+".join(parts) + r"(?![0-9a-z])")
 
 
+MODES = ("parole", "ai", "entrambi")
+
+
 @dataclass
 class Rules:
     interests: list[tuple[str, str, re.Pattern]] = field(default_factory=list)  # (parola, livello, regex)
     muted: list[re.Pattern] = field(default_factory=list)
+    mode: str = "parole"
 
     @property
     def empty(self) -> bool:
-        return not self.interests and not self.muted
+        return not self.interests and not self.muted and self.mode == "parole"
 
 
 @dataclass
@@ -57,8 +64,17 @@ class Match:
     muted: bool
 
 
+def user_mode(conn: sqlite3.Connection, user_id: int) -> str:
+    row = conn.execute("SELECT prefs FROM users WHERE id = ?", (user_id,)).fetchone()
+    try:
+        mode = json.loads(row["prefs"] or "{}").get("ai_mode", "parole") if row else "parole"
+    except ValueError:
+        mode = "parole"
+    return mode if mode in MODES else "parole"
+
+
 def load_rules(conn: sqlite3.Connection, user_id: int) -> Rules:
-    rules = Rules()
+    rules = Rules(mode=user_mode(conn, user_id))
     rows = conn.execute(
         "SELECT keyword, level FROM interests WHERE user_id = ? AND level != 'spento' ORDER BY created_at, id",
         (user_id,),
@@ -92,17 +108,49 @@ def evaluate(rules: Rules, text: str) -> Match | None:
     return Match(None, None, True) if muted else None
 
 
+def _ai_results(conn: sqlite3.Connection, user_id: int, ids: list[int]) -> dict[int, sqlite3.Row]:
+    out: dict[int, sqlite3.Row] = {}
+    for i in range(0, len(ids), 900):
+        chunk = ids[i : i + 900]
+        marks = ",".join("?" * len(chunk))
+        for r in conn.execute(
+            f"SELECT article_id, level, label FROM ai_matches WHERE user_id = ? AND level IS NOT NULL AND article_id IN ({marks})",
+            [user_id, *chunk],
+        ):
+            out[r["article_id"]] = r
+    return out
+
+
 def _store(conn: sqlite3.Connection, user_id: int, rows, rules: Rules) -> int:
+    ai = _ai_results(conn, user_id, [r["id"] for r in rows]) if rules.mode != "parole" else {}
     values = []
     for r in rows:
         m = evaluate(rules, haystack(r["title"], r["excerpt"], r["categories"]))
-        if m:
-            values.append((user_id, r["id"], m.keyword, m.level, int(m.muted)))
+        keyword, level, muted = (m.keyword, m.level, m.muted) if m else (None, None, False)
+        source = "parole"
+        if rules.mode == "ai":
+            keyword = level = None
+        if level is None and r["id"] in ai:
+            keyword, level, source = ai[r["id"]]["label"] or "AI", ai[r["id"]]["level"], "ai"
+        if level or muted:
+            values.append((user_id, r["id"], keyword, level, int(muted), source))
     conn.executemany(
-        "INSERT OR REPLACE INTO user_matches (user_id, article_id, keyword, level, muted) VALUES (?, ?, ?, ?, ?)",
+        "INSERT OR REPLACE INTO user_matches (user_id, article_id, keyword, level, muted, source) VALUES (?, ?, ?, ?, ?, ?)",
         values,
     )
     return len(values)
+
+
+def refresh_articles(conn: sqlite3.Connection, user_id: int, article_ids: list[int]) -> None:
+    """Ricalcola alcuni articoli di un utente (dopo che l'AI li ha valutati)."""
+    if not article_ids:
+        return
+    rules = load_rules(conn, user_id)
+    marks = ",".join("?" * len(article_ids))
+    rows = conn.execute(f"SELECT id, title, excerpt, categories FROM articles WHERE id IN ({marks})", article_ids).fetchall()
+    with conn:
+        conn.execute(f"DELETE FROM user_matches WHERE user_id = ? AND article_id IN ({marks})", [user_id, *article_ids])
+        _store(conn, user_id, rows, rules)
 
 
 def recompute_user(conn: sqlite3.Connection, user_id: int) -> None:

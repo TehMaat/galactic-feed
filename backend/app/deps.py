@@ -35,6 +35,7 @@ class AppContext:
         self.fetcher = None
         self.extractor = None
         self.scheduler = None
+        self.relevance = None  # filtro AI (ai/relevance.py)
         self.secret = b""  # chiave per firmare gli indirizzi delle immagini (data/secret.key)
         self._setup_code: str | None = None
         self._setup_failures = 0

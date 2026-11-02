@@ -269,3 +269,48 @@ test("Edizione: si accende dalle Impostazioni e si compone", async ({ page }) =>
   await oggi.getByRole("tab", { name: "Flusso" }).click();
   await expect(oggi.locator(".card").first()).toBeVisible();
 });
+
+test("AI: l'amministratore la configura, sceglie le notizie e scrive i riassunti", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+  await page.getByLabel("Nome utente").fill("anna");
+  await page.getByLabel("Password").fill(PASSWORD);
+  await page.getByRole("button", { name: "Entra" }).click();
+  await expect(page.locator(".tabbar")).toBeVisible();
+
+  // Impostazioni → AI: Ollama (qui un finto servizio sul sito di prova).
+  await page.getByRole("button", { name: "Impostazioni" }).click();
+  const sheet = page.locator(".sheet.is-open");
+  await sheet.getByRole("button", { name: /Fornitore/ }).click();
+  await sheet.getByRole("button", { name: "Locale" }).click();
+  await sheet.getByLabel("Indirizzo").fill("http://127.0.0.1:8098/v1");
+  await sheet.getByLabel("Modello").fill("finto");
+  await sheet.getByRole("button", { name: "Prova il collegamento" }).click();
+  await expect(sheet.locator(".form-ok")).toContainText("Il modello finto risponde");
+  await sheet.getByRole("button", { name: "Chiudi" }).click();
+
+  // Interessi: scelta con l'AI e descrizione.
+  await page.locator(".tabbar").getByRole("button", { name: "Interessi" }).click();
+  const interessi = page.locator("section[aria-label='Interessi']");
+  await interessi.getByRole("button", { name: "AI", exact: true }).click();
+  await interessi.getByLabel("Descrizione degli interessi per l'AI").fill("Astronomia e cosmologia");
+  await interessi.getByRole("button", { name: "Salva la descrizione" }).click();
+  await expect(page.locator(".toast")).toContainText("Descrizione salvata");
+
+  // Lo scheduler valuta gli articoli subito: in «Per te» arriva quello sulla galassia.
+  await expect.poll(async () => {
+    const r = await (await page.request.get("/api/articles?view=perte")).json();
+    return r.items.map((a) => `${a.title} · ${a.match.keyword}`);
+  }, { timeout: 20_000 }).toEqual(["Come si misura la distanza di una galassia lontana · astronomia"]);
+
+  await page.locator(".tabbar").getByRole("button", { name: "Oggi" }).click();
+  const oggi = page.locator("section[aria-label='Oggi']");
+  await oggi.getByRole("tab", { name: "Flusso" }).click();
+  await oggi.locator(".chip", { hasText: "Per te" }).click();
+  await expect(oggi.locator(".card")).toHaveCount(1);
+  await expect(oggi.locator(".card .match")).toHaveText("astronomia");
+
+  // Riassunto automatico in cima all'articolo.
+  await oggi.locator(".card").click();
+  await expect(page.locator(".reader .ai-summary li")).toHaveText(["Si misura con la parallasse.", "Poi con le Cefeidi.", "Infine con il redshift."]);
+});

@@ -144,3 +144,14 @@ select.input { appearance: none; background-image: linear-gradient(45deg, transp
 .mode-switch { margin: 4px 0 14px; }
 .time-add { display: inline-flex; align-items: center; gap: 6px; }
 .time-input { width: auto; min-height: 36px; padding: 4px 10px; font-family: var(--font-mono); font-size: 14px; }
+.form-ok {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 14px;
+  line-height: 1.45;
+}
+.ai-summary.is-loading { color: var(--ink-3); }
+.set-note + .form-stack { margin-top: 14px; }

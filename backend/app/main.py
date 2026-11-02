@@ -12,12 +12,13 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from pydantic import ValidationError
 
-from .api import account, admin, articles, auth, editions, folders, images, interests, invites, opml, sources
+from .api import account, admin, ai, articles, auth, editions, folders, images, interests, invites, opml, sources
 from .config import VERSION, Settings
 from .deps import AppContext
 from .feeds.extract import Extractor
 from .feeds.fetcher import Fetcher
 from .feeds.net import make_client
+from .ai.relevance import RelevanceWorker
 from .feeds.scheduler import Scheduler
 from .security import same_origin_request
 
@@ -85,6 +86,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         ctx.http = make_client(settings)
         ctx.fetcher = Fetcher(ctx)
         ctx.extractor = Extractor(ctx)
+        ctx.relevance = RelevanceWorker(ctx)
         ctx.scheduler = Scheduler(ctx)
         if settings.scheduler_enabled:
             ctx.scheduler.start()
@@ -136,7 +138,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             conn.execute("SELECT 1").fetchone()
         return {"status": "ok", "version": VERSION}
 
-    for module in (auth, invites, account, admin, folders, sources, opml, articles, editions, interests, images):
+    for module in (auth, invites, account, admin, folders, sources, opml, ai, articles, editions, interests, images):
         app.include_router(module.router)
 
     @app.api_route("/api/{rest:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"], include_in_schema=False)

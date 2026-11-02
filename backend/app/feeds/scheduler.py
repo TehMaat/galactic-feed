@@ -77,6 +77,9 @@ class Scheduler:
         for _ in range(5):
             if not await self.ctx.extractor.extract_pending():
                 break
+        # Filtro AI sugli articoli nuovi, prima di comporre le edizioni.
+        if self.ctx.relevance:
+            await self.ctx.relevance.run()
         # Edizioni arrivate all'orario.
         made = await asyncio.to_thread(edition.run_due, self.ctx)
         for user_id, edition_id in made:

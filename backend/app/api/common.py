@@ -74,6 +74,10 @@ class Prefs(BaseModel):
     # Edizione: accesa o spenta e orari (nel fuso del server, TZ).
     edition: bool = False
     edition_times: list[str] = Field(default_factory=lambda: ["07:30"])
+    # AI: come scegliere le notizie «per te», descrizione per il modello, riassunti.
+    ai_mode: Literal["parole", "ai", "entrambi"] = "parole"
+    ai_text: str = Field(default="", max_length=1500)
+    summaries: bool = True
 
     _t = field_validator("edition_times")(check_times)
 
