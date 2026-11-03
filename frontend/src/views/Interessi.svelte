@@ -51,6 +51,40 @@
     apply(api(`/interests/muted/${w.id}`, { method: "DELETE" }), `«${w.word}» non è più silenziata`);
   }
 
+  const MODES = [["parole", "Parole chiave"], ["ai", "AI"], ["entrambi", "Entrambi"]];
+  const HINTS = {
+    parole: "Un articolo è «per te» se il titolo, l'estratto o le categorie contengono un tuo interesse.",
+    ai: "Un modello AI legge titolo e inizio di ogni articolo e lo confronta con la tua descrizione.",
+    entrambi: "Prima le parole chiave, poi l'AI recupera gli articoli pertinenti che non le contengono.",
+  };
+  const aiOn = $derived(!!data.interests.ai?.enabled);
+  const mode = $derived(session.user?.prefs?.ai_mode || "parole");
+  let aiText = $state(session.user?.prefs?.ai_text || "");
+
+  async function refreshLists() {
+    const [p] = await Promise.all([api("/interests/preview"), loadStream(true), loadCounts()]);
+    data.preview = p;
+  }
+
+  async function setMode(k) {
+    if (k === mode) return;
+    if (await savePrefs({ ai_mode: k })) {
+      toast(k === "parole" ? "Solo parole chiave" : k === "ai" ? "Notizie scelte dall'AI" : "Parole chiave e AI");
+      refreshLists();
+      if (k !== "parole") setTimeout(refreshLists, 8000);
+    }
+  }
+
+  async function saveText() {
+    if (await savePrefs({ ai_text: aiText.trim() })) {
+      toast("Descrizione salvata: l'AI rivaluta le notizie recenti");
+      refreshLists();
+      // L'AI lavora sul server in sottofondo: gli elenchi si aggiornano di nuovo tra poco.
+      setTimeout(refreshLists, 8000);
+      setTimeout(refreshLists, 25000);
+    }
+  }
+
   async function toggleDedupe() {
     await savePrefs({ dedupe: !session.user.prefs.dedupe });
     await Promise.all([loadStream(true), loadCounts()]);
@@ -72,12 +106,24 @@
   <section class="panel">
     <h3>Come scegliere le notizie</h3>
     <div class="segmented" style="--cols:3" role="group" aria-label="Metodo di selezione">
-      <button type="button" aria-pressed="true">Parole chiave</button>
-      <button type="button" aria-pressed="false" disabled title="Nella prossima versione">AI</button>
-      <button type="button" aria-pressed="false" disabled title="Nella prossima versione">Entrambi</button>
+      {#each MODES as [k, label]}
+        <button type="button" aria-pressed={mode === k} disabled={k !== "parole" && !aiOn && mode === "parole"} onclick={() => setMode(k)}>{label}</button>
+      {/each}
     </div>
-    <p class="hint">Un articolo è «per te» se il titolo, l'estratto o le categorie contengono un tuo interesse. La scelta con l'AI arriva nella prossima versione.</p>
+    <p class="hint">{HINTS[mode]}{#if !aiOn} {session.user?.is_admin ? "Per usare l'AI, configurala in Impostazioni → AI." : "Per usare l'AI serve che l'amministratore la configuri."}{/if}</p>
   </section>
+
+  {#if mode !== "parole"}
+    <section class="panel">
+      <h3>Descrivi cosa ti interessa <span class="count">per l'AI</span></h3>
+      <textarea class="textarea" rows="4" maxlength="1500" aria-label="Descrizione degli interessi per l'AI" bind:value={aiText}
+        placeholder="Per esempio: esplorazione spaziale e astronomia, soprattutto le missioni europee; self-hosting e Raspberry Pi. Niente gossip né calcio."></textarea>
+      <p class="hint">Scrivi come lo diresti a un amico. L'AI valuta gli articoli delle ultime 48 ore e poi quelli nuovi, man mano che arrivano.</p>
+      {#if aiText.trim() !== (session.user?.prefs?.ai_text || "").trim()}
+        <button type="button" class="btn-secondary small" onclick={saveText}><Icon name="check" />Salva la descrizione</button>
+      {/if}
+    </section>
+  {/if}
 
   <section class="panel">
     <h3>Parole chiave <span class="count">tocca per la priorità</span></h3>
@@ -123,9 +169,10 @@
       <div><div class="rule-title">Unisci i doppioni</div><div class="rule-sub">La stessa notizia da più fonti compare una volta sola.</div></div>
       <button type="button" class="switch" role="switch" aria-checked={!!session.user?.prefs?.dedupe} aria-label="Unisci i doppioni" onclick={toggleDedupe}></button>
     </div>
-    <div class="rule is-later">
-      <div><div class="rule-title">Riassunto automatico</div><div class="rule-sub">Tre punti in cima agli articoli lunghi, scritti dall'AI. Nella prossima versione.</div></div>
-      <button type="button" class="switch" role="switch" aria-checked="false" aria-label="Riassunto automatico" disabled></button>
+    <div class="rule" class:is-later={!aiOn}>
+      <div><div class="rule-title">Riassunto automatico</div><div class="rule-sub">Tre punti in cima agli articoli lunghi, scritti dall'AI.{#if !aiOn} Serve l'AI configurata.{/if}</div></div>
+      <button type="button" class="switch" role="switch" aria-checked={aiOn && !!session.user?.prefs?.summaries} aria-label="Riassunto automatico" disabled={!aiOn}
+        onclick={() => savePrefs({ summaries: !session.user.prefs.summaries })}></button>
     </div>
   </section>
 </section>

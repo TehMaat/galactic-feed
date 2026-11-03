@@ -22,11 +22,21 @@ from typing import Awaitable, Callable
 log = logging.getLogger("galactic_feed.hooks")
 
 NewArticlesHook = Callable[[int, list[int]], Awaitable[None]]
+EditionReadyHook = Callable[[int, int], Awaitable[None]]
 
 
 class Hooks:
     def __init__(self) -> None:
         self.new_articles: list[NewArticlesHook] = []
+        self.edition_ready: list[EditionReadyHook] = []
+
+    async def emit_edition_ready(self, user_id: int, edition_id: int) -> None:
+        """Un'edizione è pronta (la usano le notifiche push)."""
+        for hook in self.edition_ready:
+            try:
+                await hook(user_id, edition_id)
+            except Exception:
+                log.exception("Errore nell'aggancio edition_ready")
 
     async def emit_new_articles(self, feed_id: int, article_ids: list[int]) -> None:
         if not article_ids:

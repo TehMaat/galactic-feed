@@ -18,7 +18,7 @@ fs.mkdirSync(WORK, { recursive: true });
 
 const SITE = "http://127.0.0.1:8098";
 const now = Date.now();
-const LONG = (lead) => Array.from({ length: 10 }, (_, i) => `<p>${lead} Paragrafo ${i + 1}, con abbastanza testo da sembrare un vero articolo di giornale scritto con calma.</p>`).join("");
+const LONG = (lead) => Array.from({ length: 16 }, (_, i) => `<p>${lead} Paragrafo ${i + 1}, con abbastanza testo da sembrare un vero articolo di giornale scritto con calma.</p>`).join("");
 
 function rss(title, items) {
   const entries = items.map(([t, lead, hours, cat], i) => {
@@ -42,8 +42,35 @@ const pages = {
   ]),
 };
 
+// Un finto servizio AI compatibile con OpenAI (come Ollama): sceglie gli articoli che parlano
+// di galassie e scrive riassunti di tre punti.
+function fakeAi(body) {
+  const system = body.messages[0].content;
+  const prompt = body.messages[1].content;
+  if (system.startsWith("Selezioni notizie")) {
+    const articoli = prompt.split("\n").filter((l) => /^\[\d+\]/.test(l)).map((l) => {
+      const n = Number(l.slice(1, l.indexOf("]")));
+      const yes = /galassi/i.test(l);
+      return { n, pertinenza: yes ? "alta" : "no", tema: yes ? "astronomia" : "" };
+    });
+    return { articoli };
+  }
+  if (system.startsWith("Riassumi")) return { punti: ["Si misura con la parallasse.", "Poi con le Cefeidi.", "Infine con il redshift."] };
+  return { risposta: "ok" };
+}
+
 const site = http.createServer((req, res) => {
   const url = req.url.split("?")[0];
+  if (req.method === "POST" && url === "/v1/chat/completions") {
+    let raw = "";
+    req.on("data", (c) => (raw += c));
+    req.on("end", () => {
+      const body = JSON.parse(raw);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ model: body.model, choices: [{ message: { content: JSON.stringify(fakeAi(body)) }, finish_reason: "stop" }], usage: { prompt_tokens: 100, completion_tokens: 20 } }));
+    });
+    return;
+  }
   if (pages[url]) {
     res.writeHead(200, { "Content-Type": url.endsWith(".xml") ? "application/rss+xml" : "text/html; charset=utf-8" });
     return res.end(pages[url]);

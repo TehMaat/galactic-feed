@@ -1,6 +1,7 @@
 // Stato dell'app e azioni. I componenti leggono da qui e chiamano queste funzioni.
 
 import { api, qs, setUnauthorizedHandler } from "./api.js";
+import { disablePush, setBadge } from "./push.js";
 import { clearAll, enqueue, flushQueue, hasPending, overlay, prepareForUser, refreshCopy, syncSaved } from "./offline.js";
 
 const TABS = { "/": "oggi", "/fonti": "fonti", "/interessi": "interessi", "/salvati": "salvati" };
@@ -46,6 +47,7 @@ export const ui = $state({
   toast: "",
   toastOn: false,
   refreshing: false,
+  oggiMode: "edizione", // edizione · flusso (con l'Edizione accesa)
   online: typeof navigator === "undefined" ? true : navigator.onLine,
 });
 
@@ -69,9 +71,19 @@ export const stream = $state({
 
 export const saved = $state({ items: [], cursor: null, loading: false, error: "", done: false });
 
+// ---------- Edizione ----------
+
+export const edition = $state({ data: null, schedule: null, loading: false, loaded: false, error: "" });
+
+export function editionOn() {
+  return Boolean(session.user?.prefs?.edition);
+}
+
 // Tutti gli articoli caricati, per aggiornare lo stato (letto/salvato) ovunque compaiano.
 function allLists() {
-  return [stream.items, saved.items];
+  const ed = edition.data;
+  const fromEdition = ed ? [...(ed.hero ? [ed.hero] : []), ...ed.sections.flatMap((s) => s.items)] : [];
+  return [stream.items, saved.items, fromEdition];
 }
 
 // ---------- Toast ----------
@@ -131,6 +143,12 @@ export async function boot() {
     if (session.phase === "ready") backOnline();
   });
   window.addEventListener("offline", () => (ui.online = false));
+  // Una notifica push arrivata mentre l'app è aperta: contatori e Edizione si aggiornano.
+  navigator.serviceWorker?.addEventListener("message", (event) => {
+    if (event.data?.type !== "gf-push" || session.phase !== "ready") return;
+    loadCounts();
+    if (event.data.data?.tag === "edizione") loadEdition();
+  });
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible" && session.phase === "ready") {
       sendQueued();
@@ -195,6 +213,9 @@ async function startData(user) {
 export async function logout() {
   // Le azioni fatte offline partono prima di uscire, se c'è la rete.
   if (ui.online) await flushQueue();
+  // Dopo l'uscita questo dispositivo non riceve più notifiche dell'account, né il numero sull'icona.
+  await disablePush().catch(() => {});
+  setBadge(0);
   try {
     await api("/auth/logout", { method: "POST" });
   } catch {
@@ -229,6 +250,7 @@ export function applyTheme(theme) {
   }
 }
 
+/** Salva le preferenze. Restituisce false se il server le rifiuta (e le rimette come prima). */
 export async function savePrefs(changes) {
   const before = { ...session.user.prefs };
   session.user.prefs = { ...session.user.prefs, ...changes };
@@ -240,13 +262,19 @@ export async function savePrefs(changes) {
     session.user.prefs = before;
     applyPrefs(before);
     toast(err.message);
+    return false;
   }
+  if ("edition" in changes || "edition_times" in changes) {
+    if (changes.edition) ui.oggiMode = "edizione";
+    if (editionOn()) loadEdition();
+  }
+  return true;
 }
 
 // ---------- Caricamento ----------
 
 export async function loadAll() {
-  await Promise.all([loadSources(), loadInterests(), loadStream(true), loadCounts()]);
+  await Promise.all([loadSources(), loadInterests(), loadStream(true), loadCounts(), editionOn() ? loadEdition() : null]);
   data.loaded = true;
 }
 
@@ -275,6 +303,7 @@ export async function loadInterests() {
 export async function loadCounts() {
   try {
     data.counts = await api("/articles/counts" + qs({ q: stream.q, show_muted: stream.showMuted }));
+    if (!stream.q) setBadge(data.counts.nonletti);
   } catch {
     /* i contatori non sono essenziali */
   }
@@ -340,11 +369,45 @@ export async function loadSaved(reset = false) {
   }
 }
 
+export async function loadEdition() {
+  edition.loading = true;
+  edition.error = "";
+  try {
+    const r = await api("/editions/latest");
+    edition.data = r.edition ? overlayEdition(r.edition) : null;
+    edition.schedule = r.schedule;
+  } catch (err) {
+    edition.error = err.message;
+  } finally {
+    edition.loading = false;
+    edition.loaded = true;
+  }
+}
+
+function overlayEdition(ed) {
+  overlay([...(ed.hero ? [ed.hero] : []), ...ed.sections.flatMap((s) => s.items)]);
+  return ed;
+}
+
+export async function composeEdition() {
+  edition.loading = true;
+  try {
+    const r = await api("/editions", { method: "POST" });
+    edition.data = overlayEdition(r.edition);
+    edition.schedule = r.schedule;
+  } catch (err) {
+    toast(err.message);
+  } finally {
+    edition.loading = false;
+    edition.loaded = true;
+  }
+}
+
 let lastQuiet = 0;
 async function refreshQuietly() {
   if (Date.now() - lastQuiet < 60000) return;
   lastQuiet = Date.now();
-  await Promise.all([loadCounts(), loadSources()]);
+  await Promise.all([loadCounts(), loadSources(), editionOn() ? loadEdition() : null]);
 }
 
 export async function refreshAll() {

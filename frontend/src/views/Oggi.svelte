@@ -2,9 +2,10 @@
   // Schermata «Oggi». Senza Edizione (arriva nella v2) mostra il Flusso, come nel mockup
   // quando l'Edizione è spenta.
   import Card from "../components/Card.svelte";
+  import Edition from "../components/Edition.svelte";
   import Icon from "../components/Icon.svelte";
   import { folderColor } from "../lib/format.js";
-  import { data, loadStream, markAllRead, openSheet, refreshAll, setFilter, stream, ui } from "../lib/store.svelte.js";
+  import { data, editionOn, loadStream, markAllRead, openSheet, refreshAll, setFilter, stream, ui } from "../lib/store.svelte.js";
 
   let { active } = $props();
   let query = $state(stream.q);
@@ -51,6 +52,7 @@
   });
 
   const today = new Intl.DateTimeFormat("it-IT", { weekday: "long", day: "numeric", month: "long" }).format(new Date()).replace(/^./, (c) => c.toUpperCase());
+  const showEdition = $derived(editionOn() && ui.oggiMode === "edizione");
   const noSources = $derived(data.loaded && data.sources.length === 0);
   const filtering = $derived(stream.q || stream.view !== "tutti" || stream.folder || stream.source);
 </script>
@@ -72,6 +74,16 @@
       <button type="button" class="pill-btn" onclick={() => openSheet("add")}><Icon name="plus" />Aggiungi una fonte</button>
     </div>
   {:else}
+    {#if editionOn()}
+      <div class="segmented mode-switch" role="tablist" aria-label="Modalità di lettura">
+        <button type="button" role="tab" aria-selected={ui.oggiMode === "edizione"} onclick={() => (ui.oggiMode = "edizione")}>Edizione</button>
+        <button type="button" role="tab" aria-selected={ui.oggiMode === "flusso"} onclick={() => (ui.oggiMode = "flusso")}>Flusso</button>
+      </div>
+    {/if}
+  {/if}
+  {#if !noSources && showEdition}
+    <Edition />
+  {:else if !noSources}
     <label class="search">
       <Icon name="search" />
       <input type="search" placeholder="Cerca negli articoli e nelle fonti" autocomplete="off" aria-label="Cerca" value={query} oninput={onSearch} />

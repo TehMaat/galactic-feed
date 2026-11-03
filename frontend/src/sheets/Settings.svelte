@@ -3,6 +3,9 @@
   // seconda versione: le sezioni si vedono già, spente.
   import Icon from "../components/Icon.svelte";
   import Sheet from "../components/Sheet.svelte";
+  import AiSettings from "./AiSettings.svelte";
+  import { folderColor } from "../lib/format.js";
+  import { currentSubscription, disablePush, enablePush, isIos, isStandalone } from "../lib/push.js";
   import { api } from "../lib/api.js";
   import { initials, timeAgoLong } from "../lib/format.js";
   import { TEXT_SIZES, data, logout, savePrefs, session, toast, ui } from "../lib/store.svelte.js";
@@ -24,11 +27,86 @@
   });
 
   const me = $derived(session.user);
+
+  // ---- Notifiche ----
+  let pushOn = $state(false);
+  let pushBusy = $state(false);
+  let pushError = $state("");
+  const notifyFolders = $derived(me?.prefs?.notify_folders || []);
+  const categories = $derived([
+    ...data.folders.map((f) => ({ key: String(f.id), name: f.name, color: folderColor(f.color) })),
+    { key: "none", name: "Senza cartella", color: folderColor("grigio") },
+  ]);
+  const pushNote = $derived(
+    pushError ||
+      (pushOn
+        ? notifyFolders.length
+          ? "Ti avviso quando arriva una notizia per te in queste categorie, al massimo una volta ogni 10 minuti. Sull'icona dell'app compare il numero di non letti."
+          : "Scegli almeno una categoria importante: ti avviso quando arriva una notizia per te."
+        : isIos() && !isStandalone()
+          ? "Su iPhone le notifiche arrivano solo se l'app è aggiunta alla schermata Home (iOS 16.4 o successivo)."
+          : "Ogni dispositivo si accende a parte: telefono, tablet e computer."),
+  );
+
+  $effect(() => {
+    if (ui.sheet === "settings") currentSubscription().then((s) => (pushOn = !!s));
+  });
+
+  async function togglePush() {
+    pushBusy = true;
+    pushError = "";
+    try {
+      if (pushOn) {
+        await disablePush();
+        pushOn = false;
+        toast("Notifiche spente su questo dispositivo");
+      } else {
+        const error = await enablePush();
+        if (error) pushError = error;
+        else {
+          pushOn = true;
+          toast("Notifiche accese su questo dispositivo");
+        }
+      }
+    } finally {
+      pushBusy = false;
+    }
+  }
+
+  function toggleCategory(key) {
+    const next = notifyFolders.includes(key) ? notifyFolders.filter((k) => k !== key) : [...notifyFolders, key];
+    savePrefs({ notify_folders: next });
+  }
+
+  async function testPush() {
+    try {
+      await api("/push/test", { method: "POST" });
+      toast("Notifica di prova inviata");
+    } catch (err) {
+      toast(err.message);
+    }
+  }
+  const edOn = $derived(Boolean(me?.prefs?.edition));
+  const times = $derived(me?.prefs?.edition_times || ["07:30"]);
+  let newTime = $state("19:00");
+
+  async function addTime() {
+    if (!newTime) return;
+    if (times.includes(newTime)) return toast(`L'edizione delle ${newTime} c'è già`);
+    if (await savePrefs({ edition_times: [...times, newTime] })) toast(`Nuova edizione alle ${newTime}`);
+  }
+
+  async function removeTime(t) {
+    if (times.length === 1) return toast("Serve almeno un orario, oppure spegni l'Edizione");
+    if (await savePrefs({ edition_times: times.filter((x) => x !== t) })) toast(`Edizione delle ${t} tolta`);
+  }
   const theme = $derived(me?.prefs?.theme || "auto");
   const lastCheck = $derived(
     data.sources.map((s) => s.last_fetch_at).filter(Boolean).sort().at(-1) || null,
   );
-  const TITLES = { main: "Impostazioni", users: "Utenti e inviti", user: "Utente", password: "Cambia password", sessions: "Dispositivi collegati" };
+  const ai = $derived(data.interests.ai);
+  const aiLabel = $derived(ai?.enabled ? `${ai.kind === "locale" ? "Locale" : "Cloud"} · ${ai.label}` : "Spenta");
+  const TITLES = { ai: "AI", main: "Impostazioni", users: "Utenti e inviti", user: "Utente", password: "Cambia password", sessions: "Dispositivi collegati" };
 
   function go(p) {
     page = p;
@@ -191,24 +269,64 @@
       <p class="set-note">Ogni utente ha fonti, interessi, letti e salvati propri. I feed in comune vengono scaricati una volta sola.</p>
 
       <div class="set-label">Edizione</div>
-      <div class="set-group is-later">
-        <div class="set-row"><span>Componi l'Edizione</span><button type="button" class="switch" role="switch" aria-checked="false" aria-label="Componi l'Edizione" disabled></button></div>
+      <div class="set-group">
+        <div class="set-row"><span>Componi l'Edizione</span>
+          <button type="button" class="switch" role="switch" aria-checked={edOn} aria-label="Componi l'Edizione" onclick={() => savePrefs({ edition: !edOn })}></button>
+        </div>
+        {#if edOn}
+          <div class="set-block">
+            <span class="label">Orari</span>
+            <div class="tags">
+              {#each times as t (t)}
+                <button type="button" class="tag mono" aria-label="Togli l'edizione delle {t}" onclick={() => removeTime(t)}>{t}<Icon name="close" /></button>
+              {/each}
+              {#if times.length < 6}
+                <span class="time-add">
+                  <input type="time" class="input time-input" aria-label="Nuovo orario" bind:value={newTime} />
+                  <button type="button" class="tag" onclick={addTime}><Icon name="plus" />Orario</button>
+                </span>
+              {/if}
+            </div>
+          </div>
+        {/if}
       </div>
-      <p class="set-note">Nella prossima versione: un'edizione in stile newsletter agli orari che scegli, da leggere nell'app.</p>
+      <p class="set-note">{edOn ? "Una selezione delle notizie per te a ogni orario, da leggere nell'app (niente email)." : "Senza Edizione la schermata Oggi mostra solo il Flusso."}</p>
 
       <div class="set-label">Notifiche</div>
-      <div class="set-group is-later">
-        <div class="set-row"><span>Notizie importanti</span><button type="button" class="switch" role="switch" aria-checked="false" aria-label="Notifiche per le notizie importanti" disabled></button></div>
+      <div class="set-group">
+        <div class="set-row"><span>Notifiche su questo dispositivo</span>
+          <button type="button" class="switch" role="switch" aria-checked={pushOn} aria-label="Notifiche su questo dispositivo" disabled={pushBusy} onclick={togglePush}></button>
+        </div>
+        {#if pushOn}
+          <div class="set-block">
+            <span class="label">Categorie importanti</span>
+            <div class="tags">
+              {#each categories as c (c.key)}
+                <button type="button" class="tag" aria-pressed={notifyFolders.includes(c.key)} onclick={() => toggleCategory(c.key)}>
+                  <span class="dot" style="--topic-c:{c.color}"></span>{c.name}
+                </button>
+              {/each}
+            </div>
+          </div>
+          {#if edOn}
+            <div class="set-row"><span>Quando l'Edizione è pronta</span>
+              <button type="button" class="switch" role="switch" aria-checked={!!me.prefs.notify_edition} aria-label="Notifica quando l'Edizione è pronta" onclick={() => savePrefs({ notify_edition: !me.prefs.notify_edition })}></button>
+            </div>
+          {/if}
+          <button type="button" class="set-row as-button" onclick={testPush}><span>Invia una notifica di prova</span><Icon name="bell" /></button>
+        {/if}
       </div>
-      <p class="set-note">Nella prossima versione. Su iPhone le notifiche arrivano solo se l'app è aggiunta alla schermata Home (iOS 16.4 o successivo).</p>
+      <p class="set-note">{pushNote}</p>
 
       <div class="set-label">AI</div>
-      <div class="set-group is-later">
-        <div class="set-row"><span>Fornitore</span>
-          <div class="segmented" role="group" aria-label="Fornitore AI"><button type="button" aria-pressed="false" disabled>Locale</button><button type="button" aria-pressed="false" disabled>Cloud</button></div>
-        </div>
+      <div class="set-group">
+        {#if me.is_admin}
+          <button type="button" class="set-row as-button" onclick={() => go("ai")}><span>Fornitore</span><span class="val">{aiLabel}</span></button>
+        {:else}
+          <div class="set-row"><span>Fornitore</span><span class="val">{aiLabel}</span></div>
+        {/if}
       </div>
-      <p class="set-note">Nella prossima versione: filtri e riassunti con un modello locale (Ollama) o con un servizio cloud, a scelta.</p>
+      <p class="set-note">{ai?.enabled ? "Filtri e riassunti si scelgono negli Interessi." : me.is_admin ? "Filtri e riassunti con un modello locale (Ollama) o con un servizio cloud, a scelta." : "L'AI la configura l'amministratore."}</p>
 
       <div class="set-label">Aspetto</div>
       <div class="set-group">
@@ -272,6 +390,8 @@
         </div>
         {#if newLink}{@render linkBox(newLink)}{/if}
       {/if}
+    {:else if page === "ai"}
+      <AiSettings />
     {:else if page === "password"}
       <form class="form-stack" onsubmit={changePassword}>
         <div class="field"><label for="pw-cur">Password attuale</label><input class="input" id="pw-cur" type="password" autocomplete="current-password" bind:value={pw.current} /></div>

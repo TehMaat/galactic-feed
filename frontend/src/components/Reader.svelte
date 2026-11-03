@@ -12,6 +12,7 @@
   let error = $state("");
   let loading = $state(false);
   let available = $state(false); // c'è una copia sul dispositivo, leggibile senza rete
+  let summary = $state({ points: null, loading: false, error: "" });
   let scroller = $state();
   let backBtn = $state();
 
@@ -35,6 +36,7 @@
         if (cancelled) return;
         article = overlay([r.article])[0];
         checkOffline(id);
+        loadSummary(article);
         if (scroller) scroller.scrollTop = 0;
         const inList = listed(id);
         if (!article.read) {
@@ -56,6 +58,18 @@
       });
     return () => (cancelled = true);
   });
+
+  async function loadSummary(a) {
+    summary = { points: a.summary, loading: false, error: "" };
+    if (a.summary || !a.summary_available || !ui.online) return;
+    summary.loading = true;
+    try {
+      const r = await api(`/articles/${a.id}/summary`, { method: "POST" });
+      if (article?.id === a.id) summary = { points: r.points, loading: false, error: "" };
+    } catch (err) {
+      if (article?.id === a.id) summary = { points: null, loading: false, error: err.message };
+    }
+  }
 
   async function checkOffline(id) {
     const yes = await isAvailableOffline(id);
@@ -143,6 +157,13 @@
       </div>
       {#if article.also_on.length}
         <p class="also-on">Anche su: {article.also_on.map((o) => o.title).join(", ")}</p>
+      {/if}
+      {#if summary.points}
+        <div class="ai-summary"><div class="lbl"><Icon name="spark" />Riassunto automatico</div>
+          <ul>{#each summary.points as p}<li>{p}</li>{/each}</ul>
+        </div>
+      {:else if summary.loading}
+        <div class="ai-summary is-loading" role="status"><div class="lbl"><Icon name="spark" />Riassunto automatico</div>Sto scrivendo il riassunto…</div>
       {/if}
       <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
       <div class="reader-body" onclick={bodyClick}>

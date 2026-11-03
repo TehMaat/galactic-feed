@@ -14,6 +14,8 @@ from ..reading import query
 from ..reading.matching import recompute_user
 from ..reading.query import ArticleFilter
 from ..reading.text import normalize
+from ..ai import config as ai_config
+from .ai import status_payload
 from .common import prefs_with_defaults
 
 router = APIRouter(prefix="/api/interests", tags=["interessi"])
@@ -40,6 +42,7 @@ def _payload(conn: sqlite3.Connection, user: User) -> dict:
         "keywords": [dict(r) for r in keywords],
         "muted": [dict(r) for r in muted],
         "rules": {"dedupe": prefs_with_defaults(user.prefs)["dedupe"]},
+        "ai": status_payload(ai_config.load(conn)),
     }
 
 

@@ -10,6 +10,7 @@ from pydantic import BaseModel, field_validator
 
 from ..db import iso
 from ..deps import AppContext, User, current_user, get_ctx, get_db, user_from_row
+from ..reading.matching import recompute_user
 from .common import Prefs, check_password, clean_display_name, prefs_with_defaults, user_payload
 
 router = APIRouter(prefix="/api/me", tags=["profilo"])
@@ -24,6 +25,13 @@ class PrefsPatch(BaseModel):
     theme: str | None = None
     text_size: float | None = None
     dedupe: bool | None = None
+    edition: bool | None = None
+    edition_times: list[str] | None = None
+    ai_mode: str | None = None
+    ai_text: str | None = None
+    summaries: bool | None = None
+    notify_folders: list[str] | None = None
+    notify_edition: bool | None = None
 
 
 class MePatch(BaseModel):
@@ -34,7 +42,12 @@ class MePatch(BaseModel):
 
 
 @router.patch("")
-def update_me(body: MePatch, user: User = Depends(current_user), conn: sqlite3.Connection = Depends(get_db)):
+def update_me(
+    body: MePatch,
+    user: User = Depends(current_user),
+    conn: sqlite3.Connection = Depends(get_db),
+    ctx: AppContext = Depends(get_ctx),
+):
     display_name = user.display_name
     if body.display_name is not None:
         display_name = body.display_name or user.username
@@ -42,11 +55,19 @@ def update_me(body: MePatch, user: User = Depends(current_user), conn: sqlite3.C
     if body.prefs is not None:
         changes = body.prefs.model_dump(exclude_none=True)
         prefs = Prefs(**{**prefs, **changes}).model_dump()
+    before = prefs_with_defaults(user.prefs)
     with conn:
         conn.execute(
             "UPDATE users SET display_name = ?, prefs = ? WHERE id = ?",
             (display_name, json.dumps(prefs), user.id),
         )
+        if prefs["ai_text"].strip() != before["ai_text"].strip():
+            # Descrizione nuova: l'AI rivaluta gli articoli recenti.
+            conn.execute("DELETE FROM ai_matches WHERE user_id = ?", (user.id,))
+    if prefs["ai_mode"] != before["ai_mode"] or prefs["ai_text"].strip() != before["ai_text"].strip():
+        recompute_user(conn, user.id)
+        if ctx.scheduler:
+            ctx.scheduler.wake()
     row = conn.execute("SELECT * FROM users WHERE id = ?", (user.id,)).fetchone()
     return {"user": user_payload(user_from_row(row))}
 

@@ -133,3 +133,48 @@ registerRoute(
     plugins: [onlyOk, new ExpirationPlugin({ maxEntries: 40 })],
   }),
 );
+
+// ---------- Notifiche push ----------
+// Il server manda { title, body, url, tag, badge }: la notifica e il numero sull'icona.
+
+self.addEventListener("push", (event) => {
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch {
+    data = { body: event.data?.text() };
+  }
+  const shown = self.registration.showNotification(data.title || "Galactic Feed", {
+    body: data.body || "",
+    icon: "/icons/icon-192.png",
+    badge: "/icons/icon-192.png",
+    tag: data.tag,
+    data: { url: data.url || "/" },
+  });
+  // Il numero sull'icona: con l'app aperta lo aggiorna la pagina (che ricarica i contatori),
+  // con l'app chiusa lo mette il service worker.
+  const tell = self.clients.matchAll({ type: "window" }).then((list) => {
+    list.forEach((c) => c.postMessage({ type: "gf-push", data }));
+    if (!list.length && typeof data.badge === "number" && "setAppBadge" in self.navigator) {
+      return (data.badge > 0 ? self.navigator.setAppBadge(data.badge) : self.navigator.clearAppBadge()).catch(() => {});
+    }
+  });
+  event.waitUntil(Promise.allSettled([tell, shown]));
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const url = new URL(event.notification.data?.url || "/", self.location.origin).href;
+  event.waitUntil(
+    (async () => {
+      const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+      for (const client of windows) {
+        if (new URL(client.url).origin === self.location.origin && "focus" in client) {
+          await client.focus();
+          return client.navigate ? client.navigate(url) : undefined;
+        }
+      }
+      return self.clients.openWindow(url);
+    })(),
+  );
+});

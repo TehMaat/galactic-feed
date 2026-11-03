@@ -9,6 +9,8 @@ import sqlite3
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
+from ..ai import config as ai_config
+from ..ai import summary
 from ..db import iso, now
 from ..deps import AppContext, User, current_user, get_ctx, get_db
 from ..reading import query
@@ -140,6 +142,12 @@ def article(
     payload["full_text_status"] = row["full_status"]
     payload["categories"] = json.loads(row["categories"] or "[]")
     payload["site_url"] = row["site_url"]
+    # Riassunto automatico: già pronto, oppure da chiedere con POST /api/articles/{id}/summary.
+    points = summary.cached(conn, article_id)
+    payload["summary"] = points
+    payload["summary_available"] = bool(points) or (
+        prefs_with_defaults(user.prefs)["summaries"] and summary.eligible(row) and ai_config.load(conn).enabled
+    )
     return {"article": payload}
 
 

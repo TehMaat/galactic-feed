@@ -236,3 +236,112 @@ test("offline: salvati e letti restano leggibili, le azioni partono al ritorno d
   await expect.poll(savedOnServer).toBe(0);
   await expect(page.locator(".offline-pill")).toHaveCount(0);
 });
+
+test("Edizione: si accende dalle Impostazioni e si compone", async ({ page }) => {
+  await page.setViewportSize(PHONE);
+  await page.goto("/");
+  await page.getByLabel("Nome utente").fill("anna");
+  await page.getByLabel("Password").fill(PASSWORD);
+  await page.getByRole("button", { name: "Entra" }).click();
+  await expect(page.locator("section[aria-label='Oggi'] .card").first()).toBeVisible();
+
+  await page.getByRole("button", { name: "Impostazioni" }).click();
+  await page.getByRole("switch", { name: "Componi l'Edizione" }).click();
+  await expect(page.locator(".sheet.is-open .tag.mono")).toHaveText(["07:30"]);
+  await page.getByLabel("Nuovo orario").fill("21:15");
+  await page.locator(".sheet.is-open").getByRole("button", { name: "Orario" }).click();
+  await expect(page.locator(".sheet.is-open .tag.mono")).toHaveText(["07:30", "21:15"]);
+  await page.locator(".sheet.is-open").getByRole("button", { name: "Chiudi" }).click();
+
+  // La prima la compone il server al giro successivo; qui la chiediamo subito.
+  const oggi = page.locator("section[aria-label='Oggi']");
+  await expect(oggi.getByRole("tab", { name: "Edizione" })).toHaveAttribute("aria-selected", "true");
+  const compose = oggi.getByRole("button", { name: "Componi adesso" });
+  if (await compose.isVisible()) await compose.click();
+  await expect(oggi.locator(".masthead")).toContainText("n. 1");
+  await expect(oggi.locator(".hero .hero-title")).toHaveText("Perché le prossime missioni lunari puntano tutte al polo sud");
+  await oggi.locator(".hero").click();
+  await expect(page.locator(".reader.is-open .reader-title")).toHaveText("Perché le prossime missioni lunari puntano tutte al polo sud");
+  await page.locator(".reader.is-open").getByRole("button", { name: "Indietro" }).click();
+  await expect(oggi.locator(".hero")).toHaveClass(/is-read/);
+
+  // Il Flusso resta a un tocco.
+  await oggi.getByRole("tab", { name: "Flusso" }).click();
+  await expect(oggi.locator(".card").first()).toBeVisible();
+});
+
+test("AI: l'amministratore la configura, sceglie le notizie e scrive i riassunti", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+  await page.getByLabel("Nome utente").fill("anna");
+  await page.getByLabel("Password").fill(PASSWORD);
+  await page.getByRole("button", { name: "Entra" }).click();
+  await expect(page.locator(".tabbar")).toBeVisible();
+
+  // Impostazioni → AI: Ollama (qui un finto servizio sul sito di prova).
+  await page.getByRole("button", { name: "Impostazioni" }).click();
+  const sheet = page.locator(".sheet.is-open");
+  await sheet.getByRole("button", { name: /Fornitore/ }).click();
+  await sheet.getByRole("button", { name: "Locale" }).click();
+  await sheet.getByLabel("Indirizzo").fill("http://127.0.0.1:8098/v1");
+  await sheet.getByLabel("Modello").fill("finto");
+  await sheet.getByRole("button", { name: "Prova il collegamento" }).click();
+  await expect(sheet.locator(".form-ok")).toContainText("Il modello finto risponde");
+  await sheet.getByRole("button", { name: "Chiudi" }).click();
+
+  // Interessi: scelta con l'AI e descrizione.
+  await page.locator(".tabbar").getByRole("button", { name: "Interessi" }).click();
+  const interessi = page.locator("section[aria-label='Interessi']");
+  await interessi.getByRole("button", { name: "AI", exact: true }).click();
+  await interessi.getByLabel("Descrizione degli interessi per l'AI").fill("Astronomia e cosmologia");
+  await interessi.getByRole("button", { name: "Salva la descrizione" }).click();
+  await expect(page.locator(".toast")).toContainText("Descrizione salvata");
+
+  // Lo scheduler valuta gli articoli subito: in «Per te» arriva quello sulla galassia.
+  await expect.poll(async () => {
+    const r = await (await page.request.get("/api/articles?view=perte")).json();
+    return r.items.map((a) => `${a.title} · ${a.match.keyword}`);
+  }, { timeout: 20_000 }).toEqual(["Come si misura la distanza di una galassia lontana · astronomia"]);
+
+  await page.locator(".tabbar").getByRole("button", { name: "Oggi" }).click();
+  const oggi = page.locator("section[aria-label='Oggi']");
+  await oggi.getByRole("tab", { name: "Flusso" }).click();
+  await oggi.locator(".chip", { hasText: "Per te" }).click();
+  await expect(oggi.locator(".card")).toHaveCount(1);
+  await expect(oggi.locator(".card .match")).toHaveText("astronomia");
+
+  // Riassunto automatico in cima all'articolo.
+  await oggi.locator(".card").click();
+  await expect(page.locator(".reader .ai-summary li")).toHaveText(["Si misura con la parallasse.", "Poi con le Cefeidi.", "Infine con il redshift."]);
+});
+
+test("notifiche: il service worker riceve il messaggio push", async ({ page, context }) => {
+  await page.setViewportSize(PHONE);
+  await page.goto("/");
+  await page.getByLabel("Nome utente").fill("anna");
+  await page.getByLabel("Password").fill(PASSWORD);
+  await page.getByRole("button", { name: "Entra" }).click();
+  await page.waitForFunction(() => Boolean(navigator.serviceWorker.controller));
+
+  // Le impostazioni delle notifiche ci sono; l'iscrizione vera richiede il servizio push di Google.
+  await page.getByRole("button", { name: "Impostazioni" }).click();
+  await expect(page.getByRole("switch", { name: "Notifiche su questo dispositivo" })).toBeVisible();
+  await page.locator(".sheet.is-open").getByRole("button", { name: "Chiudi" }).click();
+
+  // Un messaggio push consegnato al service worker come farebbe il browser.
+  const cdp = await context.newCDPSession(page);
+  const registration = new Promise((resolve) =>
+    cdp.on("ServiceWorker.workerRegistrationUpdated", ({ registrations }) => {
+      const r = registrations.find((x) => x.scopeURL === "http://127.0.0.1:8097/" && !x.isDeleted);
+      if (r) resolve(r.registrationId);
+    }),
+  );
+  await cdp.send("ServiceWorker.enable");
+  const registrationId = await registration;
+  await page.evaluate(() => navigator.serviceWorker.addEventListener("message", (e) => (window.__gfPush = e.data.data)));
+  const payload = { title: "Orbita", body: "Una notizia per te", url: "/?a=1", tag: "art-1", badge: 3 };
+  await cdp.send("ServiceWorker.deliverPushMessage", { origin: "http://127.0.0.1:8097", registrationId, data: JSON.stringify(payload) });
+  // L'app aperta riceve il messaggio dal service worker (la notifica di sistema, in questo
+  // browser senza schermo, non si può mostrare).
+  await expect.poll(() => page.evaluate(() => window.__gfPush || null)).toEqual(payload);
+});

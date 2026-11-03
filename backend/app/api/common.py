@@ -48,12 +48,53 @@ class NewAccount(BaseModel):
     _d = field_validator("display_name")(clean_display_name)
 
 
+TIME_RE = re.compile(r"^([01][0-9]|2[0-3]):[0-5][0-9]$")
+MAX_EDITION_TIMES = 6
+
+
+def check_times(values: list[str]) -> list[str]:
+    """Orari dell'Edizione: «HH:MM», da 1 a 6, senza doppioni, in ordine."""
+    times = sorted({(v or "").strip() for v in values})
+    if not times:
+        raise ValueError("Serve almeno un orario, oppure spegni l'Edizione.")
+    if len(times) > MAX_EDITION_TIMES:
+        raise ValueError(f"Al massimo {MAX_EDITION_TIMES} edizioni al giorno.")
+    for t in times:
+        if not TIME_RE.match(t):
+            raise ValueError("Orario non valido: scrivilo come 07:30.")
+    return times
+
+
 class Prefs(BaseModel):
-    """Preferenze personali. La v2 aggiungerà qui edizione, notifiche e AI."""
+    """Preferenze personali: aspetto, doppioni, Edizione, AI e notifiche."""
 
     theme: Literal["auto", "light", "dark"] = "auto"
     text_size: float = Field(default=1.0, ge=0.85, le=1.3)
     dedupe: bool = True
+    # Edizione: accesa o spenta e orari (nel fuso del server, TZ).
+    edition: bool = False
+    edition_times: list[str] = Field(default_factory=lambda: ["07:30"])
+    # AI: come scegliere le notizie «per te», descrizione per il modello, riassunti.
+    ai_mode: Literal["parole", "ai", "entrambi"] = "parole"
+    ai_text: str = Field(default="", max_length=1500)
+    summaries: bool = True
+    # Notifiche: cartelle importanti (id, oppure «none» per le fonti senza cartella) ed Edizione.
+    notify_folders: list[str] = Field(default_factory=list, max_length=200)
+    notify_edition: bool = True
+
+    _t = field_validator("edition_times")(check_times)
+
+    @field_validator("notify_folders")
+    @classmethod
+    def _folders(cls, values: list[str]) -> list[str]:
+        out = []
+        for v in values:
+            v = str(v).strip()
+            if v != "none" and not v.isdigit():
+                raise ValueError("Cartella non valida.")
+            if v not in out:
+                out.append(v)
+        return out
 
 
 def prefs_with_defaults(stored: dict[str, Any]) -> dict[str, Any]:
