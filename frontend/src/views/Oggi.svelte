@@ -10,7 +10,13 @@
   let { active } = $props();
   let query = $state(stream.q);
   let sentinel = $state();
+  let viewEl = $state();
   let timer;
+
+  // Tocco sul logo: si torna in cima (se si è già in cima non succede altro).
+  $effect(() => {
+    if (ui.homeTick && viewEl && viewEl.scrollTop > 0) viewEl.scrollTo({ top: 0, behavior: "smooth" });
+  });
 
   const VIEWS = [
     ["tutti", "Tutti"],
@@ -57,7 +63,7 @@
   const filtering = $derived(stream.q || stream.view !== "tutti" || stream.folder || stream.source);
 </script>
 
-<section class="view" class:is-entering={active} hidden={!active} aria-label="Oggi">
+<section class="view" bind:this={viewEl} class:is-entering={active} hidden={!active} aria-label="Oggi">
   <header class="large-title">
     <div><h2>Oggi</h2><p class="subtitle">{today}</p></div>
     <div class="topbar-actions">

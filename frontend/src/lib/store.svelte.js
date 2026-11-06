@@ -49,6 +49,7 @@ export const ui = $state({
   refreshing: false,
   oggiMode: "edizione", // edizione · flusso (con l'Edizione accesa)
   online: typeof navigator === "undefined" ? true : navigator.onLine,
+  homeTick: 0, // cresce a ogni tocco sul logo: Oggi torna in cima
 });
 
 // ---------- Flusso ----------
@@ -116,6 +117,17 @@ export function switchTab(tab) {
   ui.sheet = null;
   if (!isWide()) ui.reader = null;
   writeLocation(true);
+}
+
+/** Il logo «galactic feed»: torna a Oggi, chiude lettore e schede, scorre in cima. */
+export function goHome() {
+  const tabChanged = ui.tab !== "oggi";
+  ui.sheet = null;
+  ui.sheetArg = null;
+  ui.reader = null;
+  ui.tab = "oggi";
+  writeLocation(tabChanged);
+  ui.homeTick += 1;
 }
 
 export function isWide() {
