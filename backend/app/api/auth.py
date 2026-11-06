@@ -7,11 +7,12 @@ import sqlite3
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel
 
+from .. import instance
 from ..config import VERSION
 from ..db import now
 from ..deps import AppContext, get_ctx, get_db, load_session_user, user_from_row
-from ..security import SESSION_COOKIE, create_session, token_hash
-from .common import NewAccount, clear_session_cookie, client_ip, set_session_cookie, user_agent, user_payload
+from ..security import SESSION_COOKIE, token_hash
+from .common import NewAccount, clear_session_cookie, client_ip, set_session_cookie, start_session, user_payload
 
 router = APIRouter(prefix="/api/auth", tags=["accesso"])
 
@@ -23,9 +24,15 @@ def users_exist(conn: sqlite3.Connection) -> bool:
 
 
 @router.get("/state")
-def state(request: Request, conn: sqlite3.Connection = Depends(get_db), ctx: AppContext = Depends(get_ctx)):
+def state(
+    request: Request, response: Response, conn: sqlite3.Connection = Depends(get_db), ctx: AppContext = Depends(get_ctx)
+):
     """Cosa deve mostrare la PWA all'apertura: primo avvio, accesso o app."""
     user = load_session_user(request, conn, ctx)
+    if user and user.remember:
+        # A ogni apertura il cookie di una sessione «ricordata» riparte da capo, come la sessione sul server.
+        seconds = instance.session_seconds(conn, ctx.settings, True)
+        set_session_cookie(request, response, request.cookies[SESSION_COOKIE], seconds)
     return {
         "setup_needed": not users_exist(conn),
         "user": user_payload(user) if user else None,
@@ -70,8 +77,7 @@ def setup(
     if cur.rowcount == 0:
         raise HTTPException(status_code=409, detail="L'amministratore esiste già: entra con il tuo account.")
     ctx.clear_setup_code()
-    token = create_session(conn, cur.lastrowid, user_agent(request), ctx.settings.session_days)
-    set_session_cookie(request, response, token, ctx)
+    start_session(request, response, conn, ctx, cur.lastrowid, remember=True)
     row = conn.execute("SELECT * FROM users WHERE id = ?", (cur.lastrowid,)).fetchone()
     return {"user": user_payload(user_from_row(row))}
 
@@ -79,6 +85,8 @@ def setup(
 class LoginBody(BaseModel):
     username: str
     password: str
+    # «Ricordami»: la sessione resta anche chiudendo il browser.
+    remember: bool = False
 
 
 @router.post("/login")
@@ -103,8 +111,7 @@ def login(
     if ctx.passwords.needs_rehash(row["password_hash"]):
         with conn:
             conn.execute("UPDATE users SET password_hash = ? WHERE id = ?", (ctx.passwords.hash(body.password), row["id"]))
-    token = create_session(conn, row["id"], user_agent(request), ctx.settings.session_days)
-    set_session_cookie(request, response, token, ctx)
+    start_session(request, response, conn, ctx, row["id"], remember=body.remember)
     return {"user": user_payload(user_from_row(row))}
 
 

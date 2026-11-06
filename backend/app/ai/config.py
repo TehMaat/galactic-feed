@@ -14,6 +14,8 @@ import sqlite3
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
+from ..db import get_setting, set_setting  # noqa: F401 (usate anche da api/ai.py)
+
 PROVIDERS = {
     "ollama": {"kind": "locale", "label": "Ollama (locale)", "base_url": "http://ollama:11434/v1", "model": "", "needs_key": False},
     "openai": {"kind": "cloud", "label": "OpenAI o compatibile", "base_url": "https://api.openai.com/v1", "model": "", "needs_key": True},
@@ -47,21 +49,6 @@ class AIConfig:
     @property
     def label(self) -> str:
         return PROVIDERS[self.provider]["label"] if self.provider in PROVIDERS else ""
-
-
-def get_setting(conn: sqlite3.Connection, key: str, default: str = "") -> str:
-    row = conn.execute("SELECT value FROM app_settings WHERE key = ?", (key,)).fetchone()
-    return row["value"] if row else default
-
-
-def set_setting(conn: sqlite3.Connection, key: str, value: str | None) -> None:
-    if value is None:
-        conn.execute("DELETE FROM app_settings WHERE key = ?", (key,))
-    else:
-        conn.execute(
-            "INSERT INTO app_settings (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value",
-            (key, value),
-        )
 
 
 def load(conn: sqlite3.Connection) -> AIConfig:

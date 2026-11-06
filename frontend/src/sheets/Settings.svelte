@@ -10,7 +10,7 @@
   import { initials, timeAgoLong } from "../lib/format.js";
   import { TEXT_SIZES, data, logout, savePrefs, session, toast, ui } from "../lib/store.svelte.js";
 
-  let page = $state("main"); // main · users · user · password · sessions
+  let page = $state("main"); // main · users · user · access · ai · password · sessions
   let users = $state([]);
   let invites = $state([]);
   let newLink = $state(null);
@@ -18,6 +18,7 @@
   let sessions = $state([]);
   let pw = $state({ current: "", next: "", repeat: "" });
   let pwError = $state("");
+  let instance = $state(null); // impostazioni dell'istanza (solo amministratore)
 
   $effect(() => {
     if (ui.sheet === "settings") {
@@ -106,12 +107,13 @@
   );
   const ai = $derived(data.interests.ai);
   const aiLabel = $derived(ai?.enabled ? `${ai.kind === "locale" ? "Locale" : "Cloud"} · ${ai.label}` : "Spenta");
-  const TITLES = { ai: "AI", main: "Impostazioni", users: "Utenti e inviti", user: "Utente", password: "Cambia password", sessions: "Dispositivi collegati" };
+  const TITLES = { ai: "AI", access: "Accesso", main: "Impostazioni", users: "Utenti e inviti", user: "Utente", password: "Cambia password", sessions: "Dispositivi collegati" };
 
   function go(p) {
     page = p;
     if (p === "users") loadUsers();
     if (p === "sessions") loadSessions();
+    if (p === "access") loadInstance();
     if (p === "password") {
       pw = { current: "", next: "", repeat: "" };
       pwError = "";
@@ -214,6 +216,41 @@
     }
   }
 
+  // ---- Accesso (amministratore): durata delle sessioni ----
+  async function loadInstance() {
+    try {
+      instance = (await api("/admin/settings")).settings;
+    } catch (err) {
+      toast(err.message);
+    }
+  }
+
+  async function saveInstance(key, value, message) {
+    try {
+      instance = (await api("/admin/settings", { method: "PATCH", body: { [key]: value } })).settings;
+      toast(message);
+    } catch (err) {
+      toast(err.message);
+    }
+  }
+
+  function durationLabel(n, unit) {
+    if (unit === "ore") return n === 1 ? "1 ora" : `${n} ore`;
+    if (n === 7) return "1 settimana";
+    if (n === 365) return "1 anno";
+    return n === 1 ? "1 giorno" : `${n} giorni`;
+  }
+
+  function originNote(opt) {
+    if (opt.origin === "gui") return `Scelto qui. Predefinito: ${durationLabel(opt.env_value ?? opt.default, opt.unit)}.`;
+    if (opt.origin === "env") return `Dalla variabile d'ambiente ${opt.env}.`;
+    return "Valore predefinito.";
+  }
+
+  function choicesOf(opt) {
+    return opt.choices.includes(opt.value) ? opt.choices : [...opt.choices, opt.value].sort((a, b) => a - b);
+  }
+
   async function loadSessions() {
     try {
       sessions = (await api("/me/sessions")).sessions;
@@ -226,6 +263,11 @@
     await api(`/me/sessions/${s.id}`, { method: "DELETE" });
     toast("Dispositivo scollegato");
     loadSessions();
+  }
+
+  function expiry(s) {
+    const when = new Date(s.expires_at).toLocaleString("it-IT", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" });
+    return s.remember ? `ricordato, scade il ${when} se non lo usi` : `fino alla chiusura del browser, al massimo il ${when}`;
   }
 
   function device(ua) {
@@ -261,6 +303,7 @@
         </div>
         {#if me.is_admin}
           <button type="button" class="link-row" onclick={() => go("users")}><Icon name="plus" />Utenti e inviti</button>
+          <button type="button" class="link-row" onclick={() => go("access")}><Icon name="key" />Accesso e durata delle sessioni</button>
         {/if}
         <button type="button" class="link-row" onclick={() => go("password")}><Icon name="key" />Cambia password</button>
         <button type="button" class="link-row" onclick={() => go("sessions")}><Icon name="devices" />Dispositivi collegati</button>
@@ -390,6 +433,38 @@
         </div>
         {#if newLink}{@render linkBox(newLink)}{/if}
       {/if}
+    {:else if page === "access"}
+      {#if instance}
+        {@const rem = instance.remember_days}
+        {@const ses = instance.session_hours}
+        <div class="set-label">Con «Ricordami»</div>
+        <div class="set-group">
+          <div class="set-row"><label for="remember-days">La sessione dura</label>
+            <select class="input" id="remember-days" value={rem.value} onchange={(e) => saveInstance("remember_days", Number(e.target.value), "Durata di «Ricordami» aggiornata")}>
+              {#each choicesOf(rem) as n}<option value={n}>{durationLabel(n, rem.unit)}</option>{/each}
+            </select>
+          </div>
+          {#if rem.origin === "gui"}
+            <button type="button" class="set-row as-button" onclick={() => saveInstance("remember_days", null, "Durata predefinita")}><span>Torna al valore predefinito</span><Icon name="refresh" /></button>
+          {/if}
+        </div>
+        <p class="set-note">Dall'ultima volta che si usa l'app su quel dispositivo. {originNote(rem)}</p>
+
+        <div class="set-label">Senza «Ricordami»</div>
+        <div class="set-group">
+          <div class="set-row"><label for="session-hours">Esce dopo</label>
+            <select class="input" id="session-hours" value={ses.value} onchange={(e) => saveInstance("session_hours", Number(e.target.value), "Durata delle sessioni aggiornata")}>
+              {#each choicesOf(ses) as n}<option value={n}>{durationLabel(n, ses.unit)} senza usarla</option>{/each}
+            </select>
+          </div>
+          {#if ses.origin === "gui"}
+            <button type="button" class="set-row as-button" onclick={() => saveInstance("session_hours", null, "Durata predefinita")}><span>Torna al valore predefinito</span><Icon name="refresh" /></button>
+          {/if}
+        </div>
+        <p class="set-note">La sessione finisce anche chiudendo il browser. {originNote(ses)} Le nuove durate valgono subito; le sessioni già aperte si adeguano al prossimo utilizzo.</p>
+      {:else}
+        <p class="loading">Carico le impostazioni…</p>
+      {/if}
     {:else if page === "ai"}
       <AiSettings />
     {:else if page === "password"}
@@ -404,12 +479,12 @@
     {:else if page === "sessions"}
       <div class="set-group">
         {#each sessions as s (s.id)}
-          <div class="set-row"><span>{device(s.user_agent)}{#if s.current} <span class="type-tag">questo</span>{/if}<br /><small class="muted">ultimo uso {timeAgoLong(s.last_seen_at)}</small></span>
+          <div class="set-row"><span>{device(s.user_agent)}{#if s.current} <span class="type-tag">questo</span>{/if}<br /><small class="muted">ultimo uso {timeAgoLong(s.last_seen_at)} · {expiry(s)}</small></span>
             {#if !s.current}<button type="button" class="icon-btn" aria-label="Scollega questo dispositivo" onclick={() => endSession(s)}><Icon name="close" /></button>{/if}
           </div>
         {/each}
       </div>
-      <p class="set-note">Se perdi un telefono, scollegalo da qui: dovrà rientrare con la password.</p>
+      <p class="set-note">Se perdi un telefono, scollegalo da qui: dovrà rientrare con la password. Ogni utilizzo sposta in avanti la scadenza.</p>
     {/if}
   {/if}
 </Sheet>

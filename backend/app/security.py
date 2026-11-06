@@ -21,7 +21,8 @@ from .config import Settings
 from .db import now
 
 SESSION_COOKIE = "gf_session"
-# Il cookie si rinnova al massimo una volta l'ora, per non scrivere a ogni richiesta.
+# La scadenza della sessione si sposta in avanti al massimo una volta l'ora (o più spesso
+# per le sessioni molto brevi), per non scrivere nel database a ogni richiesta.
 SESSION_TOUCH_SECONDS = 3600
 
 
@@ -63,14 +64,15 @@ def new_setup_code() -> str:
     return f"{secrets.randbelow(1_000_000):06d}"
 
 
-def create_session(conn: sqlite3.Connection, user_id: int, user_agent: str, days: int) -> str:
+def create_session(conn: sqlite3.Connection, user_id: int, user_agent: str, seconds: int, remember: bool = True) -> str:
+    """Nuova sessione che scade dopo `seconds` senza utilizzo. Restituisce il token per il cookie."""
     token = new_token()
     ts = now()
     with conn:
         conn.execute(
-            "INSERT INTO sessions (token_hash, user_id, created_at, last_seen_at, expires_at, user_agent)"
-            " VALUES (?, ?, ?, ?, ?, ?)",
-            (token_hash(token), user_id, ts, ts, ts + days * 86400, (user_agent or "")[:300]),
+            "INSERT INTO sessions (token_hash, user_id, created_at, last_seen_at, expires_at, user_agent, remember)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (token_hash(token), user_id, ts, ts, ts + seconds, (user_agent or "")[:300], int(remember)),
         )
         conn.execute("UPDATE users SET last_seen_at = ? WHERE id = ?", (ts, user_id))
     return token

@@ -96,7 +96,7 @@ SAVED = "EXISTS (SELECT 1 FROM user_articles ua WHERE ua.article_id = articles.i
 
 
 def cleanup(ctx) -> None:
-    """Toglie gli articoli troppo vecchi e i feed che nessuno segue più. I salvati restano sempre."""
+    """Toglie gli articoli troppo vecchi, i feed che nessuno segue più e le sessioni scadute. I salvati restano sempre."""
     limit = now() - ctx.settings.retention_days * 86400
     with ctx.db.session() as conn, conn:
         conn.execute(f"DELETE FROM articles WHERE published_at < ? AND fetched_at < ? AND NOT {SAVED}", (limit, limit))
@@ -106,3 +106,5 @@ def cleanup(ctx) -> None:
             "DELETE FROM feeds WHERE NOT EXISTS (SELECT 1 FROM subscriptions s WHERE s.feed_id = feeds.id)"
             " AND NOT EXISTS (SELECT 1 FROM articles a WHERE a.feed_id = feeds.id)"
         )
+        # Sessioni scadute (soprattutto quelle senza «Ricordami», che durano poche ore).
+        conn.execute("DELETE FROM sessions WHERE expires_at < ?", (now(),))

@@ -19,6 +19,8 @@ services:
       # Facoltative (vedi il README):
       # RETENTION_DAYS: "90"
       # BLOCK_PRIVATE_NETWORKS: "false"
+      # REMEMBER_DAYS: "90"
+      # SESSION_HOURS: "12"
       # FORWARDED_ALLOW_IPS: "*"
       # LOG_LEVEL: "info"
     volumes:

@@ -109,7 +109,7 @@ Fuori da `/api`: la PWA, `/manifest.webmanifest`, `/sw.js`, `/icons/*`. Devono r
 
 - **Primo avvio protetto**: per creare l'amministratore serve un codice di 6 cifre scritto nel log del server (`docker compose logs galactic-feed`). Il codice cambia a ogni riavvio e dopo troppi tentativi sbagliati.
 - **Inviti**: link valido 48 ore, utilizzabile una volta. Lo stesso meccanismo reimposta la password di un utente.
-- **Sessioni**: cookie `gf_session` HttpOnly, SameSite=Lax, Secure dietro HTTPS; durata 90 giorni, rinnovata con l'uso. Le richieste che modificano dati sono accettate solo dalla stessa origine (header `Sec-Fetch-Site` / `Origin`). Limite ai tentativi di login.
+- **Sessioni**: cookie `gf_session` HttpOnly, SameSite=Lax, Secure dietro HTTPS. Con «Ricordami» il cookie dura 90 giorni (`REMEMBER_DAYS`); senza, è un cookie di sessione che sparisce chiudendo il browser e il server chiude la sessione dopo 12 ore senza utilizzo (`SESSION_HOURS`). Entrambe le durate si rinnovano con l'uso e l'amministratore le cambia dall'app (tabella `app_settings`, chiavi `instance.*`: valore da GUI → variabile d'ambiente → predefinito, vedi `backend/app/instance.py`). Le richieste che modificano dati sono accettate solo dalla stessa origine (header `Sec-Fetch-Site` / `Origin`). Limite ai tentativi di login.
 - **Fetcher**: ETag e Last-Modified, timeout 20 s, al massimo 4 download in parallelo, user agent `GalacticFeed/<versione> (+PUBLIC_URL)`, rispetto di `Retry-After`, controlli diradati in caso di errore fino a uno al giorno, messaggi d'errore chiari in italiano. L'intervallo di un feed seguito da più persone è il più breve tra quelli scelti.
 - **Testo completo**: se il feed dà solo un estratto, il server estrae il testo con trafilatura all'arrivo dell'articolo. L'HTML viene ripulito: niente script, pubblicità o link per commentare.
 - **YouTube**: dal link del canale o da `@nome` il server ricava il feed pubblico.
@@ -133,5 +133,7 @@ Fuori da `/api`: la PWA, `/manifest.webmanifest`, `/sw.js`, `/icons/*`. Devono r
 | `DATA_DIR` | `/data` | Cartella del database |
 | `RETENTION_DAYS` | `90` | Giorni dopo cui si cancellano gli articoli non salvati |
 | `BLOCK_PRIVATE_NETWORKS` | `false` | Vieta fonti su indirizzi della rete locale |
+| `REMEMBER_DAYS` | `90` | Giorni di una sessione con «Ricordami» (modificabile da GUI) |
+| `SESSION_HOURS` | `12` | Ore senza utilizzo dopo cui chiude una sessione senza «Ricordami» (modificabile da GUI) |
 | `FORWARDED_ALLOW_IPS` | `*` | Da quali indirizzi accettare gli header `X-Forwarded-*` |
 | `LOG_LEVEL` | `info` | Dettaglio del log |

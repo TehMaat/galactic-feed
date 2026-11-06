@@ -9,8 +9,8 @@ from pydantic import BaseModel, field_validator
 
 from ..db import iso, now
 from ..deps import AppContext, get_ctx, get_db, user_from_row
-from ..security import create_session, new_token, token_hash
-from .common import NewAccount, check_password, set_session_cookie, user_agent, user_payload
+from ..security import new_token, token_hash
+from .common import NewAccount, check_password, start_session, user_payload
 
 router = APIRouter(prefix="/api/invites", tags=["inviti"])
 
@@ -136,6 +136,6 @@ def accept(
     user_row = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
     if user_row["disabled"]:
         raise HTTPException(status_code=403, detail="Questo account è disattivato. Chiedi all'amministratore.")
-    session = create_session(conn, user_id, user_agent(request), ctx.settings.session_days)
-    set_session_cookie(request, response, session, ctx)
+    # Chi crea l'account (o sceglie la password) su questo dispositivo resta collegato, come con «Ricordami».
+    start_session(request, response, conn, ctx, user_id, remember=True)
     return {"user": user_payload(user_from_row(user_row))}

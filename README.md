@@ -89,9 +89,13 @@ Si impostano con le variabili d'ambiente nel `docker-compose.yml`.
 | `TZ` | `Europe/Rome` | Fuso orario del server e del log |
 | `RETENTION_DAYS` | `90` | Dopo quanti giorni si cancellano gli articoli non salvati |
 | `BLOCK_PRIVATE_NETWORKS` | `false` | Con `true` non si possono aggiungere fonti della rete di casa |
+| `REMEMBER_DAYS` | `90` | Durata di un accesso con «Ricordami», in giorni dall'ultimo utilizzo |
+| `SESSION_HOURS` | `12` | Senza «Ricordami»: dopo quante ore senza usare l'app bisogna rientrare |
 | `FORWARDED_ALLOW_IPS` | `*` | Da quali indirizzi accettare gli header `X-Forwarded-*` (vedi sotto) |
 | `LOG_LEVEL` | `info` | Dettaglio del log (`debug`, `info`, `warning`) |
 | `PORT` | `8080` | Porta interna del container |
+
+La durata delle sessioni si cambia anche dall'app, senza riavviare: **Impostazioni → Accesso e durata delle sessioni** (solo l'amministratore). Il valore scelto lì vale più della variabile d'ambiente.
 
 ## Edizione, AI e notifiche
 

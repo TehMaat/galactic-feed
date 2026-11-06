@@ -155,3 +155,9 @@ select.input { appearance: none; background-image: linear-gradient(45deg, transp
 }
 .ai-summary.is-loading { color: var(--ink-3); }
 .set-note + .form-stack { margin-top: 14px; }
+
+/* Casella «Ricordami» al login */
+.check { display: flex; align-items: flex-start; gap: 10px; font-size: 15px; font-weight: 600; cursor: pointer; }
+.check input { width: 20px; height: 20px; margin: 1px 0 0; flex: none; accent-color: var(--accent); }
+.check small { display: block; margin-top: 2px; font-size: 13px; font-weight: 400; color: var(--ink-3); }
+.set-row select.input { width: auto; flex: none; min-width: 0; padding-block: 6px; }
