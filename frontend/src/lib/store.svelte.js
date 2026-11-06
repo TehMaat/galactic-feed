@@ -249,7 +249,7 @@ export async function logout() {
 export function applyPrefs(prefs) {
   if (!prefs) return;
   applyTheme(prefs.theme);
-  applyLook({ accent: prefs.accent });
+  applyLook({ accent: prefs.accent, font: prefs.font, font_read: prefs.font_read });
 }
 
 // Colore della barra del browser (meta theme-color): segue lo sfondo del tema in uso.
@@ -267,7 +267,11 @@ export function applyTheme(theme) {
 }
 
 // Aspetto (data-* su <html>, letti dal CSS in base.css). Il valore predefinito toglie l'attributo.
-const LOOK = { accent: ["accent", "gf-accent", "galassia"] };
+const LOOK = {
+  accent: ["accent", "gf-accent", "galassia"],
+  font: ["font", "gf-font", "galactic"],
+  font_read: ["read", "gf-read", "serif"],
+};
 
 export function applyLook(values) {
   const root = document.documentElement;

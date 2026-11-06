@@ -44,7 +44,11 @@
   --c-azzurro: #0B7896;
   --c-grigio: #646A84;
 
-  --font-display: "Unbounded", "Arial Black", system-ui, sans-serif;
+  /* Font: --font-brand resta sempre (nome dell'app); gli altri cambiano con data-font e
+     data-read, più sotto. */
+  --font-brand: "Unbounded", "Arial Black", system-ui, sans-serif;
+  --font-system: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-display: var(--font-brand);
   --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-read: "Newsreader", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
   --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
@@ -168,6 +172,23 @@
     --acc-d: AccentColor; --acc-on-d: AccentColorText; --acc-soft-d: color-mix(in srgb, AccentColor 14%, transparent);
   }
 }
+
+/* ---------- Font ----------
+   galactic (predefinito): titoli in Unbounded, interfaccia nel font del sistema, articoli in Newsreader.
+   sistema: il font del dispositivo ovunque (San Francisco su iPhone e Mac, Roboto su Android…).
+   inter e leggibile (Atkinson Hyperlegible): inclusi nell'app, funzionano anche offline. */
+:root[data-font="sistema"] { --font-ui: var(--font-system); --font-display: var(--font-system); }
+:root[data-font="inter"] {
+  --font-ui: "Inter Variable", "Inter", var(--font-system);
+  --font-display: "Inter Variable", "Inter", var(--font-system);
+}
+:root[data-font="leggibile"] {
+  --font-ui: "Atkinson Hyperlegible", var(--font-system);
+  --font-display: "Atkinson Hyperlegible", var(--font-system);
+}
+/* Testo degli articoli: serif (Newsreader, predefinito), lo stesso font dell'interfaccia, o quello del sistema. */
+:root[data-read="sans"] { --font-read: var(--font-ui); }
+:root[data-read="sistema"] { --font-read: var(--font-system); }
 
 *, *::before, *::after { box-sizing: border-box; }
 [hidden] { display: none !important; }

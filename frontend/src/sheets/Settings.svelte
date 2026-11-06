@@ -8,7 +8,7 @@
   import { currentSubscription, disablePush, enablePush, isIos, isStandalone } from "../lib/push.js";
   import { api } from "../lib/api.js";
   import { ACCENTS, initials, timeAgoLong } from "../lib/format.js";
-  import { TEXT_SIZES, data, logout, savePrefs, session, toast, ui } from "../lib/store.svelte.js";
+  import { data, logout, savePrefs, session, toast, ui } from "../lib/store.svelte.js";
 
   let page = $state("main"); // main · users · user · access · ai · password · sessions
   let users = $state([]);
@@ -104,6 +104,21 @@
   const theme = $derived(me?.prefs?.theme || "auto");
   const accent = $derived(me?.prefs?.accent || "galassia");
   const systemAccent = typeof CSS !== "undefined" && CSS.supports?.("color", "AccentColor");
+  const font = $derived(me?.prefs?.font || "galactic");
+  const fontRead = $derived(me?.prefs?.font_read || "serif");
+  // Ogni scelta è scritta nel suo font, così si vede subito com'è.
+  const FONTS = [
+    ["galactic", "Galactic", "var(--font-brand)"],
+    ["sistema", "Sistema", "var(--font-system)"],
+    ["inter", "Inter", '"Inter Variable", var(--font-system)'],
+    ["leggibile", "Alta leggibilità", '"Atkinson Hyperlegible", var(--font-system)'],
+  ];
+  const READ_FONTS = [
+    ["serif", "Serif", '"Newsreader", Georgia, serif'],
+    ["sans", "Come l'interfaccia", "var(--font-ui)"],
+    ["sistema", "Sistema", "var(--font-system)"],
+  ];
+  const SIZES = [[0.92, "Piccolo"], [1, "Normale"], [1.12, "Grande"]];
   const lastCheck = $derived(
     data.sources.map((s) => s.last_fetch_at).filter(Boolean).sort().at(-1) || null,
   );
@@ -278,10 +293,6 @@
     return br ? `${os} · ${br}` : os;
   }
 
-  function nextTextSize() {
-    const i = TEXT_SIZES.indexOf(me.prefs.text_size);
-    savePrefs({ text_size: TEXT_SIZES[(i + 1) % TEXT_SIZES.length] });
-  }
 </script>
 
 {#snippet linkBox(link)}
@@ -391,14 +402,36 @@
             <button type="button" class="swatch is-system" aria-pressed={accent === "system"} aria-label="Colore del sistema" title="Colore del sistema" onclick={() => savePrefs({ accent: "system" })}><Icon name="check" /></button>
           </div>
         </div>
-        <button type="button" class="set-row as-button" onclick={nextTextSize}><span>Dimensione del testo</span><span class="val">{Math.round((me.prefs.text_size || 1) * 100)}%</span></button>
+        <div class="set-block">
+          <span class="label" id="font-label">Font</span>
+          <div class="tags" role="group" aria-labelledby="font-label">
+            {#each FONTS as [k, label, family] (k)}
+              <button type="button" class="tag" style="font-family:{family}" aria-pressed={font === k} onclick={() => savePrefs({ font: k })}>{label}</button>
+            {/each}
+          </div>
+        </div>
+        <div class="set-block">
+          <span class="label" id="read-label">Testo degli articoli</span>
+          <div class="tags" role="group" aria-labelledby="read-label">
+            {#each READ_FONTS as [k, label, family] (k)}
+              <button type="button" class="tag" style="font-family:{family}" aria-pressed={fontRead === k} onclick={() => savePrefs({ font_read: k })}>{label}</button>
+            {/each}
+          </div>
+        </div>
+        <div class="set-row"><span>Dimensione del testo</span>
+          <div class="segmented" style="--cols:3" role="group" aria-label="Dimensione del testo">
+            {#each SIZES as [v, l]}
+              <button type="button" aria-pressed={(me.prefs.text_size || 1) === v} onclick={() => savePrefs({ text_size: v })}>{l}</button>
+            {/each}
+          </div>
+        </div>
       </div>
       <p class="set-note">
         {accent === "system"
           ? systemAccent
             ? "Colore del sistema: lo prende dalle impostazioni del dispositivo."
             : "Questo browser non fa conoscere il colore del sistema (succede su iPhone, iPad e Android): resta il colore Galassia."
-          : "Tema, colore e font valgono su tutti i tuoi dispositivi."}
+          : "Tema, colore, font e dimensione del testo valgono su tutti i tuoi dispositivi. «Galactic» usa Unbounded per i titoli; «Sistema» il font del dispositivo."}
       </p>
 
       <div class="set-label">Server</div>

@@ -76,6 +76,10 @@ class Prefs(BaseModel):
 
     theme: Literal["auto", "light", "dark"] = "auto"
     accent: Literal[ACCENTS] = "galassia"
+    # Font dell'interfaccia (galactic: titoli in Unbounded; sistema: quello del dispositivo;
+    # inter e leggibile: inclusi nell'app) e del testo degli articoli.
+    font: Literal["galactic", "sistema", "inter", "leggibile"] = "galactic"
+    font_read: Literal["serif", "sans", "sistema"] = "serif"
     text_size: float = Field(default=1.0, ge=0.85, le=1.3)
     dedupe: bool = True
     # Edizione: accesa o spenta e orari (nel fuso del server, TZ).

@@ -73,6 +73,17 @@ def test_accent_pref(admin, app):
     assert admin.patch("/api/me", json={"prefs": {"accent": "#ff0000"}}).status_code == 422
 
 
+def test_font_prefs(admin):
+    """Font dell'interfaccia e del testo degli articoli, salvati nell'account (issue #15)."""
+    prefs = admin.get("/api/me").json()["user"]["prefs"]
+    assert (prefs["font"], prefs["font_read"]) == ("galactic", "serif")
+    r = admin.patch("/api/me", json={"prefs": {"font": "sistema", "font_read": "sans"}})
+    prefs = r.json()["user"]["prefs"]
+    assert (prefs["font"], prefs["font_read"]) == ("sistema", "sans")
+    assert admin.patch("/api/me", json={"prefs": {"font": "Comic Sans"}}).status_code == 422
+    assert admin.patch("/api/me", json={"prefs": {"font_read": "mono"}}).status_code == 422
+
+
 def test_change_password_logs_out_other_devices(admin, app):
     phone = new_client(app)
     phone.post("/api/auth/login", json={"username": "anna", "password": PASSWORD})
