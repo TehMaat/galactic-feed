@@ -2,7 +2,7 @@ import pytest
 
 from app.feeds.net import FetchError, normalize_input_url
 from app.feeds.parser import NotAFeed, parse_feed
-from app.feeds.sanitize import canonical_url, clean_html, excerpt
+from app.feeds.sanitize import canonical_url, clean_html, drop_lead_image, excerpt
 from samples import ATOM_FULL, PLAIN_PAGE, RSS_EXCERPT, YOUTUBE_FEED
 
 
@@ -25,6 +25,20 @@ def test_clean_html_keeps_reading_and_drops_the_rest():
 def test_clean_html_drops_repeated_title():
     out = clean_html("<h1>Il titolo!</h1><p>Corpo</p>", drop_heading="Il titolo")
     assert "titolo" not in out and "Corpo" in out
+
+
+def test_drop_lead_image():
+    assert drop_lead_image('<img src="a.jpg"><p>Testo</p><p><img src="b.jpg"></p>') == '<p>Testo</p><p><img src="b.jpg"></p>'
+    # Con la figura se ne va anche la didascalia; con il link vuoto anche il link.
+    assert drop_lead_image('<figure><img src="a.jpg"><figcaption>Foto</figcaption></figure><p>T</p>') == "<p>T</p>"
+    assert drop_lead_image('<p><a href="/x"><img src="a.jpg"></a></p><p>T</p>') == "<p>T</p>"
+    # Se prima c'è del testo (anche un titolo) l'immagine resta.
+    assert drop_lead_image('<p>Testo</p><img src="a.jpg">') == '<p>Testo</p><img src="a.jpg">'
+    assert drop_lead_image('<h3>Sezione</h3><img src="a.jpg">') == '<h3>Sezione</h3><img src="a.jpg">'
+    # Due immagini nello stesso paragrafo: se ne toglie solo la prima.
+    assert drop_lead_image('<p><img src="a.jpg"><img src="b.jpg"></p>') == '<p><img src="b.jpg"></p>'
+    assert drop_lead_image("<p>Niente immagini</p>") == "<p>Niente immagini</p>"
+    assert drop_lead_image("") == ""
 
 
 def test_canonical_url():

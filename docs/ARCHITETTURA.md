@@ -10,10 +10,11 @@ backend/                  Server Python (FastAPI)
     main.py               avvio: API, PWA, scheduler
     healthcheck.py        controllo di salute usato dal container (python -m app.healthcheck)
     config.py             variabili d'ambiente (PUBLIC_URL, TZ, …)
+    instance.py           impostazioni dell'istanza scelte dall'amministratore (GUI → variabile d'ambiente → predefinito)
     db.py + migrations/   SQLite, schema versionato con file .sql numerati
     security.py           password argon2, sessioni, protezione CSRF
     api/                  un file per area: auth, admin, folders, sources, opml, articles, interests, images
-    feeds/                discovery, fetcher, parser, youtube, extract (testo completo), sanitize, scheduler
+    feeds/                discovery, fetcher, parser, youtube, extract (testo completo), icons, sanitize, scheduler
     reading/              matching (interessi e silenziati), dedupe (doppioni), query, edition (Edizione)
     ai/                   configurazione, fornitori (Ollama/OpenAI, Anthropic), filtro AI, riassunti
     push/                 Web Push (VAPID, cifratura) e regole delle notifiche
@@ -47,14 +48,14 @@ Scelte:
 I contenuti dei feed sono **condivisi**: un feed seguito da tre utenti si scarica una volta. Tutto ciò che è personale sta in tabelle **per utente**. Lo schema cresce con migrazioni numerate in `backend/app/migrations/`; la versione applicata è in `PRAGMA user_version`.
 
 **Account**
-- `users`: username (unico, senza distinzione tra maiuscole e minuscole), nome visualizzato, hash della password, amministratore, disattivato, preferenze (JSON: tema, dimensione del testo, unione dei doppioni, Edizione e orari, metodo e descrizione per l'AI, riassunti, cartelle importanti per le notifiche), creato il, ultimo accesso
+- `users`: username (unico, senza distinzione tra maiuscole e minuscole), nome visualizzato, hash della password, amministratore, disattivato, preferenze (JSON: tema, colore principale, font dell'interfaccia e degli articoli, dimensione del testo, unione dei doppioni, Edizione e orari, metodo e descrizione per l'AI, riassunti, cartelle importanti per le notifiche), creato il, ultimo accesso
 - `sessions`: hash del token, utente, creata il, ultimo uso, scadenza, dispositivo
 - `invites`: hash del token, tipo (`invite` o `reset`), nota, creato da, utente destinatario (solo reset), scadenza, usato da, usato il
 
 **Fonti**
-- `feeds` (condivisa): url (unico), sito, titolo, tipo (rss / youtube), etag, last_modified, intervallo, prossimo controllo, ultimo controllo, ultimo successo, ultimo codice HTTP, messaggio d'errore, errori consecutivi
+- `feeds` (condivisa): url (unico), sito, titolo, tipo (rss / youtube), etag, last_modified, intervallo, prossimo controllo, ultimo controllo, ultimo successo, ultimo codice HTTP, messaggio d'errore, errori consecutivi, icona trovata in automatico e quando è stata cercata
 - `folders` (per utente): nome, colore, posizione
-- `subscriptions` (per utente): utente, feed, cartella, nome personalizzato, intervallo scelto, aggiunta il
+- `subscriptions` (per utente): utente, feed, cartella, nome personalizzato, intervallo scelto, aggiunta il, icona scelta (`auto`, `custom` con l'indirizzo dell'immagine, `none` per le iniziali)
 
 **Articoli**
 - `articles` (condivisa): feed, guid, url, url normalizzato, titolo, autore, estratto, contenuto del feed, testo completo estratto, stato dell'estrazione, immagine, durata del video, pubblicato il, scaricato il, cluster dei doppioni
@@ -91,9 +92,9 @@ Tutti sotto `/api`; salvo `auth`, `invites` e `health` richiedono l'accesso. Gli
 | Accesso | `GET auth/state` · `POST auth/setup` · `POST auth/login` · `POST auth/logout` |
 | Inviti | `GET invites/{token}` · `POST invites/{token}/accept` (anche per il reset della password) |
 | Profilo | `GET`/`PATCH me` · `POST me/password` · `GET me/sessions` · `DELETE me/sessions/{id}` |
-| Admin | `GET admin/users` · `PATCH`/`DELETE admin/users/{id}` · `POST admin/users/{id}/reset` · `GET`/`POST admin/invites` · `DELETE admin/invites/{id}` · `GET admin/status` |
+| Admin | `GET admin/users` · `PATCH`/`DELETE admin/users/{id}` · `POST admin/users/{id}/reset` · `GET`/`POST admin/invites` · `DELETE admin/invites/{id}` · `GET admin/status` · `GET`/`PATCH admin/settings` (durata delle sessioni) |
 | Cartelle | `GET`/`POST folders` · `PATCH`/`DELETE folders/{id}` |
-| Fonti | `POST sources/discover` · `GET`/`POST sources` · `PATCH`/`DELETE sources/{id}` · `POST sources/{id}/refresh` · `POST sources/refresh` |
+| Fonti | `POST sources/discover` · `GET`/`POST sources` · `PATCH`/`DELETE sources/{id}` · `POST sources/{id}/refresh` · `POST sources/refresh` · `PUT sources/{id}/icon` · `POST sources/{id}/icon/refresh` |
 | OPML | `POST opml/import` · `GET opml/export` |
 | Articoli | `GET articles` (filtri `tutti`, `perte`, `nonletti`, `video`, `salvati`, cartella, fonte, ricerca, cursore) · `GET articles/counts` · `GET articles/{id}` · `PUT`/`DELETE articles/{id}/read` · `PUT`/`DELETE articles/{id}/saved` · `POST articles/mark-read` · `POST articles/sync` |
 | Interessi | `GET interests` · `POST`/`PATCH`/`DELETE interests/keywords[/{id}]` · `POST`/`DELETE interests/muted[/{id}]` · `GET interests/preview` |
@@ -109,11 +110,14 @@ Fuori da `/api`: la PWA, `/manifest.webmanifest`, `/sw.js`, `/icons/*`. Devono r
 
 - **Primo avvio protetto**: per creare l'amministratore serve un codice di 6 cifre scritto nel log del server (`docker compose logs galactic-feed`). Il codice cambia a ogni riavvio e dopo troppi tentativi sbagliati.
 - **Inviti**: link valido 48 ore, utilizzabile una volta. Lo stesso meccanismo reimposta la password di un utente.
-- **Sessioni**: cookie `gf_session` HttpOnly, SameSite=Lax, Secure dietro HTTPS; durata 90 giorni, rinnovata con l'uso. Le richieste che modificano dati sono accettate solo dalla stessa origine (header `Sec-Fetch-Site` / `Origin`). Limite ai tentativi di login.
+- **Sessioni**: cookie `gf_session` HttpOnly, SameSite=Lax, Secure dietro HTTPS. Con «Ricordami» il cookie dura 90 giorni (`REMEMBER_DAYS`); senza, è un cookie di sessione che sparisce chiudendo il browser e il server chiude la sessione dopo 12 ore senza utilizzo (`SESSION_HOURS`). Entrambe le durate si rinnovano con l'uso e l'amministratore le cambia dall'app (tabella `app_settings`, chiavi `instance.*`: valore da GUI → variabile d'ambiente → predefinito, vedi `backend/app/instance.py`). Le richieste che modificano dati sono accettate solo dalla stessa origine (header `Sec-Fetch-Site` / `Origin`). Limite ai tentativi di login.
 - **Fetcher**: ETag e Last-Modified, timeout 20 s, al massimo 4 download in parallelo, user agent `GalacticFeed/<versione> (+PUBLIC_URL)`, rispetto di `Retry-After`, controlli diradati in caso di errore fino a uno al giorno, messaggi d'errore chiari in italiano. L'intervallo di un feed seguito da più persone è il più breve tra quelli scelti.
 - **Testo completo**: se il feed dà solo un estratto, il server estrae il testo con trafilatura all'arrivo dell'articolo. L'HTML viene ripulito: niente script, pubblicità o link per commentare.
 - **YouTube**: dal link del canale o da `@nome` il server ricava il feed pubblico.
-- **Immagini**: passano da un proxy firmato del server, così il service worker le può tenere offline.
+- **Immagini**: passano da un proxy firmato del server, così il service worker le può tenere offline. Il tipo si riconosce dai primi byte del file (non dall'header del sito); si servono solo immagini raster, anche `.ico`, mai SVG.
+- **Icone delle fonti**: lo scheduler cerca l'icona dei feed nuovi e la ricontrolla ogni 7 giorni (`feeds/icons.py`): `<link rel="icon">` e `apple-touch-icon` della pagina del sito (prima quelle da almeno 96 px), poi `/favicon.ico`, poi `og:image`; per YouTube l'avatar del canale. Ogni candidata viene scaricata per verificare che sia un'immagine. Nell'app passano dal proxy con `k=icon`, che il service worker tiene in una cache a parte (`gf-icons`, 60 giorni). Se manca o non si carica restano le iniziali colorate. L'utente può sostituirla o spegnerla per sé dalla scheda della fonte.
+- **Aspetto**: tema, colore principale (otto colori con contrasto AA verificato da `frontend/tests/look.test.js`, oppure `AccentColor` del sistema dove il browser lo dà) e font sono attributi `data-*` su `<html>` letti da `styles/base.css`. Si applicano prima di disegnare la pagina con la copia in `localStorage`. Inter e Atkinson Hyperlegible sono inclusi nell'app e precaricati dal service worker.
+- **Lettore**: se l'articolo ha un'immagine principale, la prima immagine del testo si toglie quando viene prima di qualunque parola (è quasi sempre la stessa foto in un altro formato).
 - **Offline**: l'interfaccia è sempre in cache; restano disponibili tutti i salvati e gli ultimi 300 articoli letti. Le azioni fatte senza rete partono al ritorno della connessione.
   - Il service worker (`src/sw.js`) tiene la copia di ogni articolo aperto (`gf-articles`) e le sue immagini (`gf-img-offline`), più l'ultima risposta di account, fonti, contatori ed elenchi (`gf-api`, `gf-lists`): prima la rete, senza rete la copia.
   - Un indice in IndexedDB dice quali articoli sono salvati e quando sono stati letti: oltre i 300 letti si tolgono i più vecchi, con le loro immagini. I salvati fatti su un altro dispositivo vengono scaricati da soli all'apertura dell'app.
@@ -133,5 +137,7 @@ Fuori da `/api`: la PWA, `/manifest.webmanifest`, `/sw.js`, `/icons/*`. Devono r
 | `DATA_DIR` | `/data` | Cartella del database |
 | `RETENTION_DAYS` | `90` | Giorni dopo cui si cancellano gli articoli non salvati |
 | `BLOCK_PRIVATE_NETWORKS` | `false` | Vieta fonti su indirizzi della rete locale |
+| `REMEMBER_DAYS` | `90` | Giorni di una sessione con «Ricordami» (modificabile da GUI) |
+| `SESSION_HOURS` | `12` | Ore senza utilizzo dopo cui chiude una sessione senza «Ricordami» (modificabile da GUI) |
 | `FORWARDED_ALLOW_IPS` | `*` | Da quali indirizzi accettare gli header `X-Forwarded-*` |
 | `LOG_LEVEL` | `info` | Dettaglio del log |

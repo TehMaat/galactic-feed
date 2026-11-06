@@ -7,6 +7,7 @@ import sqlite3
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
+from .. import instance
 from ..config import VERSION
 from ..db import iso, now
 from ..deps import AppContext, User, get_ctx, get_db, require_admin
@@ -164,3 +165,35 @@ def status(_: User = Depends(require_admin), conn: sqlite3.Connection = Depends(
         "database_bytes": size,
         "retention_days": ctx.settings.retention_days,
     }
+
+
+# ---------- Impostazioni dell'istanza ----------
+# Primo pezzo del pannello di amministrazione: per ora la durata delle sessioni.
+
+
+@router.get("/settings")
+def get_settings(_: User = Depends(require_admin), conn: sqlite3.Connection = Depends(get_db), ctx: AppContext = Depends(get_ctx)):
+    return {"settings": instance.describe(conn, ctx.settings)}
+
+
+@router.patch("/settings")
+def update_settings(
+    body: dict,
+    _: User = Depends(require_admin),
+    conn: sqlite3.Connection = Depends(get_db),
+    ctx: AppContext = Depends(get_ctx),
+):
+    """Cambia una o più impostazioni. null torna al valore della variabile d'ambiente o al predefinito."""
+    unknown = [k for k in body if k not in instance.OPTIONS]
+    if unknown:
+        raise HTTPException(status_code=422, detail=f"Impostazione sconosciuta: {unknown[0]}.")
+    for key, value in body.items():
+        if value is not None and (isinstance(value, bool) or not isinstance(value, int)):
+            raise HTTPException(status_code=422, detail="Valore non valido.")
+    try:
+        with conn:
+            for key, value in body.items():
+                instance.save(conn, key, value)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    return {"settings": instance.describe(conn, ctx.settings)}

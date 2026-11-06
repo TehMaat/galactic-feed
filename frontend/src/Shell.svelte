@@ -4,13 +4,14 @@
   // barra in basso sul telefono, barra laterale sul tablet, tre colonne sul computer.
   // Il nome dell'app sta nella barra in alto sul telefono e in cima alla barra laterale
   // altrove; le Impostazioni in fondo alla barra laterale (in alto a destra sul telefono).
+  // Toccando il nome dell'app si torna a Oggi.
   import Icon from "./components/Icon.svelte";
   import Reader from "./components/Reader.svelte";
   import AddSource from "./sheets/AddSource.svelte";
   import FolderSheet from "./sheets/FolderSheet.svelte";
   import Settings from "./sheets/Settings.svelte";
   import SourceSheet from "./sheets/SourceSheet.svelte";
-  import { closeReader, closeSheet, data, openSheet, session, switchTab, ui } from "./lib/store.svelte.js";
+  import { closeReader, closeSheet, data, goHome, openSheet, session, switchTab, ui } from "./lib/store.svelte.js";
   import Fonti from "./views/Fonti.svelte";
   import Interessi from "./views/Interessi.svelte";
   import Oggi from "./views/Oggi.svelte";
@@ -33,6 +34,13 @@
     }
   });
 
+  // Il logo è un link a «/»: con un clic normale si resta nell'app; con Ctrl/⌘ si apre una scheda nuova.
+  function home(e) {
+    if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    e.preventDefault();
+    goHome();
+  }
+
   function onKey(e) {
     if (e.key !== "Escape") return;
     if (ui.sheet) closeSheet();
@@ -51,12 +59,12 @@
   </main>
 
   <header class="appbar">
-    <div class="wordmark"><Icon name="orbit" /><span>galactic feed</span></div>
+    <a class="wordmark" href="/" aria-label="galactic feed: vai a Oggi" title="Vai a Oggi" onclick={home}><Icon name="orbit" /><span>galactic feed</span></a>
     <button type="button" class="icon-btn" aria-label="Impostazioni" onclick={() => openSheet("settings")}><Icon name="sliders" /></button>
   </header>
 
   <nav class="tabbar" aria-label="Sezioni">
-    <div class="nav-brand wordmark"><Icon name="orbit" /><span>galactic feed</span></div>
+    <a class="nav-brand wordmark" href="/" aria-label="galactic feed: vai a Oggi" title="Vai a Oggi" onclick={home}><Icon name="orbit" /><span>galactic feed</span></a>
     {#each TABS as [key, icon, label]}
       <button type="button" aria-current={ui.tab === key ? "page" : undefined} onclick={() => switchTab(key)}>
         <Icon name={icon} /><span>{label}</span>

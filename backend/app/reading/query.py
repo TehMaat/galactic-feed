@@ -175,7 +175,8 @@ def article_rows(conn: sqlite3.Connection, user_id: int, ids: list[int], full: b
     content = ", a.content_html, a.full_html, a.full_status, a.categories" if full else ""
     rows = conn.execute(
         "SELECT a.id, a.cluster_id, a.url, a.title, a.author, a.excerpt, a.image_url, a.video_id, a.word_count,"
-        " a.published_at, f.kind, f.title AS feed_title, f.site_url, s.id AS sub_id, s.title AS sub_title, s.folder_id,"
+        " a.published_at, f.kind, f.title AS feed_title, f.site_url, f.icon_url, s.id AS sub_id, s.title AS sub_title,"
+        " s.folder_id, s.icon_mode, s.icon_custom,"
         f" ua.read_at, ua.saved_at, m.keyword, m.level, COALESCE(m.muted, 0) AS muted{content}"
         " FROM articles a JOIN feeds f ON f.id = a.feed_id"
         " LEFT JOIN subscriptions s ON s.feed_id = a.feed_id AND s.user_id = ?"

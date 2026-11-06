@@ -49,6 +49,7 @@ export const ui = $state({
   refreshing: false,
   oggiMode: "edizione", // edizione · flusso (con l'Edizione accesa)
   online: typeof navigator === "undefined" ? true : navigator.onLine,
+  homeTick: 0, // cresce a ogni tocco sul logo: Oggi torna in cima
 });
 
 // ---------- Flusso ----------
@@ -116,6 +117,17 @@ export function switchTab(tab) {
   ui.sheet = null;
   if (!isWide()) ui.reader = null;
   writeLocation(true);
+}
+
+/** Il logo «galactic feed»: torna a Oggi, chiude lettore e schede, scorre in cima. */
+export function goHome() {
+  const tabChanged = ui.tab !== "oggi";
+  ui.sheet = null;
+  ui.sheetArg = null;
+  ui.reader = null;
+  ui.tab = "oggi";
+  writeLocation(tabChanged);
+  ui.homeTick += 1;
 }
 
 export function isWide() {
@@ -237,14 +249,45 @@ export async function logout() {
 export function applyPrefs(prefs) {
   if (!prefs) return;
   applyTheme(prefs.theme);
+  applyLook({ accent: prefs.accent, font: prefs.font, font_read: prefs.font_read });
 }
+
+// Colore della barra del browser (meta theme-color): segue lo sfondo del tema in uso.
+const BAR_COLORS = { light: "#F4F5F9", dark: "#0C0F1C" };
 
 export function applyTheme(theme) {
   const root = document.documentElement;
   if (theme === "light" || theme === "dark") root.dataset.theme = theme;
   else delete root.dataset.theme;
+  for (const meta of document.querySelectorAll('meta[name="theme-color"]')) {
+    const own = meta.media.includes("dark") ? BAR_COLORS.dark : BAR_COLORS.light;
+    meta.content = theme === "light" || theme === "dark" ? BAR_COLORS[theme] : own;
+  }
+  remember("gf-theme", theme || "auto");
+}
+
+// Aspetto (data-* su <html>, letti dal CSS in base.css). Il valore predefinito toglie l'attributo.
+const LOOK = {
+  accent: ["accent", "gf-accent", "galassia"],
+  font: ["font", "gf-font", "galactic"],
+  font_read: ["read", "gf-read", "serif"],
+};
+
+export function applyLook(values) {
+  const root = document.documentElement;
+  for (const [key, value] of Object.entries(values)) {
+    if (!(key in LOOK) || value === undefined) continue;
+    const [attr, storageKey, fallback] = LOOK[key];
+    if (!value || value === fallback) delete root.dataset[attr];
+    else root.dataset[attr] = value;
+    remember(storageKey, value || fallback);
+  }
+}
+
+// Copia sul dispositivo, per applicare l'aspetto prima di disegnare la pagina (vedi index.html).
+function remember(key, value) {
   try {
-    localStorage.setItem("gf-theme", theme || "auto");
+    localStorage.setItem(key, value);
   } catch {
     /* archivio non disponibile */
   }
@@ -442,6 +485,13 @@ export function closeReader() {
   if (!ui.reader) return;
   ui.reader = null;
   writeLocation(false);
+}
+
+/** Aggiorna i dati della fonte (per esempio l'icona) negli articoli già caricati. */
+export function patchSourceInLists(sourceId, changes) {
+  for (const list of allLists()) {
+    for (const a of list) if (a.source?.id === sourceId) Object.assign(a.source, changes);
+  }
 }
 
 function patchItems(id, changes) {

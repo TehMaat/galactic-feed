@@ -23,6 +23,9 @@ def me(user: User = Depends(current_user)):
 
 class PrefsPatch(BaseModel):
     theme: str | None = None
+    accent: str | None = None
+    font: str | None = None
+    font_read: str | None = None
     text_size: float | None = None
     dedupe: bool | None = None
     edition: bool | None = None
@@ -99,7 +102,8 @@ def change_password(
 @router.get("/sessions")
 def sessions(user: User = Depends(current_user), conn: sqlite3.Connection = Depends(get_db)):
     rows = conn.execute(
-        "SELECT id, created_at, last_seen_at, user_agent FROM sessions WHERE user_id = ? ORDER BY last_seen_at DESC",
+        "SELECT id, created_at, last_seen_at, expires_at, remember, user_agent FROM sessions"
+        " WHERE user_id = ? AND expires_at > strftime('%s', 'now') ORDER BY last_seen_at DESC",
         (user.id,),
     ).fetchall()
     return {
@@ -108,6 +112,9 @@ def sessions(user: User = Depends(current_user), conn: sqlite3.Connection = Depe
                 "id": r["id"],
                 "created_at": iso(r["created_at"]),
                 "last_seen_at": iso(r["last_seen_at"]),
+                # Scade a quest'ora se non si usa l'app; senza «Ricordami» anche chiudendo il browser.
+                "expires_at": iso(r["expires_at"]),
+                "remember": bool(r["remember"]),
                 "user_agent": r["user_agent"],
                 "current": r["id"] == user.session_id,
             }

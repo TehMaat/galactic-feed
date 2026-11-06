@@ -11,6 +11,7 @@ export const CACHE = {
   articles: "gf-articles", // copie degli articoli (GET /api/articles/{id})
   images: "gf-img-offline", // immagini degli articoli disponibili offline
   imagesRecent: "gf-img", // immagini viste di recente (elenchi, copertine), a scadenza
+  icons: "gf-icons", // icone delle fonti, tenute a lungo per vederle anche offline
   api: "gf-api", // stato dell'account, fonti, cartelle, interessi, contatori
   lists: "gf-lists", // elenchi di articoli (Flusso, Salvati)
 };

@@ -9,7 +9,7 @@
   let stars = $state();
   let busy = $state(false);
   let error = $state("");
-  let f = $state({ code: "", display_name: "", username: "", password: "", repeat: "" });
+  let f = $state({ code: "", display_name: "", username: "", password: "", repeat: "", remember: false });
 
   const mode = $derived(session.phase);
   const linkBroken = $derived((mode === "invite" || mode === "reset") && !session.invite);
@@ -34,7 +34,7 @@
       if (mode === "setup") {
         r = await api("/auth/setup", { method: "POST", body: { code: f.code.trim(), username: f.username.trim(), display_name: f.display_name.trim(), password: f.password } });
       } else if (mode === "login") {
-        r = await api("/auth/login", { method: "POST", body: { username: f.username.trim(), password: f.password }, quiet401: true });
+        r = await api("/auth/login", { method: "POST", body: { username: f.username.trim(), password: f.password, remember: f.remember }, quiet401: true });
       } else if (mode === "invite") {
         r = await api(`/invites/${session.token}/accept`, { method: "POST", body: { username: f.username.trim(), display_name: f.display_name.trim(), password: f.password } });
       } else {
@@ -115,6 +115,12 @@
           <label for="password">{mode === "reset" ? "Nuova password" : "Password"}</label>
           <input class="input" id="password" type="password" bind:value={f.password} autocomplete={mode === "login" ? "current-password" : "new-password"} required minlength={mode === "login" ? undefined : 8} />
         </div>
+        {#if mode === "login"}
+          <label class="check">
+            <input type="checkbox" bind:checked={f.remember} />
+            <span>Ricordami su questo dispositivo<small>Senza la casella, chiudendo il browser dovrai rientrare.</small></span>
+          </label>
+        {/if}
         {#if mode !== "login"}
           <div class="field">
             <label for="repeat">Ripeti la password</label>

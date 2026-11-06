@@ -62,6 +62,23 @@ class Database:
             migrate(conn)
 
 
+def get_setting(conn: sqlite3.Connection, key: str, default: str = "") -> str:
+    """Valore salvato nella tabella app_settings (impostazioni dell'istanza)."""
+    row = conn.execute("SELECT value FROM app_settings WHERE key = ?", (key,)).fetchone()
+    return row["value"] if row else default
+
+
+def set_setting(conn: sqlite3.Connection, key: str, value: str | None) -> None:
+    """Salva un valore in app_settings; None lo cancella."""
+    if value is None:
+        conn.execute("DELETE FROM app_settings WHERE key = ?", (key,))
+    else:
+        conn.execute(
+            "INSERT INTO app_settings (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value",
+            (key, value),
+        )
+
+
 def _migrations() -> list[tuple[int, Path]]:
     found = []
     for path in MIGRATIONS_DIR.iterdir():

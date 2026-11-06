@@ -14,10 +14,19 @@
 <link rel="icon" href="/icons/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
 <script>
-  // Tema scelto, applicato prima di disegnare la pagina per evitare un lampo di colore sbagliato.
+  // Tema e aspetto scelti, applicati prima di disegnare la pagina per evitare un lampo di
+  // colori o font sbagliati. Li salva applyPrefs (src/lib/store.svelte.js).
   try {
-    var t = localStorage.getItem("gf-theme");
-    if (t === "light" || t === "dark") document.documentElement.dataset.theme = t;
+    var d = document.documentElement.dataset, s = localStorage;
+    var t = s.getItem("gf-theme"), a = s.getItem("gf-accent"), f = s.getItem("gf-font"), r = s.getItem("gf-read");
+    if (t === "light" || t === "dark") {
+      d.theme = t;
+      var bar = t === "dark" ? "#0C0F1C" : "#F4F5F9";
+      document.querySelectorAll('meta[name="theme-color"]').forEach(function (m) { m.content = bar; });
+    }
+    if (a && a !== "galassia") d.accent = a;
+    if (f && f !== "galactic") d.font = f;
+    if (r && r !== "serif") d.read = r;
   } catch (e) {}
 </script>
 </head>

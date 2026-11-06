@@ -5,6 +5,10 @@ import "@fontsource/newsreader/600.css";
 import "@fontsource/unbounded/500.css";
 import "@fontsource/unbounded/700.css";
 import "@fontsource/jetbrains-mono/400.css";
+// Font a scelta nelle Impostazioni: il browser li scarica solo se servono, il service worker li tiene per l'offline.
+import "@fontsource-variable/inter/wght.css";
+import "@fontsource/atkinson-hyperlegible/400.css";
+import "@fontsource/atkinson-hyperlegible/700.css";
 import "@fontsource/jetbrains-mono/500.css";
 import "./styles/base.css";
 import "./styles/app.css";

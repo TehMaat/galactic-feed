@@ -8,9 +8,10 @@ from typing import Any, Literal
 from fastapi import Request, Response
 from pydantic import BaseModel, Field, field_validator
 
+from .. import instance
 from ..db import iso
 from ..deps import AppContext, User
-from ..security import SESSION_COOKIE
+from ..security import SESSION_COOKIE, create_session
 
 USERNAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{2,31}$")
 PASSWORD_MIN = 8
@@ -65,10 +66,20 @@ def check_times(values: list[str]) -> list[str]:
     return times
 
 
+# Colori principali: una tavolozza con contrasto AA verificato in chiaro e in scuro
+# (frontend/src/styles/base.css), oppure «system», il colore di sistema dove il browser lo dà.
+ACCENTS = ("galassia", "indaco", "blu", "viola", "rosa", "arancio", "ambra", "verde", "system")
+
+
 class Prefs(BaseModel):
     """Preferenze personali: aspetto, doppioni, Edizione, AI e notifiche."""
 
     theme: Literal["auto", "light", "dark"] = "auto"
+    accent: Literal[ACCENTS] = "galassia"
+    # Font dell'interfaccia (galactic: titoli in Unbounded; sistema: quello del dispositivo;
+    # inter e leggibile: inclusi nell'app) e del testo degli articoli.
+    font: Literal["galactic", "sistema", "inter", "leggibile"] = "galactic"
+    font_read: Literal["serif", "sans", "sistema"] = "serif"
     text_size: float = Field(default=1.0, ge=0.85, le=1.3)
     dedupe: bool = True
     # Edizione: accesa o spenta e orari (nel fuso del server, TZ).
@@ -119,13 +130,23 @@ def user_payload(user: User) -> dict[str, Any]:
     }
 
 
-def set_session_cookie(request: Request, response: Response, token: str, ctx: AppContext) -> None:
+def start_session(
+    request: Request, response: Response, conn, ctx: AppContext, user_id: int, remember: bool = True
+) -> None:
+    """Crea la sessione e manda il cookie. Senza «Ricordami» il cookie sparisce chiudendo il browser."""
+    seconds = instance.session_seconds(conn, ctx.settings, remember)
+    token = create_session(conn, user_id, user_agent(request), seconds, remember)
+    set_session_cookie(request, response, token, seconds if remember else None)
+
+
+def set_session_cookie(request: Request, response: Response, token: str, max_age: int | None) -> None:
+    """max_age None = cookie di sessione, che il browser cancella quando si chiude."""
     # "Secure" quando la richiesta arriva in HTTPS (direttamente o tramite il reverse proxy,
     # che lo segnala con X-Forwarded-Proto). Così funziona anche l'accesso in HTTP dalla rete di casa.
     response.set_cookie(
         SESSION_COOKIE,
         token,
-        max_age=ctx.settings.session_days * 86400,
+        max_age=max_age,
         httponly=True,
         samesite="lax",
         secure=request.url.scheme == "https",

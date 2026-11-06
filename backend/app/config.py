@@ -23,6 +23,14 @@ def _env_bool(name: str, default: bool) -> bool:
     return value.strip().lower() in _TRUE
 
 
+def _env_opt_int(name: str) -> int | None:
+    value = os.environ.get(name, "").strip()
+    try:
+        return max(1, int(value)) if value else None
+    except ValueError:
+        return None
+
+
 def _env_int(name: str, default: int) -> int:
     value = os.environ.get(name, "").strip()
     try:
@@ -42,7 +50,11 @@ class Settings:
     frontend_dir: Path = field(default_factory=lambda: Path(__file__).resolve().parent.parent.parent / "frontend" / "dist")
     # Nei test lo scheduler resta spento e i feed si controllano a comando.
     scheduler_enabled: bool = True
-    session_days: int = 90
+    # Durata delle sessioni: con «Ricordami» (giorni) e senza (ore senza usare l'app).
+    # None = non indicata nelle variabili d'ambiente: vale quella scelta dall'amministratore
+    # o il valore predefinito (vedi instance.py).
+    remember_days: int | None = None
+    session_hours: int | None = None
     invite_hours: int = 48
     # Parametri argon2: i test li abbassano per andare più veloci.
     argon2_time_cost: int = 3
@@ -76,6 +88,8 @@ class Settings:
             retention_days=max(1, _env_int("RETENTION_DAYS", 90)),
             block_private_networks=_env_bool("BLOCK_PRIVATE_NETWORKS", False),
             log_level=os.environ.get("LOG_LEVEL", "info").lower(),
+            remember_days=_env_opt_int("REMEMBER_DAYS"),
+            session_hours=_env_opt_int("SESSION_HOURS"),
         )
         if os.environ.get("FRONTEND_DIR"):
             kwargs["frontend_dir"] = Path(os.environ["FRONTEND_DIR"])

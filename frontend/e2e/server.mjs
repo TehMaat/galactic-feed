@@ -30,7 +30,7 @@ function rss(title, items) {
 }
 
 const pages = {
-  "/": `<html><head><title>Orbita</title><link rel="alternate" type="application/rss+xml" title="Orbita" href="/orbita.xml"><link rel="alternate" type="application/rss+xml" title="Commenti" href="/comments/feed"></head><body>Orbita</body></html>`,
+  "/": `<html><head><title>Orbita</title><link rel="apple-touch-icon" href="/img/a.png"><link rel="alternate" type="application/rss+xml" title="Orbita" href="/orbita.xml"><link rel="alternate" type="application/rss+xml" title="Commenti" href="/comments/feed"></head><body>Orbita</body></html>`,
   "/orbita.xml": rss("Orbita", [
     ["Perché le prossime missioni lunari puntano tutte al polo sud", "Ghiaccio nei crateri in ombra perenne.", 0.5, "Luna"],
     ["Come si misura la distanza di una galassia lontana", "Parallasse, Cefeidi e redshift.", 5],

@@ -89,9 +89,22 @@ Si impostano con le variabili d'ambiente nel `docker-compose.yml`.
 | `TZ` | `Europe/Rome` | Fuso orario del server e del log |
 | `RETENTION_DAYS` | `90` | Dopo quanti giorni si cancellano gli articoli non salvati |
 | `BLOCK_PRIVATE_NETWORKS` | `false` | Con `true` non si possono aggiungere fonti della rete di casa |
+| `REMEMBER_DAYS` | `90` | Durata di un accesso con «Ricordami», in giorni dall'ultimo utilizzo |
+| `SESSION_HOURS` | `12` | Senza «Ricordami»: dopo quante ore senza usare l'app bisogna rientrare |
 | `FORWARDED_ALLOW_IPS` | `*` | Da quali indirizzi accettare gli header `X-Forwarded-*` (vedi sotto) |
 | `LOG_LEVEL` | `info` | Dettaglio del log (`debug`, `info`, `warning`) |
 | `PORT` | `8080` | Porta interna del container |
+
+La durata delle sessioni si cambia anche dall'app, senza riavviare: **Impostazioni → Accesso e durata delle sessioni** (solo l'amministratore). Il valore scelto lì vale più della variabile d'ambiente.
+
+## Aspetto
+
+In Impostazioni → Aspetto ognuno sceglie tema (automatico, chiaro, scuro), colore principale, font dell'interfaccia e degli articoli e dimensione del testo. Le scelte valgono su tutti i suoi dispositivi.
+
+- Il **colore del sistema** funziona solo dove il browser lo fa conoscere, soprattutto sui computer: su iPhone, iPad e Android una web app non può leggere i colori del sistema (per esempio Material You), quindi resta il colore predefinito.
+- Il font **Sistema** usa quello del dispositivo (San Francisco su iPhone e Mac, Roboto su Android). Inter e Alta leggibilità (Atkinson Hyperlegible) sono inclusi nell'app e funzionano anche offline.
+
+Accanto a ogni fonte compare l'icona del sito o l'avatar del canale YouTube, trovata in automatico. Dalla scheda della fonte la puoi aggiornare, sostituire con un'altra immagine o togliere per tornare alle iniziali.
 
 ## Edizione, AI e notifiche
 

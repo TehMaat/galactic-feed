@@ -7,10 +7,10 @@
   import { folderColor } from "../lib/format.js";
   import { currentSubscription, disablePush, enablePush, isIos, isStandalone } from "../lib/push.js";
   import { api } from "../lib/api.js";
-  import { initials, timeAgoLong } from "../lib/format.js";
-  import { TEXT_SIZES, data, logout, savePrefs, session, toast, ui } from "../lib/store.svelte.js";
+  import { ACCENTS, initials, timeAgoLong } from "../lib/format.js";
+  import { data, logout, savePrefs, session, toast, ui } from "../lib/store.svelte.js";
 
-  let page = $state("main"); // main · users · user · password · sessions
+  let page = $state("main"); // main · users · user · access · ai · password · sessions
   let users = $state([]);
   let invites = $state([]);
   let newLink = $state(null);
@@ -18,6 +18,7 @@
   let sessions = $state([]);
   let pw = $state({ current: "", next: "", repeat: "" });
   let pwError = $state("");
+  let instance = $state(null); // impostazioni dell'istanza (solo amministratore)
 
   $effect(() => {
     if (ui.sheet === "settings") {
@@ -101,17 +102,35 @@
     if (await savePrefs({ edition_times: times.filter((x) => x !== t) })) toast(`Edizione delle ${t} tolta`);
   }
   const theme = $derived(me?.prefs?.theme || "auto");
+  const accent = $derived(me?.prefs?.accent || "galassia");
+  const systemAccent = typeof CSS !== "undefined" && CSS.supports?.("color", "AccentColor");
+  const font = $derived(me?.prefs?.font || "galactic");
+  const fontRead = $derived(me?.prefs?.font_read || "serif");
+  // Ogni scelta è scritta nel suo font, così si vede subito com'è.
+  const FONTS = [
+    ["galactic", "Galactic", "var(--font-brand)"],
+    ["sistema", "Sistema", "var(--font-system)"],
+    ["inter", "Inter", '"Inter Variable", var(--font-system)'],
+    ["leggibile", "Alta leggibilità", '"Atkinson Hyperlegible", var(--font-system)'],
+  ];
+  const READ_FONTS = [
+    ["serif", "Serif", '"Newsreader", Georgia, serif'],
+    ["sans", "Come l'interfaccia", "var(--font-ui)"],
+    ["sistema", "Sistema", "var(--font-system)"],
+  ];
+  const SIZES = [[0.92, "Piccolo"], [1, "Normale"], [1.12, "Grande"]];
   const lastCheck = $derived(
     data.sources.map((s) => s.last_fetch_at).filter(Boolean).sort().at(-1) || null,
   );
   const ai = $derived(data.interests.ai);
   const aiLabel = $derived(ai?.enabled ? `${ai.kind === "locale" ? "Locale" : "Cloud"} · ${ai.label}` : "Spenta");
-  const TITLES = { ai: "AI", main: "Impostazioni", users: "Utenti e inviti", user: "Utente", password: "Cambia password", sessions: "Dispositivi collegati" };
+  const TITLES = { ai: "AI", access: "Accesso", main: "Impostazioni", users: "Utenti e inviti", user: "Utente", password: "Cambia password", sessions: "Dispositivi collegati" };
 
   function go(p) {
     page = p;
     if (p === "users") loadUsers();
     if (p === "sessions") loadSessions();
+    if (p === "access") loadInstance();
     if (p === "password") {
       pw = { current: "", next: "", repeat: "" };
       pwError = "";
@@ -214,6 +233,41 @@
     }
   }
 
+  // ---- Accesso (amministratore): durata delle sessioni ----
+  async function loadInstance() {
+    try {
+      instance = (await api("/admin/settings")).settings;
+    } catch (err) {
+      toast(err.message);
+    }
+  }
+
+  async function saveInstance(key, value, message) {
+    try {
+      instance = (await api("/admin/settings", { method: "PATCH", body: { [key]: value } })).settings;
+      toast(message);
+    } catch (err) {
+      toast(err.message);
+    }
+  }
+
+  function durationLabel(n, unit) {
+    if (unit === "ore") return n === 1 ? "1 ora" : `${n} ore`;
+    if (n === 7) return "1 settimana";
+    if (n === 365) return "1 anno";
+    return n === 1 ? "1 giorno" : `${n} giorni`;
+  }
+
+  function originNote(opt) {
+    if (opt.origin === "gui") return `Scelto qui. Predefinito: ${durationLabel(opt.env_value ?? opt.default, opt.unit)}.`;
+    if (opt.origin === "env") return `Dalla variabile d'ambiente ${opt.env}.`;
+    return "Valore predefinito.";
+  }
+
+  function choicesOf(opt) {
+    return opt.choices.includes(opt.value) ? opt.choices : [...opt.choices, opt.value].sort((a, b) => a - b);
+  }
+
   async function loadSessions() {
     try {
       sessions = (await api("/me/sessions")).sessions;
@@ -228,16 +282,17 @@
     loadSessions();
   }
 
+  function expiry(s) {
+    const when = new Date(s.expires_at).toLocaleString("it-IT", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" });
+    return s.remember ? `ricordato, scade il ${when} se non lo usi` : `fino alla chiusura del browser, al massimo il ${when}`;
+  }
+
   function device(ua) {
     const os = /iPhone/.test(ua) ? "iPhone" : /iPad/.test(ua) ? "iPad" : /Android/.test(ua) ? "Android" : /Mac OS X|Macintosh/.test(ua) ? "Mac" : /Windows/.test(ua) ? "Windows" : /Linux/.test(ua) ? "Linux" : "Dispositivo";
     const br = /Edg\//.test(ua) ? "Edge" : /Firefox\//.test(ua) ? "Firefox" : /Chrome\//.test(ua) ? "Chrome" : /Safari\//.test(ua) ? "Safari" : "";
     return br ? `${os} · ${br}` : os;
   }
 
-  function nextTextSize() {
-    const i = TEXT_SIZES.indexOf(me.prefs.text_size);
-    savePrefs({ text_size: TEXT_SIZES[(i + 1) % TEXT_SIZES.length] });
-  }
 </script>
 
 {#snippet linkBox(link)}
@@ -261,6 +316,7 @@
         </div>
         {#if me.is_admin}
           <button type="button" class="link-row" onclick={() => go("users")}><Icon name="plus" />Utenti e inviti</button>
+          <button type="button" class="link-row" onclick={() => go("access")}><Icon name="key" />Accesso e durata delle sessioni</button>
         {/if}
         <button type="button" class="link-row" onclick={() => go("password")}><Icon name="key" />Cambia password</button>
         <button type="button" class="link-row" onclick={() => go("sessions")}><Icon name="devices" />Dispositivi collegati</button>
@@ -337,8 +393,46 @@
             {/each}
           </div>
         </div>
-        <button type="button" class="set-row as-button" onclick={nextTextSize}><span>Dimensione del testo</span><span class="val">{Math.round((me.prefs.text_size || 1) * 100)}%</span></button>
+        <div class="set-block">
+          <span class="label" id="accent-label">Colore</span>
+          <div class="swatches" role="group" aria-labelledby="accent-label">
+            {#each ACCENTS as c (c.key)}
+              <button type="button" class="swatch" style="--sw-l:{c.light};--sw-d:{c.dark}" aria-pressed={accent === c.key} aria-label={c.name} title={c.name} onclick={() => savePrefs({ accent: c.key })}><Icon name="check" /></button>
+            {/each}
+            <button type="button" class="swatch is-system" aria-pressed={accent === "system"} aria-label="Colore del sistema" title="Colore del sistema" onclick={() => savePrefs({ accent: "system" })}><Icon name="check" /></button>
+          </div>
+        </div>
+        <div class="set-block">
+          <span class="label" id="font-label">Font</span>
+          <div class="tags" role="group" aria-labelledby="font-label">
+            {#each FONTS as [k, label, family] (k)}
+              <button type="button" class="tag" style="font-family:{family}" aria-pressed={font === k} onclick={() => savePrefs({ font: k })}>{label}</button>
+            {/each}
+          </div>
+        </div>
+        <div class="set-block">
+          <span class="label" id="read-label">Testo degli articoli</span>
+          <div class="tags" role="group" aria-labelledby="read-label">
+            {#each READ_FONTS as [k, label, family] (k)}
+              <button type="button" class="tag" style="font-family:{family}" aria-pressed={fontRead === k} onclick={() => savePrefs({ font_read: k })}>{label}</button>
+            {/each}
+          </div>
+        </div>
+        <div class="set-row"><span>Dimensione del testo</span>
+          <div class="segmented" style="--cols:3" role="group" aria-label="Dimensione del testo">
+            {#each SIZES as [v, l]}
+              <button type="button" aria-pressed={(me.prefs.text_size || 1) === v} onclick={() => savePrefs({ text_size: v })}>{l}</button>
+            {/each}
+          </div>
+        </div>
       </div>
+      <p class="set-note">
+        {accent === "system"
+          ? systemAccent
+            ? "Colore del sistema: lo prende dalle impostazioni del dispositivo."
+            : "Questo browser non fa conoscere il colore del sistema (succede su iPhone, iPad e Android): resta il colore Galassia."
+          : "Tema, colore, font e dimensione del testo valgono su tutti i tuoi dispositivi. «Galactic» usa Unbounded per i titoli; «Sistema» il font del dispositivo."}
+      </p>
 
       <div class="set-label">Server</div>
       <div class="set-group">
@@ -390,6 +484,38 @@
         </div>
         {#if newLink}{@render linkBox(newLink)}{/if}
       {/if}
+    {:else if page === "access"}
+      {#if instance}
+        {@const rem = instance.remember_days}
+        {@const ses = instance.session_hours}
+        <div class="set-label">Con «Ricordami»</div>
+        <div class="set-group">
+          <div class="set-row"><label for="remember-days">La sessione dura</label>
+            <select class="input" id="remember-days" value={rem.value} onchange={(e) => saveInstance("remember_days", Number(e.target.value), "Durata di «Ricordami» aggiornata")}>
+              {#each choicesOf(rem) as n}<option value={n}>{durationLabel(n, rem.unit)}</option>{/each}
+            </select>
+          </div>
+          {#if rem.origin === "gui"}
+            <button type="button" class="set-row as-button" onclick={() => saveInstance("remember_days", null, "Durata predefinita")}><span>Torna al valore predefinito</span><Icon name="refresh" /></button>
+          {/if}
+        </div>
+        <p class="set-note">Dall'ultima volta che si usa l'app su quel dispositivo. {originNote(rem)}</p>
+
+        <div class="set-label">Senza «Ricordami»</div>
+        <div class="set-group">
+          <div class="set-row"><label for="session-hours">Esce dopo</label>
+            <select class="input" id="session-hours" value={ses.value} onchange={(e) => saveInstance("session_hours", Number(e.target.value), "Durata delle sessioni aggiornata")}>
+              {#each choicesOf(ses) as n}<option value={n}>{durationLabel(n, ses.unit)} senza usarla</option>{/each}
+            </select>
+          </div>
+          {#if ses.origin === "gui"}
+            <button type="button" class="set-row as-button" onclick={() => saveInstance("session_hours", null, "Durata predefinita")}><span>Torna al valore predefinito</span><Icon name="refresh" /></button>
+          {/if}
+        </div>
+        <p class="set-note">La sessione finisce anche chiudendo il browser. {originNote(ses)} Le nuove durate valgono subito; le sessioni già aperte si adeguano al prossimo utilizzo.</p>
+      {:else}
+        <p class="loading">Carico le impostazioni…</p>
+      {/if}
     {:else if page === "ai"}
       <AiSettings />
     {:else if page === "password"}
@@ -404,12 +530,12 @@
     {:else if page === "sessions"}
       <div class="set-group">
         {#each sessions as s (s.id)}
-          <div class="set-row"><span>{device(s.user_agent)}{#if s.current} <span class="type-tag">questo</span>{/if}<br /><small class="muted">ultimo uso {timeAgoLong(s.last_seen_at)}</small></span>
+          <div class="set-row"><span>{device(s.user_agent)}{#if s.current} <span class="type-tag">questo</span>{/if}<br /><small class="muted">ultimo uso {timeAgoLong(s.last_seen_at)} · {expiry(s)}</small></span>
             {#if !s.current}<button type="button" class="icon-btn" aria-label="Scollega questo dispositivo" onclick={() => endSession(s)}><Icon name="close" /></button>{/if}
           </div>
         {/each}
       </div>
-      <p class="set-note">Se perdi un telefono, scollegalo da qui: dovrà rientrare con la password.</p>
+      <p class="set-note">Se perdi un telefono, scollegalo da qui: dovrà rientrare con la password. Ogni utilizzo sposta in avanti la scadenza.</p>
     {/if}
   {/if}
 </Sheet>

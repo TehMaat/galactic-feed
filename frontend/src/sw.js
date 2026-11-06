@@ -103,6 +103,17 @@ const recentImages = new CacheFirst({
   plugins: [onlyOk, new ExpirationPlugin({ maxEntries: 400, maxAgeSeconds: 14 * 24 * 3600, purgeOnQuotaError: true })],
 });
 
+// Icone delle fonti (k=icon): poche e usate ovunque, restano 60 giorni anche senza rete.
+const icons = new CacheFirst({
+  cacheName: CACHE.icons,
+  plugins: [onlyOk, new ExpirationPlugin({ maxEntries: 500, maxAgeSeconds: 60 * 24 * 3600, purgeOnQuotaError: true })],
+});
+
+registerRoute(
+  ({ url, request }) => sameOrigin(url) && request.method === "GET" && url.pathname === "/api/img" && url.searchParams.get("k") === "icon",
+  icons,
+);
+
 registerRoute(
   ({ url, request }) => sameOrigin(url) && request.method === "GET" && url.pathname === "/api/img",
   async (options) => {

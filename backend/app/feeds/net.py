@@ -59,6 +59,35 @@ class Fetched:
             return self.content.decode("utf-8", errors="replace")
 
 
+# Immagini raster che il proxy serve (niente SVG, che può contenere script).
+IMAGE_TYPES = {"image/jpeg", "image/png", "image/gif", "image/webp", "image/avif", "image/x-icon"}
+
+
+def image_type(content: bytes, declared: str = "") -> str | None:
+    """Il tipo dell'immagine, riconosciuto dai primi byte; None se non è un'immagine ammessa.
+
+    I siti a volte dichiarano un tipo sbagliato (favicon.ico come text/plain o
+    application/octet-stream): conta il contenuto, non l'header.
+    """
+    head = content[:16]
+    if head.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "image/png"
+    if head.startswith(b"\xff\xd8\xff"):
+        return "image/jpeg"
+    if head.startswith((b"GIF87a", b"GIF89a")):
+        return "image/gif"
+    if head.startswith(b"RIFF") and head[8:12] == b"WEBP":
+        return "image/webp"
+    if head[4:8] == b"ftyp" and head[8:12] in (b"avif", b"avis"):
+        return "image/avif"
+    if head.startswith(b"\x00\x00\x01\x00") and len(content) > 22:
+        return "image/x-icon"
+    # AVIF con un'altra marca principale (per esempio «mif1»): vale l'header, se il file è un ISO BMFF.
+    if (declared or "").lower() == "image/avif" and head[4:8] == b"ftyp":
+        return "image/avif"
+    return None
+
+
 def normalize_input_url(raw: str) -> str:
     """Rende utilizzabile quello che l'utente incolla: spazi, schema mancante, maiuscole."""
     value = (raw or "").strip()

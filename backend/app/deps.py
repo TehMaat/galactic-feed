@@ -11,6 +11,7 @@ from typing import Any, Iterator
 
 from fastapi import Depends, HTTPException, Request
 
+from . import instance
 from .config import Settings
 from .db import Database, now
 from .hooks import Hooks
@@ -34,6 +35,7 @@ class AppContext:
         self.http = None
         self.fetcher = None
         self.extractor = None
+        self.icons = None  # icone dei siti (feeds/icons.py)
         self.scheduler = None
         self.relevance = None  # filtro AI (ai/relevance.py)
         self.notifier = None  # notifiche push (push/notifier.py)
@@ -114,9 +116,10 @@ class User:
     prefs: dict[str, Any] = field(default_factory=dict)
     session_id: int | None = None
     created_at: int | None = None
+    remember: bool = True  # la sessione in uso è «ricordata»
 
 
-def user_from_row(row: sqlite3.Row, session_id: int | None = None) -> User:
+def user_from_row(row: sqlite3.Row, session_id: int | None = None, remember: bool = True) -> User:
     try:
         prefs = json.loads(row["prefs"] or "{}")
     except (TypeError, ValueError):
@@ -129,6 +132,7 @@ def user_from_row(row: sqlite3.Row, session_id: int | None = None) -> User:
         prefs=prefs if isinstance(prefs, dict) else {},
         session_id=session_id,
         created_at=row["created_at"],
+        remember=remember,
     )
 
 
@@ -138,20 +142,24 @@ def load_session_user(request: Request, conn: sqlite3.Connection, ctx: AppContex
         return None
     ts = now()
     row = conn.execute(
-        "SELECT s.id AS sid, s.last_seen_at AS s_seen, u.* FROM sessions s JOIN users u ON u.id = s.user_id"
+        "SELECT s.id AS sid, s.last_seen_at AS s_seen, s.remember AS s_remember, u.* FROM sessions s"
+        " JOIN users u ON u.id = s.user_id"
         " WHERE s.token_hash = ? AND s.expires_at > ? AND u.disabled = 0",
         (token_hash(token), ts),
     ).fetchone()
     if row is None:
         return None
-    if ts - row["s_seen"] > SESSION_TOUCH_SECONDS:
+    remember = bool(row["s_remember"])
+    lifetime = instance.session_seconds(conn, ctx.settings, remember)
+    if ts - row["s_seen"] > min(SESSION_TOUCH_SECONDS, lifetime // 4):
+        # Ogni utilizzo sposta in avanti la scadenza: la durata conta dall'ultima volta che si usa l'app.
         with conn:
             conn.execute(
                 "UPDATE sessions SET last_seen_at = ?, expires_at = ? WHERE id = ?",
-                (ts, ts + ctx.settings.session_days * 86400, row["sid"]),
+                (ts, ts + lifetime, row["sid"]),
             )
             conn.execute("UPDATE users SET last_seen_at = ? WHERE id = ?", (ts, row["id"]))
-    return user_from_row(row, session_id=row["sid"])
+    return user_from_row(row, session_id=row["sid"], remember=remember)
 
 
 def current_user(
