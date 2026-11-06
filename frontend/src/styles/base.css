@@ -9,9 +9,17 @@
   --ink-2: #4B5068;
   --ink-3: #737891;
   --line: rgba(19, 22, 42, 0.10);
-  --accent: #0A7A69;
-  --accent-soft: rgba(10, 122, 105, 0.12);
-  --on-accent: #FFFFFF;
+  /* Colore principale: --acc-* cambia con la scelta dell'utente (data-accent, più sotto);
+     il tema prende la variante chiara o scura. */
+  --acc-l: #096E5F;
+  --acc-on-l: #FFFFFF;
+  --acc-soft-l: rgba(9, 110, 95, 0.12);
+  --acc-d: #5FE0C7;
+  --acc-on-d: #06221D;
+  --acc-soft-d: rgba(95, 224, 199, 0.14);
+  --accent: var(--acc-l);
+  --accent-soft: var(--acc-soft-l);
+  --on-accent: var(--acc-on-l);
   --star: #8A5600;
   --star-soft: rgba(201, 138, 20, 0.16);
   --warn: #9A6212;
@@ -59,9 +67,9 @@
     --ink-2: #A8ACC3;
     --ink-3: #7B809C;
     --line: rgba(236, 234, 243, 0.09);
-    --accent: #5FE0C7;
-    --accent-soft: rgba(95, 224, 199, 0.14);
-    --on-accent: #06221D;
+    --accent: var(--acc-d);
+    --accent-soft: var(--acc-soft-d);
+    --on-accent: var(--acc-on-d);
     --star: #F2C46B;
     --star-soft: rgba(242, 196, 107, 0.14);
     --warn: #F2B35B;
@@ -94,9 +102,9 @@
   --ink-2: #A8ACC3;
   --ink-3: #7B809C;
   --line: rgba(236, 234, 243, 0.09);
-  --accent: #5FE0C7;
-  --accent-soft: rgba(95, 224, 199, 0.14);
-  --on-accent: #06221D;
+  --accent: var(--acc-d);
+  --accent-soft: var(--acc-soft-d);
+  --on-accent: var(--acc-on-d);
   --star: #F2C46B;
   --star-soft: rgba(242, 196, 107, 0.14);
   --warn: #F2B35B;
@@ -117,6 +125,48 @@
   --c-azzurro: #5CC8E8;
   --c-grigio: #A8ACC3;
   color-scheme: dark;
+}
+
+
+/* ---------- Colore principale ----------
+   Ogni colore ha una variante per il tema chiaro e una per lo scuro, con contrasto AA
+   (almeno 4,5:1) come testo su sfondi e schede, sullo sfondo tenue (--accent-soft) e con
+   il testo sopra (--on-accent). «galassia», il predefinito, è nel blocco :root qui sopra. */
+:root[data-accent="indaco"] {
+  --acc-l: #4A54D7; --acc-on-l: #FFFFFF; --acc-soft-l: rgba(74, 84, 215, 0.12);
+  --acc-d: #A3AAFF; --acc-on-d: #0B0F3A; --acc-soft-d: rgba(163, 170, 255, 0.14);
+}
+:root[data-accent="blu"] {
+  --acc-l: #1B63B7; --acc-on-l: #FFFFFF; --acc-soft-l: rgba(27, 99, 183, 0.12);
+  --acc-d: #74B2FF; --acc-on-d: #06203F; --acc-soft-d: rgba(116, 178, 255, 0.14);
+}
+:root[data-accent="viola"] {
+  --acc-l: #8141C3; --acc-on-l: #FFFFFF; --acc-soft-l: rgba(129, 65, 195, 0.12);
+  --acc-d: #C9A3FF; --acc-on-d: #250B45; --acc-soft-d: rgba(201, 163, 255, 0.14);
+}
+:root[data-accent="rosa"] {
+  --acc-l: #B42F55; --acc-on-l: #FFFFFF; --acc-soft-l: rgba(180, 47, 85, 0.12);
+  --acc-d: #FF94B4; --acc-on-d: #3D0A1C; --acc-soft-d: rgba(255, 148, 180, 0.14);
+}
+:root[data-accent="arancio"] {
+  --acc-l: #A5451A; --acc-on-l: #FFFFFF; --acc-soft-l: rgba(165, 69, 26, 0.12);
+  --acc-d: #FF9F7A; --acc-on-d: #3A1405; --acc-soft-d: rgba(255, 159, 122, 0.14);
+}
+:root[data-accent="ambra"] {
+  --acc-l: #8A5600; --acc-on-l: #FFFFFF; --acc-soft-l: rgba(138, 86, 0, 0.12);
+  --acc-d: #F2B35B; --acc-on-d: #2E1C00; --acc-soft-d: rgba(242, 179, 91, 0.14);
+}
+:root[data-accent="verde"] {
+  --acc-l: #277137; --acc-on-l: #FFFFFF; --acc-soft-l: rgba(39, 113, 55, 0.12);
+  --acc-d: #86DC95; --acc-on-d: #0A2A12; --acc-soft-d: rgba(134, 220, 149, 0.14);
+}
+/* «system»: il colore scelto nel sistema operativo, dove il browser lo rende disponibile
+   (soprattutto su computer). Altrimenti resta il colore predefinito. */
+@supports (color: AccentColor) and (color: color-mix(in srgb, red 10%, transparent)) {
+  :root[data-accent="system"] {
+    --acc-l: AccentColor; --acc-on-l: AccentColorText; --acc-soft-l: color-mix(in srgb, AccentColor 12%, transparent);
+    --acc-d: AccentColor; --acc-on-d: AccentColorText; --acc-soft-d: color-mix(in srgb, AccentColor 14%, transparent);
+  }
 }
 
 *, *::before, *::after { box-sizing: border-box; }

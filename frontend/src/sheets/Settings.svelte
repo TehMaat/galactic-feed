@@ -7,7 +7,7 @@
   import { folderColor } from "../lib/format.js";
   import { currentSubscription, disablePush, enablePush, isIos, isStandalone } from "../lib/push.js";
   import { api } from "../lib/api.js";
-  import { initials, timeAgoLong } from "../lib/format.js";
+  import { ACCENTS, initials, timeAgoLong } from "../lib/format.js";
   import { TEXT_SIZES, data, logout, savePrefs, session, toast, ui } from "../lib/store.svelte.js";
 
   let page = $state("main"); // main · users · user · access · ai · password · sessions
@@ -102,6 +102,8 @@
     if (await savePrefs({ edition_times: times.filter((x) => x !== t) })) toast(`Edizione delle ${t} tolta`);
   }
   const theme = $derived(me?.prefs?.theme || "auto");
+  const accent = $derived(me?.prefs?.accent || "galassia");
+  const systemAccent = typeof CSS !== "undefined" && CSS.supports?.("color", "AccentColor");
   const lastCheck = $derived(
     data.sources.map((s) => s.last_fetch_at).filter(Boolean).sort().at(-1) || null,
   );
@@ -380,8 +382,24 @@
             {/each}
           </div>
         </div>
+        <div class="set-block">
+          <span class="label" id="accent-label">Colore</span>
+          <div class="swatches" role="group" aria-labelledby="accent-label">
+            {#each ACCENTS as c (c.key)}
+              <button type="button" class="swatch" style="--sw-l:{c.light};--sw-d:{c.dark}" aria-pressed={accent === c.key} aria-label={c.name} title={c.name} onclick={() => savePrefs({ accent: c.key })}><Icon name="check" /></button>
+            {/each}
+            <button type="button" class="swatch is-system" aria-pressed={accent === "system"} aria-label="Colore del sistema" title="Colore del sistema" onclick={() => savePrefs({ accent: "system" })}><Icon name="check" /></button>
+          </div>
+        </div>
         <button type="button" class="set-row as-button" onclick={nextTextSize}><span>Dimensione del testo</span><span class="val">{Math.round((me.prefs.text_size || 1) * 100)}%</span></button>
       </div>
+      <p class="set-note">
+        {accent === "system"
+          ? systemAccent
+            ? "Colore del sistema: lo prende dalle impostazioni del dispositivo."
+            : "Questo browser non fa conoscere il colore del sistema (succede su iPhone, iPad e Android): resta il colore Galassia."
+          : "Tema, colore e font valgono su tutti i tuoi dispositivi."}
+      </p>
 
       <div class="set-label">Server</div>
       <div class="set-group">

@@ -98,3 +98,15 @@ export function pathOf(url) {
     return url;
   }
 }
+
+/** Colori principali tra cui scegliere (gli stessi valori di styles/base.css, verificati dai test). */
+export const ACCENTS = [
+  { key: "galassia", name: "Galassia", light: "#096E5F", dark: "#5FE0C7" },
+  { key: "indaco", name: "Indaco", light: "#4A54D7", dark: "#A3AAFF" },
+  { key: "blu", name: "Blu", light: "#1B63B7", dark: "#74B2FF" },
+  { key: "viola", name: "Viola", light: "#8141C3", dark: "#C9A3FF" },
+  { key: "rosa", name: "Rosa", light: "#B42F55", dark: "#FF94B4" },
+  { key: "arancio", name: "Arancio", light: "#A5451A", dark: "#FF9F7A" },
+  { key: "ambra", name: "Ambra", light: "#8A5600", dark: "#F2B35B" },
+  { key: "verde", name: "Verde", light: "#277137", dark: "#86DC95" },
+];

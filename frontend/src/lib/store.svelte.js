@@ -249,14 +249,41 @@ export async function logout() {
 export function applyPrefs(prefs) {
   if (!prefs) return;
   applyTheme(prefs.theme);
+  applyLook({ accent: prefs.accent });
 }
+
+// Colore della barra del browser (meta theme-color): segue lo sfondo del tema in uso.
+const BAR_COLORS = { light: "#F4F5F9", dark: "#0C0F1C" };
 
 export function applyTheme(theme) {
   const root = document.documentElement;
   if (theme === "light" || theme === "dark") root.dataset.theme = theme;
   else delete root.dataset.theme;
+  for (const meta of document.querySelectorAll('meta[name="theme-color"]')) {
+    const own = meta.media.includes("dark") ? BAR_COLORS.dark : BAR_COLORS.light;
+    meta.content = theme === "light" || theme === "dark" ? BAR_COLORS[theme] : own;
+  }
+  remember("gf-theme", theme || "auto");
+}
+
+// Aspetto (data-* su <html>, letti dal CSS in base.css). Il valore predefinito toglie l'attributo.
+const LOOK = { accent: ["accent", "gf-accent", "galassia"] };
+
+export function applyLook(values) {
+  const root = document.documentElement;
+  for (const [key, value] of Object.entries(values)) {
+    if (!(key in LOOK) || value === undefined) continue;
+    const [attr, storageKey, fallback] = LOOK[key];
+    if (!value || value === fallback) delete root.dataset[attr];
+    else root.dataset[attr] = value;
+    remember(storageKey, value || fallback);
+  }
+}
+
+// Copia sul dispositivo, per applicare l'aspetto prima di disegnare la pagina (vedi index.html).
+function remember(key, value) {
   try {
-    localStorage.setItem("gf-theme", theme || "auto");
+    localStorage.setItem(key, value);
   } catch {
     /* archivio non disponibile */
   }

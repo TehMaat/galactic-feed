@@ -66,10 +66,16 @@ def check_times(values: list[str]) -> list[str]:
     return times
 
 
+# Colori principali: una tavolozza con contrasto AA verificato in chiaro e in scuro
+# (frontend/src/styles/base.css), oppure «system», il colore di sistema dove il browser lo dà.
+ACCENTS = ("galassia", "indaco", "blu", "viola", "rosa", "arancio", "ambra", "verde", "system")
+
+
 class Prefs(BaseModel):
     """Preferenze personali: aspetto, doppioni, Edizione, AI e notifiche."""
 
     theme: Literal["auto", "light", "dark"] = "auto"
+    accent: Literal[ACCENTS] = "galassia"
     text_size: float = Field(default=1.0, ge=0.85, le=1.3)
     dedupe: bool = True
     # Edizione: accesa o spenta e orari (nel fuso del server, TZ).

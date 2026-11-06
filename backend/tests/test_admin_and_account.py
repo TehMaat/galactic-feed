@@ -61,6 +61,18 @@ def test_invalid_prefs(admin):
     assert "detail" in r.json()
 
 
+def test_accent_pref(admin, app):
+    """Colore principale salvato nell'account: lo ritrova ogni dispositivo (issue #14)."""
+    assert admin.get("/api/me").json()["user"]["prefs"]["accent"] == "galassia"
+    r = admin.patch("/api/me", json={"prefs": {"accent": "viola"}})
+    assert r.json()["user"]["prefs"]["accent"] == "viola"
+    phone = new_client(app)
+    phone.post("/api/auth/login", json={"username": "anna", "password": PASSWORD})
+    assert phone.get("/api/auth/state").json()["user"]["prefs"]["accent"] == "viola"
+    assert admin.patch("/api/me", json={"prefs": {"accent": "system"}}).status_code == 200
+    assert admin.patch("/api/me", json={"prefs": {"accent": "#ff0000"}}).status_code == 422
+
+
 def test_change_password_logs_out_other_devices(admin, app):
     phone = new_client(app)
     phone.post("/api/auth/login", json={"username": "anna", "password": PASSWORD})
