@@ -42,6 +42,7 @@ RUN groupadd --system --gid 1000 galactic \
     && mkdir -p /data && chown galactic:galactic /data
 
 COPY --from=deps /opt/venv /opt/venv
+COPY VERSION /app/VERSION
 COPY backend/app /app/backend/app
 COPY --from=pwa /src/frontend/dist /app/frontend
 RUN /opt/venv/bin/python -m compileall -q /app/backend/app

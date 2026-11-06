@@ -3,7 +3,8 @@ name: Immagine Docker
 # Costruisce l'immagine per amd64, arm64 e armv7.
 # - Sulle pull request: solo la build e una prova del container (niente pubblicazione).
 # - Su main: pubblica ghcr.io/<proprietario>/galactic-feed:latest.
-# - Sui tag v1.2.3: pubblica anche :1.2.3 e :1.2.
+# - Sui tag v1.2.3: pubblica anche :1.2.3 e :1.2, poi crea la release su GitHub con le
+#   note prese da CHANGELOG.md. Il tag deve corrispondere al file VERSION.
 
 on:
   push:
@@ -13,6 +14,7 @@ on:
     paths:
       - Dockerfile
       - .dockerignore
+      - VERSION
       - docker-compose.yml
       - backend/requirements.txt
       - backend/app/**
@@ -35,6 +37,10 @@ jobs:
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
+
+      - name: Il tag corrisponde a VERSION e a CHANGELOG.md
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: python3 scripts/release.py check "$GITHUB_REF_NAME"
 
       - name: Nome dell'immagine (GHCR vuole le minuscole)
         run: echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
@@ -63,7 +69,7 @@ jobs:
           test "$(docker inspect -f '{{.State.Health.Status}}' prova)" = healthy
           test "$(docker exec prova id -u)" != 0
           docker logs prova 2>&1 | grep -q "Codice di primo avvio: [0-9]\{6\}"
-          curl -fsS http://localhost:8080/api/health
+          curl -fsS http://localhost:8080/api/health | grep -q "\"version\":\"$(cat VERSION)\""
           curl -fsS http://localhost:8080/ | grep -q "<title>"
           curl -fsS http://localhost:8080/manifest.webmanifest | grep -q '"Galactic Feed"'
           curl -fsSI http://localhost:8080/sw.js | grep -qi "cache-control: no-cache"
@@ -97,3 +103,29 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  # Release su GitHub, solo per i tag e solo dopo la pubblicazione delle immagini.
+  release:
+    needs: image
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Note dalla sezione della versione in CHANGELOG.md
+        run: python3 scripts/release.py notes "$GITHUB_REF_NAME" > notes.md
+      - name: Crea la release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          image="ghcr.io/${GITHUB_REPOSITORY,,}"
+          version="${GITHUB_REF_NAME#v}"
+          prerelease=""
+          tags="\`${image}:${version}\`"
+          case "$version" in
+            *-*) prerelease="--prerelease" ;;
+            *) tags="${tags} e \`${image}:$(echo "$version" | cut -d. -f1-2)\`" ;;
+          esac
+          printf '\n### Immagine Docker\n\n%s per amd64, arm64 e armv7.\n' "$tags" >> notes.md
+          gh release create "$GITHUB_REF_NAME" --title "Galactic Feed ${GITHUB_REF_NAME#v}" --notes-file notes.md --verify-tag $prerelease

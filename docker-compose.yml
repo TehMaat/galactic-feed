@@ -6,7 +6,9 @@
 
 services:
   galactic-feed:
-    image: ghcr.io/tehmaat/galactic-feed:latest
+    # :0.3 riceve da solo le correzioni della versione 0.3 (0.3.1, 0.3.2…). Per passare a una
+    # versione nuova cambia il numero (le novità sono in CHANGELOG.md); :latest segue sempre main.
+    image: ghcr.io/tehmaat/galactic-feed:0.3
     container_name: galactic-feed
     restart: unless-stopped
     ports:
