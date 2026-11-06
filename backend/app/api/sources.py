@@ -5,16 +5,20 @@ from __future__ import annotations
 import asyncio
 import sqlite3
 
+from typing import Literal
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from ..db import iso, now
 from ..deps import AppContext, User, current_user, get_ctx, get_db
 from ..feeds.discovery import NothingFound, discover
+from ..feeds.icons import check_image
 from ..feeds.net import FetchError, normalize_input_url
 from ..feeds.sanitize import normalize_feed_url
 from ..reading.matching import recompute_feed_for_user
 from .folders import check_folder
+from .images import proxied_icon, source_icon
 
 router = APIRouter(prefix="/api/sources", tags=["fonti"])
 
@@ -100,6 +104,7 @@ def source_status(row: sqlite3.Row) -> str:
 
 SOURCE_SELECT = (
     "SELECT s.id, s.feed_id, s.folder_id, s.title AS custom_title, s.interval_min, s.created_at,"
+    " s.icon_mode, s.icon_custom, f.icon_url, f.icon_checked_at,"
     " f.url, f.kind, f.title AS feed_title, f.site_url, f.last_fetch_at, f.last_success_at, f.next_fetch_at,"
     " f.error_message, f.error_since, f.error_count, f.last_status,"
     " (SELECT COUNT(*) FROM articles a WHERE a.feed_id = f.id) AS articles,"
@@ -111,7 +116,7 @@ SOURCE_SELECT = (
 )
 
 
-def source_payload(row: sqlite3.Row) -> dict:
+def source_payload(row: sqlite3.Row, secret: bytes) -> dict:
     return {
         "id": row["id"],
         "feed_id": row["feed_id"],
@@ -133,6 +138,12 @@ def source_payload(row: sqlite3.Row) -> dict:
         "articles": row["articles"],
         "unread": row["unread"],
         "created_at": iso(row["created_at"]),
+        # Icona: quella da mostrare (None = iniziali), la scelta dell'utente e quella trovata in automatico.
+        "icon": source_icon(secret, row["icon_mode"], row["icon_custom"], row["icon_url"]),
+        "icon_mode": row["icon_mode"],
+        "icon_custom": row["icon_custom"] or None,
+        "icon_auto": proxied_icon(secret, row["icon_url"]),
+        "icon_checked_at": iso(row["icon_checked_at"]),
     }
 
 
@@ -143,12 +154,12 @@ def get_source(conn: sqlite3.Connection, user_id: int, source_id: int) -> sqlite
     return row
 
 
-def list_sources(conn: sqlite3.Connection, user_id: int) -> list[dict]:
+def list_sources(conn: sqlite3.Connection, user_id: int, secret: bytes) -> list[dict]:
     rows = conn.execute(
         SOURCE_SELECT + " WHERE s.user_id = ? ORDER BY COALESCE(NULLIF(s.title, ''), NULLIF(f.title, ''), f.url) COLLATE NOCASE",
         (user_id,),
     ).fetchall()
-    return [source_payload(r) for r in rows]
+    return [source_payload(r, secret) for r in rows]
 
 
 # ---------- Endpoint ----------
@@ -186,8 +197,8 @@ async def discover_feeds(
 
 
 @router.get("")
-def sources(user: User = Depends(current_user), conn: sqlite3.Connection = Depends(get_db)):
-    return {"sources": list_sources(conn, user.id), "intervals": INTERVALS}
+def sources(user: User = Depends(current_user), conn: sqlite3.Connection = Depends(get_db), ctx: AppContext = Depends(get_ctx)):
+    return {"sources": list_sources(conn, user.id, ctx.secret), "intervals": INTERVALS}
 
 
 class NewSource(BaseModel):
@@ -230,8 +241,9 @@ async def add_source(
         source_id = subscribe(conn, user.id, feed_id, body.folder_id, title, interval)
     if source_id is None:
         raise HTTPException(status_code=409, detail="Segui già questa fonte.")
+    # Lo scheduler cerca subito anche l'icona del sito.
     ctx.scheduler.wake()
-    return {"source": source_payload(get_source(conn, user.id, source_id))}
+    return {"source": source_payload(get_source(conn, user.id, source_id), ctx.secret)}
 
 
 class SourcePatch(BaseModel):
@@ -242,7 +254,8 @@ class SourcePatch(BaseModel):
 
 @router.patch("/{source_id}")
 def update_source(
-    source_id: int, body: SourcePatch, user: User = Depends(current_user), conn: sqlite3.Connection = Depends(get_db)
+    source_id: int, body: SourcePatch, user: User = Depends(current_user), conn: sqlite3.Connection = Depends(get_db),
+    ctx: AppContext = Depends(get_ctx),
 ):
     row = get_source(conn, user.id, source_id)
     fields = body.model_fields_set
@@ -258,7 +271,7 @@ def update_source(
             (title, folder_id, interval, source_id),
         )
         recompute_interval(conn, row["feed_id"])
-    return {"source": source_payload(get_source(conn, user.id, source_id))}
+    return {"source": source_payload(get_source(conn, user.id, source_id), ctx.secret)}
 
 
 @router.delete("/{source_id}")
@@ -280,7 +293,54 @@ async def refresh_source(
     row = get_source(conn, user.id, source_id)
     outcome = await ctx.fetcher.fetch_feed(row["feed_id"])
     ctx.scheduler.wake()
-    return {"source": source_payload(get_source(conn, user.id, source_id)), "new_articles": outcome.new}
+    return {"source": source_payload(get_source(conn, user.id, source_id), ctx.secret), "new_articles": outcome.new}
+
+
+# ---------- Icona ----------
+
+
+class IconChoice(BaseModel):
+    # auto: l'icona trovata in automatico · custom: un'immagine scelta dall'utente · none: le iniziali
+    mode: Literal["auto", "custom", "none"]
+    url: str = ""
+
+
+@router.put("/{source_id}/icon")
+async def set_icon(
+    source_id: int, body: IconChoice, user: User = Depends(current_user), conn: sqlite3.Connection = Depends(get_db),
+    ctx: AppContext = Depends(get_ctx),
+):
+    """La scelta dell'utente per la sua fonte. L'aggiornamento automatico non la cambia."""
+    get_source(conn, user.id, source_id)
+    custom = ""
+    if body.mode == "custom":
+        try:
+            custom = normalize_input_url(body.url)
+        except FetchError as exc:
+            raise HTTPException(status_code=422, detail=exc.message)
+        if not await check_image(ctx.http, custom):
+            raise HTTPException(
+                status_code=422,
+                detail="A questo indirizzo non trovo un'immagine utilizzabile (PNG, JPEG, GIF, WebP, AVIF o ICO, al massimo 1 MB).",
+            )
+    with conn:
+        conn.execute(
+            "UPDATE subscriptions SET icon_mode = ?, icon_custom = CASE WHEN ? = 'custom' THEN ? ELSE icon_custom END"
+            " WHERE id = ?",
+            (body.mode, body.mode, custom, source_id),
+        )
+    return {"source": source_payload(get_source(conn, user.id, source_id), ctx.secret)}
+
+
+@router.post("/{source_id}/icon/refresh")
+async def refresh_icon(
+    source_id: int, user: User = Depends(current_user), conn: sqlite3.Connection = Depends(get_db),
+    ctx: AppContext = Depends(get_ctx),
+):
+    """Ripete subito la ricerca automatica dell'icona del sito (vale per chi segue lo stesso feed)."""
+    row = get_source(conn, user.id, source_id)
+    found = await ctx.icons.refresh(row["feed_id"])
+    return {"source": source_payload(get_source(conn, user.id, source_id), ctx.secret), "found": bool(found)}
 
 
 @router.post("/refresh")

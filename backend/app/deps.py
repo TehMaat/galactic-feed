@@ -35,6 +35,7 @@ class AppContext:
         self.http = None
         self.fetcher = None
         self.extractor = None
+        self.icons = None  # icone dei siti (feeds/icons.py)
         self.scheduler = None
         self.relevance = None  # filtro AI (ai/relevance.py)
         self.notifier = None  # notifiche push (push/notifier.py)

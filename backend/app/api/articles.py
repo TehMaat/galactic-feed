@@ -17,7 +17,7 @@ from ..feeds.sanitize import drop_lead_image
 from ..reading import query
 from ..reading.query import VIEWS, ArticleFilter
 from .common import prefs_with_defaults
-from .images import proxied, proxy_images_in_html
+from .images import proxied, proxy_images_in_html, source_icon
 
 router = APIRouter(prefix="/api/articles", tags=["articoli"])
 
@@ -79,7 +79,13 @@ def item_payload(row: sqlite3.Row, secret: bytes, others: list[dict] | None = No
         "author": row["author"],
         "image": proxied(secret, row["image_url"]),
         "published_at": iso(row["published_at"]),
-        "source": {"id": row["sub_id"], "title": source_title, "kind": row["kind"], "folder_id": row["folder_id"]},
+        "source": {
+            "id": row["sub_id"],
+            "title": source_title,
+            "kind": row["kind"],
+            "folder_id": row["folder_id"],
+            "icon": source_icon(secret, row["icon_mode"], row["icon_custom"], row["icon_url"]),
+        },
         "video": bool(row["video_id"]),
         "video_id": row["video_id"],
         "reading_minutes": minutes,

@@ -77,6 +77,9 @@ class Scheduler:
         for _ in range(5):
             if not await self.ctx.extractor.extract_pending():
                 break
+        # Icone dei siti: quelle delle fonti nuove e quelle da ricontrollare (ogni 7 giorni).
+        if self.ctx.icons:
+            await self.ctx.icons.run_due()
         # Filtro AI sugli articoli nuovi, prima di comporre le edizioni.
         if self.ctx.relevance:
             await self.ctx.relevance.run()

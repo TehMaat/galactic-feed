@@ -3,9 +3,10 @@
   // terza colonna, sempre visibile (come nel mockup).
   import { api } from "../lib/api.js";
   import { isAvailableOffline, overlay } from "../lib/offline.js";
-  import { initials, sourceColor, timeAgoLong } from "../lib/format.js";
+  import { sourceColor, timeAgoLong } from "../lib/format.js";
   import { TEXT_SIZES, closeReader, foldersById, savePrefs, session, setRead, setSaved, stream, saved, ui, toast } from "../lib/store.svelte.js";
   import Icon from "./Icon.svelte";
+  import SourceIcon from "./SourceIcon.svelte";
   import Thumb from "./Thumb.svelte";
 
   let article = $state(null);
@@ -145,7 +146,7 @@
       {/if}
       <div class="reader-kicker">
         <div class="meta">
-          <span class="mono-av" style="--src-c:{sourceColor(article.source, foldersById())}">{initials(article.source.title)}</span>
+          <SourceIcon source={article.source} color={sourceColor(article.source, foldersById())} />
           <span class="src">{article.source.title}</span>
         </div>
         {#if article.match}<span class="match"><Icon name="spark" />{article.match.keyword}</span>{/if}

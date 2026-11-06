@@ -17,6 +17,7 @@ from .config import VERSION, Settings
 from .deps import AppContext
 from .feeds.extract import Extractor
 from .feeds.fetcher import Fetcher
+from .feeds.icons import IconFinder
 from .feeds.net import make_client
 from .ai.relevance import RelevanceWorker
 from .feeds.scheduler import Scheduler
@@ -87,6 +88,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         ctx.http = make_client(settings)
         ctx.fetcher = Fetcher(ctx)
         ctx.extractor = Extractor(ctx)
+        ctx.icons = IconFinder(ctx)
         ctx.relevance = RelevanceWorker(ctx)
         ctx.notifier = Notifier(ctx)
         ctx.notifier.start()

@@ -1,7 +1,8 @@
 <script>
   import Icon from "../components/Icon.svelte";
   import { api } from "../lib/api.js";
-  import { KIND_LABEL, initials, intervalLabel, since, sourceColor } from "../lib/format.js";
+  import SourceIcon from "../components/SourceIcon.svelte";
+  import { KIND_LABEL, intervalLabel, since, sourceColor } from "../lib/format.js";
   import { data, foldersById, loadAll, openSheet, toast } from "../lib/store.svelte.js";
 
   let { active } = $props();
@@ -96,7 +97,7 @@
       <div class="list">
         {#each g.sources as s (s.id)}
           <div class="src-row" role="button" tabindex="0" aria-label="Fonte {s.title}" onclick={() => openSheet("source", s)} onkeydown={(e) => key(e, () => openSheet("source", s))}>
-            <span class="src-av" style="--src-c:{sourceColor(s, foldersById())}">{initials(s.title)}</span>
+            <SourceIcon source={s} color={sourceColor(s, foldersById())} cls="src-av" />
             <span class="src-text">
               <span class="src-name">{s.title}</span>
               <span class="src-sub"><span class="status-dot {dot(s)}"></span>{subtitle(s)}</span>

@@ -487,6 +487,13 @@ export function closeReader() {
   writeLocation(false);
 }
 
+/** Aggiorna i dati della fonte (per esempio l'icona) negli articoli già caricati. */
+export function patchSourceInLists(sourceId, changes) {
+  for (const list of allLists()) {
+    for (const a of list) if (a.source?.id === sourceId) Object.assign(a.source, changes);
+  }
+}
+
 function patchItems(id, changes) {
   for (const list of allLists()) {
     for (const a of list) if (a.id === id) Object.assign(a, changes);

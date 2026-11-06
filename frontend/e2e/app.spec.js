@@ -345,3 +345,61 @@ test("notifiche: il service worker riceve il messaggio push", async ({ page, con
   // browser senza schermo, non si può mostrare).
   await expect.poll(() => page.evaluate(() => window.__gfPush || null)).toEqual(payload);
 });
+
+test("icone delle fonti, logo, «Ricordami» e aspetto", async ({ browser }) => {
+  // Senza «Ricordami» il cookie sparisce chiudendo il browser.
+  const once = await browser.newContext({ viewport: PHONE, locale: "it-IT" });
+  const p1 = await once.newPage();
+  await p1.goto("/");
+  await p1.getByLabel("Nome utente").fill("anna");
+  await p1.getByLabel("Password").fill(PASSWORD);
+  await expect(p1.getByLabel(/Ricordami/)).not.toBeChecked();
+  await p1.getByRole("button", { name: "Entra" }).click();
+  await expect(p1.locator(".appbar")).toBeVisible();
+  expect((await once.cookies()).find((c) => c.name === "gf_session").expires).toBe(-1);
+  await once.close();
+
+  const ctx = await browser.newContext({ viewport: PHONE, locale: "it-IT" });
+  const page = await ctx.newPage();
+  await page.goto("/");
+  await page.getByLabel("Nome utente").fill("anna");
+  await page.getByLabel("Password").fill(PASSWORD);
+  await page.getByLabel(/Ricordami/).check();
+  await page.getByRole("button", { name: "Entra" }).click();
+  await expect(page.locator(".appbar")).toBeVisible();
+  const cookie = (await ctx.cookies()).find((c) => c.name === "gf_session");
+  expect(cookie.expires - Date.now() / 1000).toBeGreaterThan(89 * 86400);
+
+  // Le icone dei siti al posto delle iniziali, in Oggi (qui l'Edizione, accesa da un test precedente) e nelle Fonti.
+  await expect(page.locator("section[aria-label='Oggi'] img.mono-av.is-icon").first()).toBeVisible();
+  await page.locator(".tabbar").getByRole("button", { name: "Fonti" }).click();
+  await expect(page.locator(".src-row img.src-av.is-icon")).toHaveCount(2);
+  await page.getByRole("button", { name: "Fonte Orbita" }).click();
+  await sheetClick(page, "Iniziali");
+  await expect(page.locator(".toast")).toContainText("Ora mostra le iniziali");
+  await expect(page.locator(".src-row").filter({ hasText: "Orbita" }).locator("span.src-av")).toBeVisible();
+  await sheetClick(page, "Automatica");
+  await expect(page.locator(".src-row").filter({ hasText: "Orbita" }).locator("img.src-av")).toBeVisible();
+  await page.keyboard.press("Escape");
+
+  // Il logo riporta a Oggi.
+  await page.locator(".appbar").getByRole("link", { name: /vai a Oggi/ }).click();
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.locator("section[aria-label='Oggi']")).toBeVisible();
+
+  // Colore e font: si vedono subito e restano dopo aver ricaricato la pagina.
+  await page.getByRole("button", { name: "Impostazioni" }).click();
+  await sheetClick(page, "Viola");
+  await page.getByRole("group", { name: "Font", exact: true }).getByRole("button", { name: "Sistema" }).click();
+  // Il colore vero dipende dal tema in uso: variante chiara o scura del viola.
+  const look = () => page.evaluate(() => {
+    const root = document.documentElement;
+    const dark = root.dataset.theme === "dark" || (root.dataset.theme !== "light" && matchMedia("(prefers-color-scheme: dark)").matches);
+    const color = getComputedStyle(root).getPropertyValue("--accent").trim().toUpperCase();
+    return { accent: root.dataset.accent, font: root.dataset.font, ok: color === (dark ? "#C9A3FF" : "#8141C3") };
+  });
+  await expect.poll(look).toEqual({ accent: "viola", font: "sistema", ok: true });
+  await page.reload();
+  expect(await look()).toEqual({ accent: "viola", font: "sistema", ok: true });
+  await ctx.close();
+});

@@ -2,19 +2,78 @@
   // Dettagli di una fonte: stato, errori, nome, cartella, intervallo; aggiorna o smetti di seguire.
   import Icon from "../components/Icon.svelte";
   import Sheet from "../components/Sheet.svelte";
+  import SourceIcon from "../components/SourceIcon.svelte";
   import { api } from "../lib/api.js";
-  import { KIND_LABEL, folderColor, intervalLabel, shortUrl, since, timeAgoLong } from "../lib/format.js";
-  import { closeSheet, data, loadAll, loadCounts, loadSources, showSource, toast, ui } from "../lib/store.svelte.js";
+  import { KIND_LABEL, folderColor, intervalLabel, shortUrl, since, sourceColor, timeAgoLong } from "../lib/format.js";
+  import { closeSheet, data, foldersById, loadAll, loadCounts, loadSources, patchSourceInLists, showSource, toast, ui } from "../lib/store.svelte.js";
 
   let source = $state(null);
   let title = $state("");
   let busy = $state(false);
+  let iconBusy = $state(false);
+  let customOpen = $state(false);
+  let customUrl = $state("");
+  let customError = $state("");
 
   $effect(() => {
     if (ui.sheet === "source" && ui.sheetArg) {
       source = { ...ui.sheetArg };
       title = source.custom_title || "";
+      customOpen = false;
+      customUrl = source.icon_custom || "";
+      customError = "";
     }
+  });
+
+  // ---- Icona ----
+  async function iconRequest(path, options, message) {
+    iconBusy = true;
+    try {
+      const r = await api(path, options);
+      source = r.source;
+      patchSourceInLists(source.id, { icon: source.icon });
+      await loadSources();
+      toast(typeof message === "function" ? message(r) : message);
+      return true;
+    } catch (err) {
+      if (customOpen) customError = err.message;
+      else toast(err.message);
+      return false;
+    } finally {
+      iconBusy = false;
+    }
+  }
+
+  function setIconMode(mode) {
+    if (mode === "custom") {
+      customOpen = true;
+      return;
+    }
+    customOpen = false;
+    iconRequest(`/sources/${source.id}/icon`, { method: "PUT", body: { mode } }, mode === "none" ? "Ora mostra le iniziali" : "Icona automatica");
+  }
+
+  async function saveCustom(e) {
+    e.preventDefault();
+    customError = "";
+    if (!customUrl.trim()) return;
+    const ok = await iconRequest(`/sources/${source.id}/icon`, { method: "PUT", body: { mode: "custom", url: customUrl.trim() } }, "Icona cambiata");
+    if (ok) customOpen = false;
+  }
+
+  function refreshIcon() {
+    customOpen = false;
+    iconRequest(`/sources/${source.id}/icon/refresh`, { method: "POST" }, (r) =>
+      r.found ? (source.icon_mode === "auto" ? "Icona aggiornata" : "Icona automatica aggiornata: resta quella che hai scelto") : "Nessuna icona trovata sul sito",
+    );
+  }
+
+  const iconNote = $derived.by(() => {
+    if (!source) return "";
+    if (source.icon_mode === "none") return "Al posto dell'icona ci sono le iniziali.";
+    if (source.icon_mode === "custom") return "Immagine scelta da te: l'aggiornamento automatico non la cambia.";
+    if (source.icon_auto) return "Trovata in automatico sul sito. Si ricontrolla ogni settimana.";
+    return source.icon_checked_at ? "Sul sito non ho trovato un'icona: restano le iniziali." : "La cerco sul sito tra pochi secondi.";
   });
 
   async function patch(body, message) {
@@ -93,6 +152,27 @@
             </button>
           {/each}
         </div>
+      </div>
+
+      <div class="field">
+        <span class="label" id="icon-label">Icona</span>
+        <div class="icon-preview">
+          <SourceIcon {source} color={sourceColor(source, foldersById())} cls="src-av" />
+          <p class="hint">{iconNote}</p>
+        </div>
+        <div class="tags" role="group" aria-labelledby="icon-label">
+          <button type="button" class="tag" aria-pressed={source.icon_mode === "auto" && !customOpen} disabled={iconBusy} onclick={() => setIconMode("auto")}>Automatica</button>
+          <button type="button" class="tag" aria-pressed={source.icon_mode === "custom" || customOpen} disabled={iconBusy} onclick={() => setIconMode("custom")}>Un'altra immagine</button>
+          <button type="button" class="tag" aria-pressed={source.icon_mode === "none" && !customOpen} disabled={iconBusy} onclick={() => setIconMode("none")}>Iniziali</button>
+        </div>
+        {#if customOpen}
+          <form class="form-stack" onsubmit={saveCustom}>
+            <input class="input" type="url" inputmode="url" aria-label="Indirizzo dell'immagine" placeholder="https://esempio.it/logo.png" bind:value={customUrl} autocapitalize="off" spellcheck="false" />
+            {#if customError}<p class="form-error" role="alert">{customError}</p>{/if}
+            <button type="submit" class="btn-secondary" disabled={iconBusy || !customUrl.trim()}><Icon name="check" />{iconBusy ? "Controllo l'immagine…" : "Usa questa immagine"}</button>
+          </form>
+        {/if}
+        <button type="button" class="btn-secondary" onclick={refreshIcon} disabled={iconBusy}><Icon name="refresh" />{iconBusy && !customOpen ? "Cerco l'icona…" : "Aggiorna icona"}</button>
       </div>
 
       <div class="field">
