@@ -93,6 +93,40 @@ def clean_html(html: str, base_url: str = "", drop_heading: str = "") -> str:
     return cleaned.strip()
 
 
+def drop_lead_image(html: str) -> str:
+    """Toglie la prima immagine del testo se viene prima di qualunque parola.
+
+    Il lettore mostra già l'immagine principale in testa all'articolo, e il testo (dal feed
+    o estratto dalla pagina) di solito comincia con la stessa foto, magari in un formato
+    diverso: si toglie per non vederla due volte. Le immagini in mezzo al testo restano.
+    Insieme all'immagine se ne va il contenitore che la tiene (figura con didascalia,
+    link o paragrafo senza testo).
+    """
+    if not html or "<img" not in html.lower():
+        return html or ""
+    try:
+        root = lxml.html.fragment_fromstring(html, create_parent="div")
+    except (etree.ParserError, ValueError):
+        return html
+    img = next(root.iter("img"), None)
+    if img is None or "".join(img.xpath("preceding::text()")).strip():
+        return html
+    target = img
+    parent = img.getparent()
+    while parent is not None and parent is not root:
+        if parent.tag == "figure":
+            target = parent
+            break
+        if parent.text_content().strip() or len(parent.findall(".//img")) > 1:
+            break
+        target = parent
+        parent = parent.getparent()
+    target.drop_tree()
+    inner = lxml.html.tostring(root, encoding="unicode")
+    # Senza il <div> aggiunto per leggere il frammento.
+    return re.sub(r"^<div>|</div>$", "", inner).strip()
+
+
 def _norm(text: str) -> str:
     return " ".join(re.sub(r"[^\w\s]", " ", (text or "").lower()).split())
 

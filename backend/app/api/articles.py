@@ -13,6 +13,7 @@ from ..ai import config as ai_config
 from ..ai import summary
 from ..db import iso, now
 from ..deps import AppContext, User, current_user, get_ctx, get_db
+from ..feeds.sanitize import drop_lead_image
 from ..reading import query
 from ..reading.query import VIEWS, ArticleFilter
 from .common import prefs_with_defaults
@@ -137,7 +138,11 @@ def article(
     others = query.also_on(conn, user.id, {row["cluster_id"]: row["id"]}).get(row["cluster_id"])
     payload = item_payload(row, ctx.secret, others)
     full = row["full_status"] == "ok" and row["full_html"]
-    payload["content_html"] = proxy_images_in_html(ctx.secret, row["full_html"] if full else row["content_html"])
+    content = row["full_html"] if full else row["content_html"]
+    if row["image_url"] and not row["video_id"]:
+        # Il lettore mostra già l'immagine principale in testa: non si ripete all'inizio del testo.
+        content = drop_lead_image(content)
+    payload["content_html"] = proxy_images_in_html(ctx.secret, content)
     payload["full_text"] = bool(full) or row["full_status"] == "none"
     payload["full_text_status"] = row["full_status"]
     payload["categories"] = json.loads(row["categories"] or "[]")

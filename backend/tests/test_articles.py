@@ -233,6 +233,33 @@ def test_article_detail(admin, app):
     assert a["content_html"] == "<p>Testo completo</p>" and a["full_text"] is True
 
 
+def test_lead_image_is_not_repeated_in_the_text(admin, app):
+    """La foto principale sta in testa al lettore: non si ripete come prima immagine del testo."""
+    lead = '<figure><img src="https://cdn.example/foto-800.jpg"><figcaption>La foto</figcaption></figure>'
+    middle = '<p><img src="https://cdn.example/grafico.png"></p>'
+    ids = feed(app, admin, "https://ilpost.example/feed", [
+        entry("Con foto", content=f"{lead}<p>Primo paragrafo</p>{middle}<p>Fine</p>", image="https://cdn.example/foto.jpg"),
+        entry("Senza foto principale", content=f"{lead}<p>Primo paragrafo</p>"),
+        entry("Foto dopo il testo", content='<p>Prima il testo</p><img src="https://cdn.example/x.jpg">',
+              image="https://cdn.example/x.jpg"),
+    ], title="Il Post")
+    a = admin.get(f"/api/articles/{ids[0]}").json()["article"]
+    assert "foto-800" not in a["content_html"] and "La foto" not in a["content_html"]
+    assert "grafico.png" in a["content_html"] and "<p>Primo paragrafo</p>" in a["content_html"]
+    # Vale anche per il testo completo estratto dalla pagina, già salvato.
+    with app.state.ctx.db.session() as conn, conn:
+        conn.execute(
+            "UPDATE articles SET full_status = 'ok', full_html = ? WHERE id = ?",
+            ('<p><a href="https://ilpost.example/x"><img src="https://cdn.example/foto-1200.jpg"></a></p><p>Testo completo</p>', ids[0]),
+        )
+    a = admin.get(f"/api/articles/{ids[0]}").json()["article"]
+    assert a["content_html"] == "<p>Testo completo</p>"
+    # Senza immagine principale la prima immagine del testo resta.
+    assert "foto-800" in admin.get(f"/api/articles/{ids[1]}").json()["article"]["content_html"]
+    # Le immagini che vengono dopo il testo restano.
+    assert "x.jpg" in admin.get(f"/api/articles/{ids[2]}").json()["article"]["content_html"]
+
+
 def test_articles_are_private(admin, app):
     ids = feed(app, admin, "https://orbita.example/feed", [entry("Solo di Anna")])
     bruno = invite_user(admin, app, "bruno")
