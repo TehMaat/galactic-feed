@@ -145,11 +145,11 @@ def user_payload(user: User) -> dict[str, Any]:
 
 
 def start_session(
-    request: Request, response: Response, conn, ctx: AppContext, user_id: int, remember: bool = True
+    request: Request, response: Response, conn, ctx: AppContext, user_id: int, remember: bool = True, via: str = "password"
 ) -> None:
     """Crea la sessione e manda il cookie. Senza «Ricordami» il cookie sparisce chiudendo il browser."""
     seconds = instance.session_seconds(ctx, remember, conn)
-    token = create_session(conn, user_id, user_agent(request), seconds, remember)
+    token = create_session(conn, user_id, user_agent(request), seconds, remember, via)
     set_session_cookie(request, response, token, seconds if remember else None)
 
 

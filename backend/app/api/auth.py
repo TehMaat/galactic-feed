@@ -7,7 +7,7 @@ import sqlite3
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel
 
-from .. import instance
+from .. import instance, oidc
 from ..config import VERSION
 from ..db import now
 from ..deps import AppContext, get_ctx, get_db, load_session_user, user_from_row
@@ -33,10 +33,13 @@ def state(
         # A ogni apertura il cookie di una sessione «ricordata» riparte da capo, come la sessione sul server.
         seconds = instance.session_seconds(ctx, True, conn)
         set_session_cookie(request, response, request.cookies[SESSION_COOKIE], seconds)
+    cfg = oidc.load(conn, ctx.secret)
     return {
         "setup_needed": not users_exist(conn),
         "user": user_payload(user) if user else None,
         "version": VERSION,
+        # Accesso con il provider (#22): pulsante «Entra con …» e se il modulo con la password resta.
+        "oidc": {"enabled": cfg.ready, "label": cfg.label, "password_login": oidc.password_login_allowed(cfg)},
     }
 
 
@@ -97,6 +100,9 @@ def login(
     conn: sqlite3.Connection = Depends(get_db),
     ctx: AppContext = Depends(get_ctx),
 ):
+    cfg = oidc.load(conn, ctx.secret)
+    if not oidc.password_login_allowed(cfg):
+        raise HTTPException(status_code=403, detail=f"L'accesso con password è spento: usa «{cfg.label}».")
     username = body.username.strip()
     keys = ("login-ip:" + client_ip(request), "login-user:" + username.lower())
     if ctx.login_limiter.blocked(*keys):
@@ -116,15 +122,32 @@ def login(
 
 
 @router.post("/logout")
-def logout(
+async def logout(
     request: Request,
     response: Response,
     conn: sqlite3.Connection = Depends(get_db),
     ctx: AppContext = Depends(get_ctx),
 ):
+    """Esce da questo dispositivo. Se la sessione viene dal provider e l'amministratore lo ha scelto,
+    restituisce anche l'indirizzo per uscire dal provider (redirect)."""
     token = request.cookies.get(SESSION_COOKIE)
+    redirect = None
     if token:
+        row = conn.execute("SELECT via FROM sessions WHERE token_hash = ?", (token_hash(token),)).fetchone()
         with conn:
             conn.execute("DELETE FROM sessions WHERE token_hash = ?", (token_hash(token),))
+        if row and row["via"] == "oidc":
+            cfg = oidc.load(conn, ctx.secret)
+            if cfg.ready and cfg.rp_logout:
+                try:
+                    doc = await oidc.discover(cfg.issuer)
+                except oidc.OIDCError:
+                    doc = {}
+                if doc.get("end_session_endpoint"):
+                    from urllib.parse import urlencode
+
+                    params = urlencode({"client_id": cfg.client_id, "post_logout_redirect_uri": ctx.settings.public_url + "/"})
+                    sep = "&" if "?" in doc["end_session_endpoint"] else "?"
+                    redirect = doc["end_session_endpoint"] + sep + params
     clear_session_cookie(request, response)
-    return {"ok": True}
+    return {"ok": True, "redirect": redirect}
