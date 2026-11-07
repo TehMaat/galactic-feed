@@ -4,6 +4,23 @@ Tutte le versioni di Galactic Feed, dalla più recente. I numeri seguono [semver
 
 Per aggiornare basta scaricare la nuova immagine: le modifiche al database si applicano da sole all'avvio. Prima di saltare a una nuova versione minore conviene fare una copia del volume `/data` (vedi il README, «Versioni e aggiornamenti»).
 
+## [0.5.0] – 2026-11-07
+
+### Novità
+- **Gruppi di parole** pronti e personali per interessi e parole silenziate (Motori, Politica, Tecnologia, Calcio…): si accendono con un tocco come interesse o per silenziare, se ne cambiano le parole, se ne creano di nuovi. La corrispondenza mostra il gruppo («Tecnologia · iPhone»). L'amministratore gestisce i gruppi pronti (#16).
+- **Tag delle fonti**: proposti in automatico quando aggiungi una fonte, modificabili dalla scheda della fonte, usati come chip nel Flusso; gestione dei tag (rinomina, colore, ordine, unisci, elimina). Le tue scelte non vengono mai annullate (#17).
+- **Più Edizioni**, ognuna con nome, regole (tag, cartelle, nazioni, gruppi di parole), numero massimo di notizie, periodo coperto e notifica; anteprima delle notizie e selettore in Oggi (#18).
+- **Edizioni settimanali e mensili**: giorni della settimana, un giorno del mese o «il primo lunedì del mese», a uno o più orari, nel tuo fuso orario (#19).
+- **Nazione delle fonti**, proposta dal dominio e dalla lingua: si sceglie per sé, l'amministratore la corregge per tutti; filtro nelle Fonti e nel Flusso, regola delle Edizioni (#20).
+
+### Correzioni
+- La scheda della fonte tornava ai dati iniziali dopo ogni modifica (icona, tag).
+
+### Da sapere per aggiornare
+- Migrazioni automatiche `008`–`010`.
+- L'Edizione di prima diventa «La mia Edizione», con gli stessi orari e numeri. Si gestisce in Impostazioni → Edizioni.
+- Il `docker-compose.yml` d'esempio ora usa `:0.5`.
+
 ## [0.4.0] – 2026-11-07
 
 Prima versione pubblicata come release: immagini `ghcr.io/tehmaat/galactic-feed:0.4.0` e `:0.4`.
