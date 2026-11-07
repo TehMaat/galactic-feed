@@ -2,7 +2,7 @@
   import Icon from "../components/Icon.svelte";
   import { api } from "../lib/api.js";
   import SourceIcon from "../components/SourceIcon.svelte";
-  import { KIND_LABEL, intervalLabel, since, sourceColor } from "../lib/format.js";
+  import { KIND_LABEL, folderColor, intervalLabel, since, sourceColor } from "../lib/format.js";
   import { data, foldersById, loadAll, openSheet, toast } from "../lib/store.svelte.js";
 
   let { active } = $props();
@@ -101,6 +101,9 @@
             <span class="src-text">
               <span class="src-name">{s.title}</span>
               <span class="src-sub"><span class="status-dot {dot(s)}"></span>{subtitle(s)}</span>
+              {#if s.tags?.length}
+                <span class="src-tags">{#each s.tags as t (t.id)}<span class="src-tag" style="--topic-c:{folderColor(t.color)}">{t.name}</span>{/each}</span>
+              {/if}
             </span>
             <span class="unread">{s.unread}</span>
           </div>
@@ -119,6 +122,7 @@
       <a class="link-row" href="/api/opml/export" download><Icon name="download" />Esporta le fonti (OPML)</a>
     {/if}
     <button type="button" class="link-row" onclick={() => openSheet("folder", null)}><Icon name="folder" />Nuova cartella</button>
+    <button type="button" class="link-row" onclick={() => openSheet("tags")}><span class="link-hash">#</span>Tag delle fonti{#if data.tags.length}<span class="val">{data.tags.length}</span>{/if}</button>
   </div>
   <input bind:this={fileInput} type="file" accept=".opml,.xml,text/xml,text/x-opml,application/xml" hidden onchange={importOpml} />
 </section>

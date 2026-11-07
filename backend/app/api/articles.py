@@ -33,10 +33,11 @@ def make_filter(
     source: int | None = None,
     q: str = "",
     show_muted: bool = False,
+    tag: int | None = None,
 ) -> ArticleFilter:
     if view not in VIEWS:
         raise HTTPException(status_code=422, detail="Filtro sconosciuto.")
-    f = ArticleFilter(view=view, source=source, q=q or "", show_muted=show_muted)
+    f = ArticleFilter(view=view, source=source, tag=tag, q=q or "", show_muted=show_muted)
     if folder == "none":
         f.no_folder = True
     elif folder:
@@ -53,9 +54,10 @@ def filter_params(
     source: int | None = Query(None, description="id della fonte"),
     q: str = Query("", max_length=200, description="ricerca full-text"),
     show_muted: bool = Query(False, description="mostra anche gli articoli nascosti dalle parole silenziate"),
+    tag: int | None = Query(None, description="id del tag delle fonti"),
     user: User = Depends(current_user),
 ) -> ArticleFilter:
-    return make_filter(user, view, folder, source, q, show_muted)
+    return make_filter(user, view, folder, source, q, show_muted, tag)
 
 
 def _cursor(raw: str | None) -> tuple[int, int] | None:
@@ -232,6 +234,7 @@ class MarkRead(BaseModel):
     view: str = "tutti"
     folder: str | None = None
     source: int | None = None
+    tag: int | None = None
     q: str = ""
     # Solo gli articoli arrivati fino a questo momento (quello in cui l'elenco è stato caricato).
     before: str | None = None
@@ -240,7 +243,7 @@ class MarkRead(BaseModel):
 @router.post("/mark-read")
 def mark_read(body: MarkRead, user: User = Depends(current_user), conn: sqlite3.Connection = Depends(get_db)):
     """«Segna tutti come letti» sugli articoli del filtro in uso."""
-    f = make_filter(user, body.view, body.folder, body.source, body.q)
+    f = make_filter(user, body.view, body.folder, body.source, body.q, tag=body.tag)
     f.dedupe = False
     if body.before:
         from datetime import datetime

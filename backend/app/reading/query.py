@@ -22,6 +22,7 @@ class ArticleFilter:
     folder: int | None = None
     no_folder: bool = False
     source: int | None = None
+    tag: int | None = None
     q: str = ""
     show_muted: bool = False
     dedupe: bool = True
@@ -61,6 +62,9 @@ def visible_cte(user_id: int, f: ArticleFilter, muted: bool | None = False) -> t
     if f.source is not None:
         where.append("s.id = ?")
         params.append(f.source)
+    if f.tag is not None:
+        where.append("s.id IN (SELECT subscription_id FROM source_tags WHERE tag_id = ? AND origin != 'rejected')")
+        params.append(f.tag)
     if f.q.strip():
         like = "%" + f.q.strip().replace("%", "").replace("_", "") + "%"
         match = fts_query(f.q)
@@ -83,7 +87,7 @@ def visible_cte(user_id: int, f: ArticleFilter, muted: bool | None = False) -> t
 
     sql = (
         "vis AS (SELECT a.id, a.cluster_id, a.published_at, a.video_id, ua.saved_at, ua.read_at,"
-        " m.level, s.folder_id"
+        " m.level, s.folder_id, s.id AS sub_id"
         " FROM articles a JOIN feeds f ON f.id = a.feed_id"
         " LEFT JOIN subscriptions s ON s.feed_id = a.feed_id AND s.user_id = ?"
         " LEFT JOIN user_articles ua ON ua.article_id = a.id AND ua.user_id = ?"
@@ -142,6 +146,12 @@ def counts(conn: sqlite3.Connection, user_id: int, f: ArticleFilter) -> dict:
         f"WITH {cte}, {ranked_sql(base)} SELECT folder_id, COUNT(*) AS n FROM ranked WHERE rn = 1 GROUP BY folder_id",
         params,
     ).fetchall()
+    tags = conn.execute(
+        f"WITH {cte}, {ranked_sql(base)} SELECT st.tag_id, COUNT(*) AS n FROM ranked"
+        " JOIN source_tags st ON st.subscription_id = ranked.sub_id AND st.origin != 'rejected'"
+        " WHERE rn = 1 GROUP BY st.tag_id",
+        params,
+    ).fetchall()
     saved = count(conn, user_id, ArticleFilter(view="salvati", q=f.q))
     return {
         "tutti": row["tutti"],
@@ -151,6 +161,7 @@ def counts(conn: sqlite3.Connection, user_id: int, f: ArticleFilter) -> dict:
         "salvati": saved,
         "folders": {str(r["folder_id"]): r["n"] for r in folders if r["folder_id"] is not None},
         "no_folder": next((r["n"] for r in folders if r["folder_id"] is None), 0),
+        "tags": {str(r["tag_id"]): r["n"] for r in tags},
         "hidden": count(conn, user_id, base, muted=True) if not f.show_muted else 0,
     }
 

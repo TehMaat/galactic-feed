@@ -8,7 +8,7 @@ import sqlite3
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from ..db import iso, now
 from ..deps import AppContext, User, current_user, get_ctx, get_db
@@ -16,9 +16,11 @@ from ..feeds.discovery import NothingFound, discover
 from ..feeds.icons import check_image
 from ..feeds.net import FetchError, normalize_input_url
 from ..feeds.sanitize import normalize_feed_url
+from ..reading import tagging
 from ..reading.matching import recompute_feed_for_user
 from .folders import check_folder
 from .images import proxied_icon, source_icon
+from .tags import set_source_tags, tags_by_source
 
 router = APIRouter(prefix="/api/sources", tags=["fonti"])
 
@@ -120,7 +122,7 @@ SOURCE_SELECT = (
 )
 
 
-def source_payload(row: sqlite3.Row, secret: bytes) -> dict:
+def source_payload(row: sqlite3.Row, secret: bytes, tags: list[dict] | None = None) -> dict:
     return {
         "id": row["id"],
         "feed_id": row["feed_id"],
@@ -148,6 +150,8 @@ def source_payload(row: sqlite3.Row, secret: bytes) -> dict:
         "icon_custom": row["icon_custom"] or None,
         "icon_auto": proxied_icon(secret, row["icon_url"]),
         "icon_checked_at": iso(row["icon_checked_at"]),
+        # Tag dell'utente su questa fonte; origin «auto» per quelli proposti dall'app.
+        "tags": tags or [],
     }
 
 
@@ -163,7 +167,13 @@ def list_sources(conn: sqlite3.Connection, user_id: int, secret: bytes) -> list[
         SOURCE_SELECT + " WHERE s.user_id = ? ORDER BY COALESCE(NULLIF(s.title, ''), NULLIF(f.title, ''), f.url) COLLATE NOCASE",
         (user_id,),
     ).fetchall()
-    return [source_payload(r, secret) for r in rows]
+    tags = tags_by_source(conn, user_id)
+    return [source_payload(r, secret, tags.get(r["id"])) for r in rows]
+
+
+def one_source(conn: sqlite3.Connection, user_id: int, source_id: int, secret: bytes) -> dict:
+    row = get_source(conn, user_id, source_id)
+    return source_payload(row, secret, tags_by_source(conn, user_id, [source_id]).get(source_id))
 
 
 # ---------- Endpoint ----------
@@ -245,9 +255,12 @@ async def add_source(
         source_id = subscribe(conn, user.id, feed_id, body.folder_id, title, interval)
     if source_id is None:
         raise HTTPException(status_code=409, detail="Segui già questa fonte.")
+    # Tag proposti subito, dagli articoli appena scaricati (se l'utente li vuole).
+    if tagging.wants_auto_tags(conn, user.id):
+        tagging.apply_suggestions(conn, source_id)
     # Lo scheduler cerca subito anche l'icona del sito.
     ctx.scheduler.wake()
-    return {"source": source_payload(get_source(conn, user.id, source_id), ctx.secret)}
+    return {"source": one_source(conn, user.id, source_id, ctx.secret)}
 
 
 class SourcePatch(BaseModel):
@@ -275,7 +288,7 @@ def update_source(
             (title, folder_id, interval, source_id),
         )
         recompute_interval(conn, row["feed_id"])
-    return {"source": source_payload(get_source(conn, user.id, source_id), ctx.secret)}
+    return {"source": one_source(conn, user.id, source_id, ctx.secret)}
 
 
 @router.delete("/{source_id}")
@@ -297,7 +310,7 @@ async def refresh_source(
     row = get_source(conn, user.id, source_id)
     outcome = await ctx.fetcher.fetch_feed(row["feed_id"])
     ctx.scheduler.wake()
-    return {"source": source_payload(get_source(conn, user.id, source_id), ctx.secret), "new_articles": outcome.new}
+    return {"source": one_source(conn, user.id, source_id, ctx.secret), "new_articles": outcome.new}
 
 
 # ---------- Icona ----------
@@ -333,7 +346,7 @@ async def set_icon(
             " WHERE id = ?",
             (body.mode, body.mode, custom, source_id),
         )
-    return {"source": source_payload(get_source(conn, user.id, source_id), ctx.secret)}
+    return {"source": one_source(conn, user.id, source_id, ctx.secret)}
 
 
 @router.post("/{source_id}/icon/refresh")
@@ -344,7 +357,7 @@ async def refresh_icon(
     """Ripete subito la ricerca automatica dell'icona del sito (vale per chi segue lo stesso feed)."""
     row = get_source(conn, user.id, source_id)
     found = await ctx.icons.refresh(row["feed_id"])
-    return {"source": source_payload(get_source(conn, user.id, source_id), ctx.secret), "found": bool(found)}
+    return {"source": one_source(conn, user.id, source_id, ctx.secret), "found": bool(found)}
 
 
 @router.post("/refresh")
@@ -373,3 +386,36 @@ async def refresh_all(
         "new_articles": sum(o.new for o in outcomes),
         "errors": sum(1 for o in outcomes if not o.ok),
     }
+
+
+# ---------- Tag ----------
+
+
+class SourceTags(BaseModel):
+    tags: list[str] = Field(default_factory=list, max_length=30)
+
+
+@router.put("/{source_id}/tags")
+def put_source_tags(
+    source_id: int, body: SourceTags, user: User = Depends(current_user), conn: sqlite3.Connection = Depends(get_db),
+    ctx: AppContext = Depends(get_ctx),
+):
+    """I tag della fonte scelti dall'utente (per nome; quelli nuovi si creano)."""
+    get_source(conn, user.id, source_id)
+    try:
+        with conn:
+            set_source_tags(conn, user.id, source_id, body.tags)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    return {"source": one_source(conn, user.id, source_id, ctx.secret)}
+
+
+@router.post("/{source_id}/tags/suggest")
+def suggest_source_tags(
+    source_id: int, user: User = Depends(current_user), conn: sqlite3.Connection = Depends(get_db),
+    ctx: AppContext = Depends(get_ctx),
+):
+    """Ripete la proposta automatica dei tag (senza rimettere quelli tolti dall'utente)."""
+    get_source(conn, user.id, source_id)
+    added = tagging.apply_suggestions(conn, source_id)
+    return {"source": one_source(conn, user.id, source_id, ctx.secret), "added": added}

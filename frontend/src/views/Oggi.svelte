@@ -26,7 +26,16 @@
   ];
 
   const chips = $derived([
-    ...VIEWS.map(([k, label]) => ({ key: "v:" + k, label, n: data.counts[k] ?? 0, on: !stream.folder && stream.view === k })),
+    ...VIEWS.map(([k, label]) => ({ key: "v:" + k, label, n: data.counts[k] ?? 0, on: !stream.folder && !stream.tag && stream.view === k })),
+    // Tag delle fonti (#17): quelli scelti per il Flusso, nell'ordine dei tag.
+    ...data.tags.filter((t) => t.in_feed).map((t) => ({
+      key: "t:" + t.id,
+      label: t.name,
+      n: data.counts.tags?.[String(t.id)] ?? 0,
+      color: folderColor(t.color),
+      tag: true,
+      on: stream.tag === t.id,
+    })),
     ...data.folders.map((f) => ({
       key: "f:" + f.id,
       label: f.name,
@@ -38,8 +47,10 @@
 
   function pick(chip) {
     const [kind, value] = chip.key.split(":");
-    if (kind === "v") setFilter({ view: value, folder: null, source: null, sourceTitle: "" });
-    else setFilter({ view: "tutti", folder: value, source: null, sourceTitle: "" });
+    const reset = { source: null, sourceTitle: "", folder: null, tag: null };
+    if (kind === "v") setFilter({ ...reset, view: value });
+    else if (kind === "t") setFilter({ ...reset, view: "tutti", tag: chip.on ? null : Number(value) });
+    else setFilter({ ...reset, view: "tutti", folder: value });
   }
 
   function onSearch(e) {
@@ -60,7 +71,7 @@
   const today = new Intl.DateTimeFormat("it-IT", { weekday: "long", day: "numeric", month: "long" }).format(new Date()).replace(/^./, (c) => c.toUpperCase());
   const showEdition = $derived(editionOn() && ui.oggiMode === "edizione");
   const noSources = $derived(data.loaded && data.sources.length === 0);
-  const filtering = $derived(stream.q || stream.view !== "tutti" || stream.folder || stream.source);
+  const filtering = $derived(stream.q || stream.view !== "tutti" || stream.folder || stream.source || stream.tag);
 </script>
 
 <section class="view" bind:this={viewEl} class:is-entering={active} hidden={!active} aria-label="Oggi">
@@ -97,7 +108,7 @@
     <div class="chips" role="toolbar" aria-label="Filtri">
       {#each chips as chip (chip.key)}
         <button type="button" class="chip" aria-pressed={chip.on} onclick={() => pick(chip)}>
-          {#if chip.color}<span class="dot" style="--topic-c:{chip.color}"></span>{/if}{chip.label}<span class="n">{chip.n}</span>
+          {#if chip.tag}<span class="hash" style="--topic-c:{chip.color}">#</span>{:else if chip.color}<span class="dot" style="--topic-c:{chip.color}"></span>{/if}{chip.label}<span class="n">{chip.n}</span>
         </button>
       {/each}
     </div>

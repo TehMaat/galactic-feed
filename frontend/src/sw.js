@@ -125,7 +125,7 @@ registerRoute(
 // ---------- Account, fonti, contatori ed elenchi ----------
 // Prima la rete; senza rete (o se non risponde in pochi secondi) l'ultima risposta avuta.
 
-const STATE = /^\/api\/(auth\/state|me|sources|folders|interests|interests\/preview|articles\/counts)$/;
+const STATE = /^\/api\/(auth\/state|me|sources|folders|tags|interests|interests\/preview|articles\/counts)$/;
 
 registerRoute(
   ({ url, request }) => sameOrigin(url) && request.method === "GET" && STATE.test(url.pathname),

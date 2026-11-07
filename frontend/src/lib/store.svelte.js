@@ -24,9 +24,10 @@ export const session = $state({
 export const data = $state({
   sources: [],
   folders: [],
+  tags: [], // tag delle fonti (#17)
   colors: [],
   intervals: [],
-  counts: { tutti: 0, perte: 0, nonletti: 0, video: 0, salvati: 0, folders: {}, no_folder: 0, hidden: 0 },
+  counts: { tutti: 0, perte: 0, nonletti: 0, video: 0, salvati: 0, folders: {}, no_folder: 0, tags: {}, hidden: 0 },
   interests: { keywords: [], muted: [], rules: { dedupe: true } },
   preview: null,
   loaded: false,
@@ -59,6 +60,7 @@ export const stream = $state({
   folder: null, // id cartella, «none» o null
   source: null, // id fonte o null
   sourceTitle: "",
+  tag: null, // id del tag o null
   q: "",
   showMuted: false,
   items: [],
@@ -323,11 +325,13 @@ export async function loadAll() {
 
 export async function loadSources() {
   try {
-    const [s, f] = await Promise.all([api("/sources"), api("/folders")]);
+    // I tag non sono essenziali: se mancano (per esempio offline senza copia) le fonti arrivano lo stesso.
+    const [s, f, t] = await Promise.all([api("/sources"), api("/folders"), api("/tags").catch(() => ({ tags: data.tags }))]);
     data.sources = s.sources;
     data.intervals = s.intervals;
     data.folders = f.folders;
     data.colors = f.colors;
+    data.tags = t.tags;
   } catch (err) {
     if (err.status !== 401 && ui.online) toast(err.message);
   }
@@ -365,6 +369,7 @@ export async function loadStream(reset = false) {
           view: stream.view,
           folder: stream.folder,
           source: stream.source,
+          tag: stream.tag,
           q: stream.q,
           show_muted: stream.showMuted,
           cursor: reset ? null : stream.cursor,
@@ -570,7 +575,7 @@ export async function markAllRead() {
   try {
     const r = await api("/articles/mark-read", {
       method: "POST",
-      body: { view: stream.view, folder: stream.folder ?? null, source: stream.source, q: stream.q, before: stream.serverTime },
+      body: { view: stream.view, folder: stream.folder ?? null, source: stream.source, tag: stream.tag, q: stream.q, before: stream.serverTime },
     });
     toast(r.marked === 1 ? "1 articolo segnato come letto" : `${r.marked} articoli segnati come letti`);
     for (const a of stream.items) a.read = true;
@@ -598,5 +603,5 @@ export function showSource(source) {
   ui.tab = "oggi";
   if (!isWide()) ui.reader = null;
   writeLocation(true);
-  setFilter({ view: "tutti", folder: null, source: source.id, sourceTitle: source.title });
+  setFilter({ view: "tutti", folder: null, tag: null, source: source.id, sourceTitle: source.title });
 }

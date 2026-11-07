@@ -12,6 +12,7 @@
   import FolderSheet from "./sheets/FolderSheet.svelte";
   import Settings from "./sheets/Settings.svelte";
   import SourceSheet from "./sheets/SourceSheet.svelte";
+  import TagsSheet from "./sheets/TagsSheet.svelte";
   import { closeReader, closeSheet, data, goHome, openSheet, session, switchTab, ui } from "./lib/store.svelte.js";
   import Fonti from "./views/Fonti.svelte";
   import Interessi from "./views/Interessi.svelte";
@@ -89,6 +90,7 @@
   <div class="scrim" class:is-on={!!ui.sheet} hidden={!scrimVisible} onclick={closeSheet}></div>
   <AddSource />
   <SourceSheet />
+  <TagsSheet />
   <FolderSheet />
   <Settings />
   <Admin />

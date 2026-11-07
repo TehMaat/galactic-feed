@@ -14,16 +14,66 @@
   let customOpen = $state(false);
   let customUrl = $state("");
   let customError = $state("");
+  let newTag = $state("");
+  let tagBusy = $state(false);
 
   $effect(() => {
     if (ui.sheet === "source" && ui.sheetArg) {
-      source = { ...ui.sheetArg };
-      title = source.custom_title || "";
+      // Si legge solo la copia, non «source»: altrimenti ogni aggiornamento della scheda
+      // (tag, icona, nome) farebbe ripartire questo effetto e la riporterebbe ai dati iniziali.
+      const copy = { ...ui.sheetArg };
+      source = copy;
+      title = copy.custom_title || "";
       customOpen = false;
-      customUrl = source.icon_custom || "";
+      customUrl = copy.icon_custom || "";
       customError = "";
     }
   });
+
+  // ---- Tag (#17) ----
+  const otherTags = $derived(data.tags.filter((t) => !source?.tags?.some((x) => x.id === t.id)));
+
+  async function setTags(names, message) {
+    tagBusy = true;
+    try {
+      const r = await api(`/sources/${source.id}/tags`, { method: "PUT", body: { tags: names } });
+      source = r.source;
+      await loadSources();
+      loadCounts();
+      if (message) toast(message);
+    } catch (err) {
+      toast(err.message);
+    } finally {
+      tagBusy = false;
+    }
+  }
+
+  function addTag(e) {
+    e?.preventDefault?.();
+    const name = newTag.trim();
+    if (!name) return;
+    newTag = "";
+    if (source.tags.some((t) => t.name.toLowerCase() === name.toLowerCase())) return;
+    setTags([...source.tags.map((t) => t.name), name], `Tag #${name} aggiunto`);
+  }
+
+  function removeTag(tag) {
+    setTags(source.tags.filter((t) => t.id !== tag.id).map((t) => t.name), `Tag #${tag.name} tolto`);
+  }
+
+  async function suggestTags() {
+    tagBusy = true;
+    try {
+      const r = await api(`/sources/${source.id}/tags/suggest`, { method: "POST" });
+      source = r.source;
+      await loadSources();
+      toast(r.added.length ? `Proposti: ${r.added.map((n) => "#" + n).join(", ")}` : "Nessun tag nuovo da proporre");
+    } catch (err) {
+      toast(err.message);
+    } finally {
+      tagBusy = false;
+    }
+  }
 
   // ---- Icona ----
   async function iconRequest(path, options, message) {
@@ -152,6 +202,32 @@
             </button>
           {/each}
         </div>
+      </div>
+
+      <div class="field">
+        <span class="label" id="tags-label">Tag</span>
+        {#if source.tags.length}
+          <div class="tags" role="group" aria-labelledby="tags-label">
+            {#each source.tags as t (t.id)}
+              <button type="button" class="tag" style="--topic-c:{folderColor(t.color)}" aria-label="Togli il tag {t.name}" disabled={tagBusy} onclick={() => removeTag(t)}>
+                <span class="dot" style="--topic-c:{folderColor(t.color)}"></span>{t.name}{#if t.origin === "auto"}<span class="auto">auto</span>{/if}<Icon name="close" />
+              </button>
+            {/each}
+          </div>
+        {/if}
+        {#if otherTags.length}
+          <div class="tags">
+            {#each otherTags.slice(0, 10) as t (t.id)}
+              <button type="button" class="tag" disabled={tagBusy} onclick={() => setTags([...source.tags.map((x) => x.name), t.name], `Tag #${t.name} aggiunto`)}><Icon name="plus" />{t.name}</button>
+            {/each}
+          </div>
+        {/if}
+        <form class="add-inline" onsubmit={addTag}>
+          <input bind:value={newTag} placeholder="Nuovo tag" autocomplete="off" aria-label="Nuovo tag per questa fonte" maxlength="30" />
+          <button type="submit" disabled={tagBusy}>Aggiungi</button>
+        </form>
+        <p class="hint">{source.tags.some((t) => t.origin === "auto") ? "I tag «auto» li ha proposti l'app: tienili o toglili, non torneranno." : "Una fonte può avere più tag: li usi come filtri nel Flusso e per le Edizioni."}
+          <button type="button" class="link-btn" disabled={tagBusy} onclick={suggestTags}>Proponi i tag</button></p>
       </div>
 
       <div class="field">

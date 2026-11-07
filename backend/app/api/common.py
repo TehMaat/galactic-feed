@@ -82,6 +82,8 @@ class Prefs(BaseModel):
     font_read: Literal["serif", "sans", "sistema"] = "serif"
     text_size: float = Field(default=1.0, ge=0.85, le=1.3)
     dedupe: bool = True
+    # Tag proposti in automatico per le fonti nuove.
+    auto_tags: bool = True
     # Edizione: accesa o spenta e orari (nel fuso dell'istanza).
     edition: bool = False
     edition_times: list[str] = Field(default_factory=lambda: ["07:30"])

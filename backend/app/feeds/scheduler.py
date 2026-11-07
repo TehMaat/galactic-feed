@@ -10,7 +10,7 @@ import asyncio
 import logging
 
 from ..db import now
-from ..reading import edition
+from ..reading import edition, tagging
 
 log = logging.getLogger("galactic_feed.scheduler")
 
@@ -68,6 +68,10 @@ class Scheduler:
             ).fetchall()
         return [r["id"] for r in rows]
 
+    def _suggest_tags(self) -> None:
+        with self.ctx.db.session() as conn:
+            tagging.run_due(conn)
+
     async def run_once(self) -> None:
         self.last_run_at = now()
         due = await asyncio.to_thread(self._due_feeds)
@@ -80,6 +84,8 @@ class Scheduler:
         # Icone dei siti: quelle delle fonti nuove e quelle da ricontrollare (ogni 7 giorni).
         if self.ctx.icons:
             await self.ctx.icons.run_due()
+        # Tag proposti per le fonti che non li hanno ancora (per esempio importate con l'OPML).
+        await asyncio.to_thread(self._suggest_tags)
         # Filtro AI sugli articoli nuovi, prima di comporre le edizioni.
         if self.ctx.relevance:
             await self.ctx.relevance.run()

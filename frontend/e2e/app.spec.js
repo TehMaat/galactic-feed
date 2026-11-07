@@ -493,3 +493,34 @@ test("gruppi di parole: un gruppo pronto acceso come interesse con un tocco", as
   await interessi.getByRole("group", { name: "Gruppo Scienza" }).getByRole("button", { name: "Spento" }).click();
   await expect(page.locator(".toast")).toContainText("Scienza: spento");
 });
+
+test("tag delle fonti: assegnati dalla scheda e usati come filtro nel Flusso", async ({ page }) => {
+  await page.setViewportSize(PHONE);
+  await page.goto("/");
+  await page.getByLabel("Nome utente").fill("anna");
+  await page.getByLabel("Password").fill(PASSWORD);
+  await page.getByRole("button", { name: "Entra" }).click();
+  await page.locator(".tabbar").getByRole("button", { name: "Fonti" }).click();
+  await page.getByRole("button", { name: "Fonte Orbita" }).click();
+  const sheet = page.locator(".sheet.is-open");
+  await sheet.getByLabel("Nuovo tag per questa fonte").fill("Astronomia");
+  await sheet.getByLabel("Nuovo tag per questa fonte").press("Enter");
+  await expect(page.locator(".toast")).toContainText("Tag #Astronomia aggiunto");
+  await expect(sheet.getByRole("button", { name: "Togli il tag Astronomia" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.locator(".src-row").filter({ hasText: "Orbita" }).locator(".src-tag")).toHaveText(["Astronomia"]);
+
+  // Nel Flusso c'è la chip del tag: mostra solo gli articoli delle sue fonti.
+  await page.locator(".tabbar").getByRole("button", { name: "Oggi" }).click();
+  const oggi = page.locator("section[aria-label='Oggi']");
+  if (await oggi.getByRole("tab", { name: "Flusso" }).count()) await oggi.getByRole("tab", { name: "Flusso" }).click();
+  await oggi.getByRole("button", { name: /Astronomia/ }).click();
+  await expect(oggi.locator(".card").first()).toBeVisible();
+  for (const src of await oggi.locator(".card .meta .src").allTextContents()) expect(src).toBe("Orbita");
+
+  // Gestione dei tag: la chip si può togliere dal Flusso.
+  await page.locator(".tabbar").getByRole("button", { name: "Fonti" }).click();
+  await page.getByRole("button", { name: /Tag delle fonti/ }).click();
+  await page.locator(".sheet.is-open").getByRole("switch", { name: "Mostra #Astronomia nel Flusso" }).click();
+  await expect(page.locator(".toast")).toContainText("#Astronomia non è più nel Flusso");
+});
