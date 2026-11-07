@@ -9,7 +9,7 @@ backend/                  Server Python (FastAPI)
   app/
     main.py               avvio: API, PWA, scheduler
     healthcheck.py        controllo di salute usato dal container (python -m app.healthcheck)
-    config.py             variabili d'ambiente (PUBLIC_URL, TZ, …)
+    config.py             variabili d'ambiente (PUBLIC_URL, TZ, …) e versione (dal file VERSION)
     instance.py           impostazioni dell'istanza scelte dall'amministratore (GUI → variabile d'ambiente → predefinito)
     db.py + migrations/   SQLite, schema versionato con file .sql numerati
     security.py           password argon2, sessioni, protezione CSRF
@@ -31,7 +31,10 @@ frontend/                 PWA Svelte + Vite
   tests/                  vitest (logica) + Playwright (prova nel browser)
 Dockerfile                build in più fasi: PWA → dipendenze Python → immagine finale (utente non root, uid 1000)
 docker-compose.yml
-.github/workflows/        test e build multi-architettura
+VERSION                   numero di versione (l'unico: lo legge il server, lo controllano test e workflow)
+CHANGELOG.md              novità di ogni versione, usate anche per le note delle release
+scripts/release.py        nuova versione (bump), controllo (check), note della release (notes)
+.github/workflows/        test, build multi-architettura, release sui tag v*
 docs/  mockup/  README.md
 ```
 

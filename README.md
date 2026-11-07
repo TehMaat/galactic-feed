@@ -7,7 +7,7 @@ Lettore di notizie self-hosted e multiutente. Il server raccoglie feed RSS/Atom 
 - I dati restano in un file SQLite nel volume `/data`.
 - Interfaccia e documentazione in italiano.
 
-Documenti: [analisi e decisioni](docs/ANALISI.md) · [architettura](docs/ARCHITETTURA.md) · [mockup](mockup/) (`python3 -m http.server 8000 --directory mockup`).
+Documenti: [novità delle versioni](CHANGELOG.md) · [analisi e decisioni](docs/ANALISI.md) · [architettura](docs/ARCHITETTURA.md) · [mockup](mockup/) (`python3 -m http.server 8000 --directory mockup`).
 
 ## Installazione
 
@@ -41,6 +41,8 @@ Il codice cambia a ogni riavvio finché non esiste un account. Serve solo a evit
 
 ### Aggiornare
 
+Le correzioni della versione che usi (per esempio da 0.3.0 a 0.3.1) arrivano con:
+
 ```bash
 docker compose pull
 ```
@@ -49,7 +51,33 @@ docker compose pull
 docker compose up -d
 ```
 
-Il database si aggiorna da solo all'avvio.
+Per passare a una versione nuova (per esempio da 0.3 a 0.4) leggi cosa cambia in [CHANGELOG.md](CHANGELOG.md), fai una copia dei dati (vedi sotto), poi cambia il numero nel `docker-compose.yml` (`galactic-feed:0.4`) e ripeti i due comandi. Il database si aggiorna da solo all'avvio. La versione in uso è scritta in fondo alle Impostazioni.
+
+## Versioni e aggiornamenti
+
+Le versioni sono numerate `MAGGIORE.MINORE.CORRETTIVA` ([semver](https://semver.org/lang/it/)) e sono elencate, con le novità, in [CHANGELOG.md](CHANGELOG.md) e nelle [release di GitHub](https://github.com/TehMaat/galactic-feed/releases).
+
+| Etichetta dell'immagine | Cosa ricevi |
+|---|---|
+| `0.3` (consigliata) | La versione 0.3 con tutte le sue correzioni |
+| `0.3.0` | Esattamente quella versione, senza aggiornamenti |
+| `latest` | L'ultima modifica del ramo principale, anche prima di una release |
+
+**Copia dei dati.** Gli aggiornamenti del database vanno solo in avanti: per tornare a una versione precedente serve la copia fatta prima. Con il volume del `docker-compose.yml`:
+
+```bash
+docker compose stop
+```
+
+```bash
+docker run --rm -v galactic-feed_galactic-data:/data -v "$PWD":/backup alpine tar czf /backup/galactic-data.tar.gz -C /data .
+```
+
+```bash
+docker compose start
+```
+
+Il nome del volume è quello che vedi con `docker volume ls` (di solito `<cartella>_galactic-data`).
 
 ### Backup
 
@@ -157,8 +185,8 @@ Su iPhone l'app non si aggiorna in background: le notizie le scarica sempre il s
 
 Le immagini sono su GitHub Container Registry: `ghcr.io/tehmaat/galactic-feed`.
 
+- `0.3` e `0.3.0`: le versioni pubblicate (vedi «Versioni e aggiornamenti»);
 - `latest`: l'ultima versione del ramo principale;
-- `1.2.3` e `1.2`: le versioni pubblicate con un tag `v1.2.3`;
 - `sha-xxxxxxx`: un commit preciso.
 
 Le costruisce il workflow [`.github/workflows/docker.yml`](.github/workflows/docker.yml) per amd64, arm64 e armv7. Dopo la prima pubblicazione il pacchetto su GHCR è privato: per scaricarlo senza login, rendilo pubblico da GitHub, alla voce **Packages → galactic-feed → Package settings → Change visibility**.
@@ -188,5 +216,23 @@ cd frontend && npm ci && npm test
 ```bash
 cd frontend && npm run build && npx playwright test
 ```
+
+### Pubblicare una versione
+
+Il numero di versione sta solo nel file [`VERSION`](VERSION); lo script lo copia nei pacchetti e i test controllano che coincidano.
+
+1. Prepara la versione e scrivi le novità nella sua sezione di `CHANGELOG.md`:
+
+   ```bash
+   python3 scripts/release.py bump 0.4.0
+   ```
+
+2. Fai il merge su `main`, poi crea il tag sul commit di `main` e mandalo a GitHub:
+
+   ```bash
+   git tag -a v0.4.0 -m "Galactic Feed 0.4.0" && git push origin v0.4.0
+   ```
+
+Il workflow controlla che il tag corrisponda a `VERSION`, pubblica le immagini `:0.4.0` e `:0.4` e crea la release con le note del `CHANGELOG.md`. Un tag come `v0.4.0-rc.1` diventa una versione di prova: solo `:0.4.0-rc.1`, segnata come pre-release.
 
 Per lavorare sull'interfaccia, avvia il server con `cd backend && DATA_DIR=../data python -m app`, poi `cd frontend && npm run dev`. Vite manda le chiamate `/api` al server sulla porta 8080.

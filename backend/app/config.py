@@ -11,7 +11,19 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from urllib.parse import urlsplit
 
-VERSION = "0.1.0"
+def _read_version() -> str:
+    """Il numero di versione, dal file VERSION alla radice del repository.
+
+    Nell'immagine Docker il file sta in /app/VERSION, accanto a /app/backend.
+    """
+    path = Path(__file__).resolve().parent.parent.parent / "VERSION"
+    try:
+        return path.read_text(encoding="utf-8").strip() or "0.0.0-sviluppo"
+    except OSError:
+        return "0.0.0-sviluppo"
+
+
+VERSION = _read_version()
 
 _TRUE = {"1", "true", "yes", "si", "sì", "on"}
 
