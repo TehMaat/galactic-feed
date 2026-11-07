@@ -10,6 +10,7 @@ from pydantic import BaseModel, field_validator
 
 from ..db import iso
 from ..deps import AppContext, User, current_user, get_ctx, get_db, user_from_row
+from ..reading import edition
 from ..reading.matching import recompute_user
 from .common import Prefs, check_password, clean_display_name, prefs_with_defaults, user_payload
 
@@ -36,6 +37,7 @@ class PrefsPatch(BaseModel):
     summaries: bool | None = None
     notify_folders: list[str] | None = None
     notify_edition: bool | None = None
+    timezone: str | None = None
 
 
 class MePatch(BaseModel):
@@ -56,6 +58,7 @@ def update_me(
     if body.display_name is not None:
         display_name = body.display_name or user.username
     prefs = prefs_with_defaults(user.prefs)
+    changes: dict = {}
     if body.prefs is not None:
         changes = body.prefs.model_dump(exclude_none=True)
         prefs = Prefs(**{**prefs, **changes}).model_dump()
@@ -68,6 +71,10 @@ def update_me(
         if prefs["ai_text"].strip() != before["ai_text"].strip():
             # Descrizione nuova: l'AI rivaluta gli articoli recenti.
             conn.execute("DELETE FROM ai_matches WHERE user_id = ?", (user.id,))
+    if body.prefs is not None and {"edition", "edition_times"} & changes.keys():
+        # Accendere l'Edizione o cambiarne gli orari vale per la prima Edizione (vedi reading/edition.py).
+        edition.apply_legacy_prefs(conn, user.id, prefs, set(changes))
+        edition.sync_edition_pref(conn, user.id)
     if prefs["ai_mode"] != before["ai_mode"] or prefs["ai_text"].strip() != before["ai_text"].strip():
         recompute_user(conn, user.id)
         if ctx.scheduler:

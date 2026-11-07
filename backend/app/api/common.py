@@ -94,8 +94,20 @@ class Prefs(BaseModel):
     # Notifiche: cartelle importanti (id, oppure «none» per le fonti senza cartella) ed Edizione.
     notify_folders: list[str] = Field(default_factory=list, max_length=200)
     notify_edition: bool = True
+    # Fuso orario dell'utente per le Edizioni ("" = quello dell'istanza).
+    timezone: str = ""
 
     _t = field_validator("edition_times")(check_times)
+
+    @field_validator("timezone")
+    @classmethod
+    def _timezone(cls, value: str) -> str:
+        from ..instance import valid_timezone
+
+        value = (value or "").strip()
+        if value and not valid_timezone(value):
+            raise ValueError("Fuso orario sconosciuto: scrivilo come Europe/Rome.")
+        return value
 
     @field_validator("notify_folders")
     @classmethod

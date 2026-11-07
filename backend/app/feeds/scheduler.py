@@ -11,6 +11,7 @@ import logging
 
 from ..db import now
 from ..reading import edition, tagging
+from . import geo
 
 log = logging.getLogger("galactic_feed.scheduler")
 
@@ -71,6 +72,8 @@ class Scheduler:
     def _suggest_tags(self) -> None:
         with self.ctx.db.session() as conn:
             tagging.run_due(conn)
+            # Lingua e nazione dei feed seguiti prima che l'app le riconoscesse.
+            geo.backfill(conn)
 
     async def run_once(self) -> None:
         self.last_run_at = now()

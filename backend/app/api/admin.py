@@ -253,3 +253,47 @@ def put_defaults(
     checked = Prefs(**{**Prefs().model_dump(), **body}).model_dump()
     ctx.instance.save_user_defaults(conn, {k: checked[k] for k in body})
     return _defaults_payload(ctx, conn)
+
+
+# ---------- Nazione delle fonti condivise (#20) ----------
+
+
+@router.get("/feeds")
+def list_feeds(_: User = Depends(require_admin), conn: sqlite3.Connection = Depends(get_db)):
+    """I feed seguiti, con la nazione proposta e quella corretta dall'amministratore."""
+    rows = conn.execute(
+        "SELECT f.id, f.url, f.title, f.site_url, f.language, f.country, f.country_admin, COUNT(s.id) AS followers"
+        " FROM feeds f JOIN subscriptions s ON s.feed_id = f.id GROUP BY f.id ORDER BY f.title COLLATE NOCASE"
+    ).fetchall()
+    return {
+        "feeds": [
+            {
+                "id": r["id"], "title": r["title"] or r["url"], "url": r["url"], "site_url": r["site_url"],
+                "language": r["language"] or None, "country_auto": r["country"] or None, "country_admin": r["country_admin"],
+                "country": (r["country_admin"] if r["country_admin"] is not None else r["country"]) or None,
+                "followers": r["followers"],
+            }
+            for r in rows
+        ]
+    }
+
+
+class FeedPatch(BaseModel):
+    # «IT», "" (nessuna nazione) oppure null (torna a quella proposta in automatico).
+    country: str | None = None
+
+
+@router.patch("/feeds/{feed_id}")
+def update_feed(feed_id: int, body: FeedPatch, _: User = Depends(require_admin), conn: sqlite3.Connection = Depends(get_db)):
+    """Corregge la nazione di un feed per tutti (chi l'ha scelta per sé tiene la sua)."""
+    from .sources import check_country
+
+    try:
+        country = check_country(body.country)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    with conn:
+        cur = conn.execute("UPDATE feeds SET country_admin = ? WHERE id = ?", (country, feed_id))
+    if cur.rowcount == 0:
+        raise HTTPException(status_code=404, detail="Feed non trovato.")
+    return list_feeds(_, conn)

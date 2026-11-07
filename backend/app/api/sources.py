@@ -8,7 +8,7 @@ import sqlite3
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from ..db import iso, now
 from ..deps import AppContext, User, current_user, get_ctx, get_db
@@ -111,6 +111,7 @@ def source_status(row: sqlite3.Row) -> str:
 SOURCE_SELECT = (
     "SELECT s.id, s.feed_id, s.folder_id, s.title AS custom_title, s.interval_min, s.created_at,"
     " s.icon_mode, s.icon_custom, f.icon_url, f.icon_checked_at,"
+    " f.language, f.country AS country_auto, f.country_admin, s.country AS country_user,"
     " f.url, f.kind, f.title AS feed_title, f.site_url, f.last_fetch_at, f.last_success_at, f.next_fetch_at,"
     " f.error_message, f.error_since, f.error_count, f.last_status,"
     " (SELECT COUNT(*) FROM articles a WHERE a.feed_id = f.id) AS articles,"
@@ -152,6 +153,24 @@ def source_payload(row: sqlite3.Row, secret: bytes, tags: list[dict] | None = No
         "icon_checked_at": iso(row["icon_checked_at"]),
         # Tag dell'utente su questa fonte; origin «auto» per quelli proposti dall'app.
         "tags": tags or [],
+        # Nazione (#20): quella che vale per l'utente e da dove arriva (user, admin, auto).
+        **country_info(row),
+        "language": row["language"] or None,
+    }
+
+
+def country_info(row: sqlite3.Row) -> dict:
+    if row["country_user"] is not None:
+        country, origin = row["country_user"], "user"
+    elif row["country_admin"] is not None:
+        country, origin = row["country_admin"], "admin"
+    else:
+        country, origin = row["country_auto"], "auto"
+    return {
+        "country": country or None,
+        "country_origin": origin,
+        "country_auto": row["country_auto"] or None,
+        "country_admin": row["country_admin"],
     }
 
 
@@ -267,6 +286,22 @@ class SourcePatch(BaseModel):
     title: str | None = None
     folder_id: int | None = None
     interval_min: int | None = None
+    # Nazione scelta dall'utente per sé: «IT», "" (nessuna) oppure null (torna a quella automatica).
+    country: str | None = None
+
+    @field_validator("country")
+    @classmethod
+    def _country(cls, v: str | None) -> str | None:
+        return check_country(v)
+
+
+def check_country(v: str | None) -> str | None:
+    if v is None:
+        return None
+    v = v.strip().upper()
+    if v and not (len(v) == 2 and v.isalpha()):
+        raise ValueError("Nazione non valida: usa il codice di due lettere, per esempio IT.")
+    return v
 
 
 @router.patch("/{source_id}")
@@ -282,10 +317,11 @@ def update_source(
         check_folder(conn, user.id, body.folder_id)
         folder_id = body.folder_id
     interval = row["interval_min"] if body.interval_min is None else check_interval(body.interval_min)
+    country = body.country if "country" in fields else row["country_user"]
     with conn:
         conn.execute(
-            "UPDATE subscriptions SET title = ?, folder_id = ?, interval_min = ? WHERE id = ?",
-            (title, folder_id, interval, source_id),
+            "UPDATE subscriptions SET title = ?, folder_id = ?, interval_min = ?, country = ? WHERE id = ?",
+            (title, folder_id, interval, country, source_id),
         )
         recompute_interval(conn, row["feed_id"])
     return {"source": one_source(conn, user.id, source_id, ctx.secret)}

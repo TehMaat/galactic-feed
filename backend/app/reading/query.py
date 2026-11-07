@@ -23,6 +23,7 @@ class ArticleFilter:
     no_folder: bool = False
     source: int | None = None
     tag: int | None = None
+    country: str | None = None
     q: str = ""
     show_muted: bool = False
     dedupe: bool = True
@@ -62,6 +63,10 @@ def visible_cte(user_id: int, f: ArticleFilter, muted: bool | None = False) -> t
     if f.source is not None:
         where.append("s.id = ?")
         params.append(f.source)
+    if f.country is not None:
+        # La nazione che vale per l'utente: la sua scelta, quella dell'amministratore o quella automatica.
+        where.append("COALESCE(s.country, f.country_admin, f.country) = ?")
+        params.append(f.country)
     if f.tag is not None:
         where.append("s.id IN (SELECT subscription_id FROM source_tags WHERE tag_id = ? AND origin != 'rejected')")
         params.append(f.tag)
@@ -87,7 +92,7 @@ def visible_cte(user_id: int, f: ArticleFilter, muted: bool | None = False) -> t
 
     sql = (
         "vis AS (SELECT a.id, a.cluster_id, a.published_at, a.video_id, ua.saved_at, ua.read_at,"
-        " m.level, s.folder_id, s.id AS sub_id"
+        " m.level, s.folder_id, s.id AS sub_id, COALESCE(s.country, f.country_admin, f.country) AS country"
         " FROM articles a JOIN feeds f ON f.id = a.feed_id"
         " LEFT JOIN subscriptions s ON s.feed_id = a.feed_id AND s.user_id = ?"
         " LEFT JOIN user_articles ua ON ua.article_id = a.id AND ua.user_id = ?"
@@ -152,6 +157,10 @@ def counts(conn: sqlite3.Connection, user_id: int, f: ArticleFilter) -> dict:
         " WHERE rn = 1 GROUP BY st.tag_id",
         params,
     ).fetchall()
+    countries = conn.execute(
+        f"WITH {cte}, {ranked_sql(base)} SELECT country, COUNT(*) AS n FROM ranked WHERE rn = 1 AND country != '' GROUP BY country",
+        params,
+    ).fetchall()
     saved = count(conn, user_id, ArticleFilter(view="salvati", q=f.q))
     return {
         "tutti": row["tutti"],
@@ -162,6 +171,7 @@ def counts(conn: sqlite3.Connection, user_id: int, f: ArticleFilter) -> dict:
         "folders": {str(r["folder_id"]): r["n"] for r in folders if r["folder_id"] is not None},
         "no_folder": next((r["n"] for r in folders if r["folder_id"] is None), 0),
         "tags": {str(r["tag_id"]): r["n"] for r in tags},
+        "countries": {r["country"]: r["n"] for r in countries},
         "hidden": count(conn, user_id, base, muted=True) if not f.show_muted else 0,
     }
 

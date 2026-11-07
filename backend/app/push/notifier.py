@@ -159,17 +159,26 @@ class Notifier:
         if not self.vapid:
             return
         with self.ctx.db.session() as conn:
-            row = conn.execute("SELECT u.prefs, e.slot, e.stats FROM editions e JOIN users u ON u.id = e.user_id WHERE e.id = ?", (edition_id,)).fetchone()
+            row = conn.execute(
+                "SELECT u.prefs, e.slot, e.stats, c.name, COALESCE(c.notify, 1) AS notify,"
+                " (SELECT COUNT(*) FROM edition_configs x WHERE x.user_id = e.user_id) AS configs"
+                " FROM editions e JOIN users u ON u.id = e.user_id LEFT JOIN edition_configs c ON c.id = e.config_id"
+                " WHERE e.id = ?",
+                (edition_id,),
+            ).fetchone()
             has_device = conn.execute("SELECT 1 FROM push_subscriptions WHERE user_id = ? LIMIT 1", (user_id,)).fetchone()
             if not row or not has_device:
                 return
             prefs = prefs_with_defaults(json.loads(row["prefs"] or "{}"))
-            if not prefs["notify_edition"]:
+            # Interruttore generale (Impostazioni → Notifiche) e quello di ogni Edizione.
+            if not prefs["notify_edition"] or not row["notify"]:
                 return
             selected = json.loads(row["stats"] or "{}").get("selected", 0)
             badge = unread_count(conn, user_id, prefs["dedupe"])
         body = f"{selected} notizie scelte per te." if selected != 1 else "1 notizia scelta per te."
+        # Con più Edizioni la notifica dice quale.
+        title = f"«{row['name']}» è pronta" if row["name"] and row["configs"] > 1 else f"L'Edizione delle {row['slot']} è pronta"
         await self.send_to_user(
             user_id,
-            {"title": f"L'Edizione delle {row['slot']} è pronta", "body": body, "url": "/", "tag": "edizione", "badge": badge},
+            {"title": title, "body": body, "url": "/", "tag": "edizione", "badge": badge},
         )

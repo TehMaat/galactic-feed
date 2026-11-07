@@ -34,10 +34,13 @@ def make_filter(
     q: str = "",
     show_muted: bool = False,
     tag: int | None = None,
+    country: str | None = None,
 ) -> ArticleFilter:
     if view not in VIEWS:
         raise HTTPException(status_code=422, detail="Filtro sconosciuto.")
-    f = ArticleFilter(view=view, source=source, tag=tag, q=q or "", show_muted=show_muted)
+    if country is not None and not (len(country) == 2 and country.isalpha()):
+        raise HTTPException(status_code=422, detail="Nazione non valida.")
+    f = ArticleFilter(view=view, source=source, tag=tag, country=country.upper() if country else None, q=q or "", show_muted=show_muted)
     if folder == "none":
         f.no_folder = True
     elif folder:
@@ -55,9 +58,10 @@ def filter_params(
     q: str = Query("", max_length=200, description="ricerca full-text"),
     show_muted: bool = Query(False, description="mostra anche gli articoli nascosti dalle parole silenziate"),
     tag: int | None = Query(None, description="id del tag delle fonti"),
+    country: str | None = Query(None, description="nazione delle fonti, per esempio IT"),
     user: User = Depends(current_user),
 ) -> ArticleFilter:
-    return make_filter(user, view, folder, source, q, show_muted, tag)
+    return make_filter(user, view, folder, source, q, show_muted, tag, country)
 
 
 def _cursor(raw: str | None) -> tuple[int, int] | None:
@@ -235,6 +239,7 @@ class MarkRead(BaseModel):
     folder: str | None = None
     source: int | None = None
     tag: int | None = None
+    country: str | None = None
     q: str = ""
     # Solo gli articoli arrivati fino a questo momento (quello in cui l'elenco è stato caricato).
     before: str | None = None
@@ -243,7 +248,7 @@ class MarkRead(BaseModel):
 @router.post("/mark-read")
 def mark_read(body: MarkRead, user: User = Depends(current_user), conn: sqlite3.Connection = Depends(get_db)):
     """«Segna tutti come letti» sugli articoli del filtro in uso."""
-    f = make_filter(user, body.view, body.folder, body.source, body.q, tag=body.tag)
+    f = make_filter(user, body.view, body.folder, body.source, body.q, tag=body.tag, country=body.country)
     f.dedupe = False
     if body.before:
         from datetime import datetime
