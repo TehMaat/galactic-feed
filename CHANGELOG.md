@@ -6,6 +6,8 @@ Per aggiornare basta scaricare la nuova immagine: le modifiche al database si ap
 
 ## [0.5.0] – 2026-11-07
 
+Prima versione pubblicata come release: immagini `ghcr.io/tehmaat/galactic-feed:0.5.0` e `:0.5`. Contiene anche le novità di 0.3.0 e 0.4.0.
+
 ### Novità
 - **Gruppi di parole** pronti e personali per interessi e parole silenziate (Motori, Politica, Tecnologia, Calcio…): si accendono con un tocco come interesse o per silenziare, se ne cambiano le parole, se ne creano di nuovi. La corrispondenza mostra il gruppo («Tecnologia · iPhone»). L'amministratore gestisce i gruppi pronti (#16).
 - **Tag delle fonti**: proposti in automatico quando aggiungi una fonte, modificabili dalla scheda della fonte, usati come chip nel Flusso; gestione dei tag (rinomina, colore, ordine, unisci, elimina). Le tue scelte non vengono mai annullate (#17).
@@ -19,11 +21,11 @@ Per aggiornare basta scaricare la nuova immagine: le modifiche al database si ap
 ### Da sapere per aggiornare
 - Migrazioni automatiche `008`–`010`.
 - L'Edizione di prima diventa «La mia Edizione», con gli stessi orari e numeri. Si gestisce in Impostazioni → Edizioni.
-- Il `docker-compose.yml` d'esempio ora usa `:0.5`.
+- Il `docker-compose.yml` d'esempio ora usa `:0.5` invece di `:latest`.
 
 ## [0.4.0] – 2026-11-07
 
-Prima versione pubblicata come release: immagini `ghcr.io/tehmaat/galactic-feed:0.4.0` e `:0.4`.
+Non pubblicata come release: le sue novità escono con la 0.5.0, la prima con le immagini numerate.
 
 ### Novità
 - **Pannello di amministrazione**: nella barra laterale sotto Impostazioni (sul telefono dentro le Impostazioni), solo per gli amministratori. Ci sono utenti e inviti, accesso, fonti e archivio, AI, predefiniti per i nuovi utenti e stato del sistema. Ogni impostazione dell'istanza si cambia dall'app senza riavviare; mostra se il valore è scelto lì, viene da una variabile d'ambiente o è il predefinito (#21).
@@ -41,12 +43,11 @@ Prima versione pubblicata come release: immagini `ghcr.io/tehmaat/galactic-feed:
 ### Da sapere per aggiornare
 - Utenti, inviti e AI non sono più nelle Impostazioni personali ma in Amministrazione.
 - Nuova variabile d'ambiente facoltativa `INVITE_HOURS`.
-- Il `docker-compose.yml` d'esempio ora usa `:0.4` invece di `:latest`.
 - **Copia di `data/secret.key`**: d'ora in poi serve anche per leggere la chiave dell'AI; se va persa, la chiave va reinserita.
 
 ## [0.3.0] – 2026-11-06
 
-Non pubblicata come release: le sue novità escono con la 0.4.0, la prima con le immagini numerate.
+Non pubblicata come release: le sue novità escono con la 0.5.0, la prima con le immagini numerate.
 
 ### Novità
 - **Icone dei giornali** al posto delle iniziali: favicon del sito o avatar del canale YouTube, trovate in automatico, anche offline. Dalla scheda della fonte si aggiornano, si sostituiscono con un'altra immagine o si tolgono (#11).
