@@ -31,7 +31,7 @@ def state(
     user = load_session_user(request, conn, ctx)
     if user and user.remember:
         # A ogni apertura il cookie di una sessione «ricordata» riparte da capo, come la sessione sul server.
-        seconds = instance.session_seconds(conn, ctx.settings, True)
+        seconds = instance.session_seconds(ctx, True, conn)
         set_session_cookie(request, response, request.cookies[SESSION_COOKIE], seconds)
     return {
         "setup_needed": not users_exist(conn),

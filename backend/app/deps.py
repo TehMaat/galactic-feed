@@ -28,6 +28,8 @@ class AppContext:
         self.settings = settings
         self.db = Database(settings.db_path)
         self.passwords = Passwords(settings)
+        # Impostazioni dell'istanza scelte dall'amministratore (instance.py).
+        self.instance = instance.Instance(settings, self.db)
         # 10 tentativi sbagliati in 15 minuti per indirizzo o per nome utente.
         self.login_limiter = RateLimiter(max_failures=10, window_seconds=15 * 60)
         self.hooks = Hooks()
@@ -150,7 +152,7 @@ def load_session_user(request: Request, conn: sqlite3.Connection, ctx: AppContex
     if row is None:
         return None
     remember = bool(row["s_remember"])
-    lifetime = instance.session_seconds(conn, ctx.settings, remember)
+    lifetime = instance.session_seconds(ctx, remember, conn)
     if ts - row["s_seen"] > min(SESSION_TOUCH_SECONDS, lifetime // 4):
         # Ogni utilizzo sposta in avanti la scadenza: la durata conta dall'ultima volta che si usa l'app.
         with conn:

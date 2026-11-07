@@ -19,6 +19,7 @@ from .feeds.extract import Extractor
 from .feeds.fetcher import Fetcher
 from .feeds.icons import IconFinder
 from .feeds.net import make_client
+from .ai import config as ai_config
 from .ai.relevance import RelevanceWorker
 from .feeds.scheduler import Scheduler
 from .push.notifier import Notifier
@@ -84,8 +85,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         ctx.load_secret()
         with ctx.db.session() as conn:
             no_users = conn.execute("SELECT 1 FROM users LIMIT 1").fetchone() is None
+            # La chiave dell'AI salvata in chiaro dalle versioni precedenti viene cifrata.
+            if ai_config.encrypt_stored_key(conn, ctx.secret):
+                log.info("Chiave dell'AI cifrata con secret.key")
         ctx.refresh_setup_code(no_users)
-        ctx.http = make_client(settings)
+        ctx.http = make_client(settings, lambda: bool(ctx.instance.get("block_private_networks")))
         ctx.fetcher = Fetcher(ctx)
         ctx.extractor = Extractor(ctx)
         ctx.icons = IconFinder(ctx)

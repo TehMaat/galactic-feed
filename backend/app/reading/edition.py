@@ -9,7 +9,7 @@ Come si compone:
   fonte, nella sezione «Dalle tue fonti»;
 - le altre si raggruppano per cartella, nell'ordine delle cartelle.
 
-Gli orari sono nel fuso del server (TZ). Se il server era spento all'ora giusta, l'edizione
+Gli orari sono nel fuso dell'istanza (scelto dall'amministratore, oppure TZ). Se il server era spento all'ora giusta, l'edizione
 si compone appena riparte, purché non sia già passato l'orario successivo.
 """
 
@@ -172,7 +172,7 @@ def run_due(ctx, ts: int | None = None) -> list[tuple[int, int]]:
         for user_id, stored in users_with_edition(conn):
             prefs = prefs_with_defaults(stored)
             last = conn.execute("SELECT MAX(created_at) FROM editions WHERE user_id = ?", (user_id,)).fetchone()[0]
-            slot = is_due(prefs["edition_times"], ctx.settings.timezone, ts, last)
+            slot = is_due(prefs["edition_times"], ctx.instance.get("timezone", conn), ts, last)
             if slot:
                 try:
                     made.append((user_id, compose(conn, user_id, slot, ts, prefs["dedupe"])))

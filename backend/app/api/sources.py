@@ -23,15 +23,19 @@ from .images import proxied_icon, source_icon
 router = APIRouter(prefix="/api/sources", tags=["fonti"])
 
 INTERVALS = [15, 30, 60, 180, 360, 720, 1440]
-DEFAULT_INTERVAL = 30
 # Un aggiornamento manuale non riscarica i feed controllati nell'ultimo minuto.
 REFRESH_MIN_SECONDS = 60
 REFRESH_WAIT_SECONDS = 25
 
 
-def check_interval(value: int | None) -> int:
+def default_interval(ctx: AppContext) -> int:
+    """Intervallo proposto per le fonti nuove: lo sceglie l'amministratore (30 minuti se non l'ha fatto)."""
+    return ctx.instance.get("default_interval")
+
+
+def check_interval(value: int | None, ctx: AppContext | None = None) -> int:
     if value is None:
-        return DEFAULT_INTERVAL
+        return default_interval(ctx) if ctx else 30
     if value not in INTERVALS:
         raise HTTPException(status_code=422, detail="Intervallo non valido: scegli tra 15 minuti e 24 ore.")
     return value
@@ -198,7 +202,7 @@ async def discover_feeds(
 
 @router.get("")
 def sources(user: User = Depends(current_user), conn: sqlite3.Connection = Depends(get_db), ctx: AppContext = Depends(get_ctx)):
-    return {"sources": list_sources(conn, user.id, ctx.secret), "intervals": INTERVALS}
+    return {"sources": list_sources(conn, user.id, ctx.secret), "intervals": INTERVALS, "default_interval": default_interval(ctx)}
 
 
 class NewSource(BaseModel):
@@ -217,7 +221,7 @@ async def add_source(
         url = normalize_feed_url(normalize_input_url(body.url))
     except FetchError as exc:
         raise HTTPException(status_code=422, detail=exc.message)
-    interval = check_interval(body.interval_min)
+    interval = check_interval(body.interval_min, ctx)
     check_folder(conn, user.id, body.folder_id)
     title = " ".join(body.title.split())[:120]
 

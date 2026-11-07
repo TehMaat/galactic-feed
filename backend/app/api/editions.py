@@ -23,7 +23,7 @@ FONTI_TITLE = "Dalle tue fonti"
 def _schedule(user: User, ctx: AppContext) -> dict:
     prefs = prefs_with_defaults(user.prefs)
     times = prefs["edition_times"]
-    next_ts, next_time = edition.next_slot(times, ctx.settings.timezone, now())
+    next_ts, next_time = edition.next_slot(times, ctx.instance.get("timezone"), now())
     return {"enabled": prefs["edition"], "times": times, "next_at": iso(next_ts), "next_time": next_time}
 
 
@@ -98,7 +98,7 @@ def compose_now(user: User = Depends(current_user), conn: sqlite3.Connection = D
     last = conn.execute("SELECT MAX(created_at) FROM editions WHERE user_id = ?", (user.id,)).fetchone()[0]
     if last and now() - last < 60:
         raise HTTPException(status_code=429, detail="Hai appena composto un'edizione: riprova tra un minuto.")
-    slot = datetime.fromtimestamp(now(), edition.zone(ctx.settings.timezone)).strftime("%H:%M")
+    slot = datetime.fromtimestamp(now(), edition.zone(ctx.instance.get("timezone"))).strftime("%H:%M")
     edition_id = edition.compose(conn, user.id, slot, dedupe=prefs["dedupe"])
     row = conn.execute("SELECT * FROM editions WHERE id = ?", (edition_id,)).fetchone()
     return {"edition": edition_payload(conn, user, ctx, row), "schedule": _schedule(user, ctx)}

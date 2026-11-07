@@ -9,8 +9,9 @@ from pydantic import BaseModel
 
 from .. import instance
 from ..config import VERSION
-from ..db import iso, now
+from ..db import get_setting, iso, now
 from ..deps import AppContext, User, get_ctx, get_db, require_admin
+from .common import Prefs, prefs_with_defaults
 from .invites import create_invite
 
 router = APIRouter(prefix="/api/admin", tags=["amministrazione"])
@@ -154,26 +155,56 @@ def revoke_invite(invite_id: int, _: User = Depends(require_admin), conn: sqlite
 
 @router.get("/status")
 def status(_: User = Depends(require_admin), conn: sqlite3.Connection = Depends(get_db), ctx: AppContext = Depends(get_ctx)):
-    users = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+    """Stato del sistema per il pannello: versione, spazio, feed, errori recenti, variabili d'avvio."""
     path = ctx.settings.db_path
     size = sum(p.stat().st_size for p in path.parent.glob(path.name + "*") if p.is_file())
+    counts = conn.execute(
+        "SELECT (SELECT COUNT(*) FROM users) AS users, (SELECT COUNT(*) FROM feeds) AS feeds,"
+        " (SELECT COUNT(*) FROM articles) AS articles, (SELECT MAX(last_fetch_at) FROM feeds) AS last_fetch,"
+        " (SELECT COUNT(*) FROM feeds WHERE error_message IS NOT NULL) AS feeds_with_errors"
+    ).fetchone()
+    errors = conn.execute(
+        "SELECT f.url, f.title, f.error_message, f.error_since, f.last_fetch_at, COUNT(s.id) AS followers"
+        " FROM feeds f LEFT JOIN subscriptions s ON s.feed_id = f.id"
+        " WHERE f.error_message IS NOT NULL GROUP BY f.id ORDER BY f.last_fetch_at DESC LIMIT 10"
+    ).fetchall()
+    ai_error = get_setting(conn, "ai.last_error") or None
+    ai_error_at = get_setting(conn, "ai.last_error_at")
+    scheduler = ctx.scheduler
     return {
         "version": VERSION,
         "public_url": ctx.settings.public_url,
-        "timezone": ctx.settings.timezone,
-        "users": users,
+        "timezone": ctx.instance.get("timezone", conn),
+        "users": counts["users"],
+        "feeds": counts["feeds"],
+        "articles": counts["articles"],
         "database_bytes": size,
-        "retention_days": ctx.settings.retention_days,
+        "retention_days": ctx.instance.get("retention_days", conn),
+        "last_fetch_at": iso(counts["last_fetch"]),
+        "scheduler_last_run_at": iso(scheduler.last_run_at) if scheduler and scheduler.last_run_at else None,
+        "feeds_with_errors": counts["feeds_with_errors"],
+        "recent_errors": [
+            {
+                "title": r["title"] or r["url"],
+                "url": r["url"],
+                "error": r["error_message"],
+                "since": iso(r["error_since"]),
+                "followers": r["followers"],
+            }
+            for r in errors
+        ],
+        "ai_error": {"message": ai_error, "at": iso(int(ai_error_at)) if ai_error_at.isdigit() else None} if ai_error else None,
+        # Restano variabili d'ambiente: si leggono all'avvio, non si cambiano dal pannello.
+        "environment": {name: read(ctx.settings) for name, read in instance.ENV_ONLY.items()},
     }
 
 
 # ---------- Impostazioni dell'istanza ----------
-# Primo pezzo del pannello di amministrazione: per ora la durata delle sessioni.
 
 
 @router.get("/settings")
 def get_settings(_: User = Depends(require_admin), conn: sqlite3.Connection = Depends(get_db), ctx: AppContext = Depends(get_ctx)):
-    return {"settings": instance.describe(conn, ctx.settings)}
+    return {"settings": ctx.instance.describe(conn)}
 
 
 @router.patch("/settings")
@@ -183,17 +214,42 @@ def update_settings(
     conn: sqlite3.Connection = Depends(get_db),
     ctx: AppContext = Depends(get_ctx),
 ):
-    """Cambia una o più impostazioni. null torna al valore della variabile d'ambiente o al predefinito."""
-    unknown = [k for k in body if k not in instance.OPTIONS]
-    if unknown:
-        raise HTTPException(status_code=422, detail=f"Impostazione sconosciuta: {unknown[0]}.")
-    for key, value in body.items():
-        if value is not None and (isinstance(value, bool) or not isinstance(value, int)):
-            raise HTTPException(status_code=422, detail="Valore non valido.")
+    """Cambia una o più impostazioni (tutte o nessuna). null torna alla variabile d'ambiente o al predefinito."""
     try:
-        with conn:
-            for key, value in body.items():
-                instance.save(conn, key, value)
+        ctx.instance.save(conn, body)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
-    return {"settings": instance.describe(conn, ctx.settings)}
+    if ctx.scheduler:
+        ctx.scheduler.wake()
+    return {"settings": ctx.instance.describe(conn)}
+
+
+# ---------- Preferenze per i nuovi utenti ----------
+
+
+def _defaults_payload(ctx: AppContext, conn: sqlite3.Connection) -> dict:
+    chosen = ctx.instance.user_defaults(conn)
+    full = prefs_with_defaults(chosen)
+    return {"prefs": {k: full[k] for k in instance.DEFAULT_PREFS}, "chosen": sorted(chosen)}
+
+
+@router.get("/defaults")
+def get_defaults(_: User = Depends(require_admin), conn: sqlite3.Connection = Depends(get_db), ctx: AppContext = Depends(get_ctx)):
+    """Le preferenze con cui partono i nuovi account. chosen: quelle scelte dall'amministratore."""
+    return _defaults_payload(ctx, conn)
+
+
+@router.put("/defaults")
+def put_defaults(
+    body: dict,
+    _: User = Depends(require_admin),
+    conn: sqlite3.Connection = Depends(get_db),
+    ctx: AppContext = Depends(get_ctx),
+):
+    """Sostituisce le preferenze iniziali dei nuovi account. Valgono per chi si iscrive da adesso."""
+    unknown = [k for k in body if k not in instance.DEFAULT_PREFS]
+    if unknown:
+        raise HTTPException(status_code=422, detail=f"Preferenza sconosciuta: {unknown[0]}.")
+    checked = Prefs(**{**Prefs().model_dump(), **body}).model_dump()
+    ctx.instance.save_user_defaults(conn, {k: checked[k] for k in body})
+    return _defaults_payload(ctx, conn)

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import sqlite3
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
@@ -28,7 +29,7 @@ def create_invite(
 ) -> dict:
     token = new_token()
     ts = now()
-    expires = ts + ctx.settings.invite_hours * 3600
+    expires = ts + ctx.instance.get("invite_hours", conn) * 3600
     with conn:
         if kind == "reset":
             # Un solo link di reset valido per utente: il nuovo sostituisce il vecchio.
@@ -114,9 +115,11 @@ def accept(
             raise HTTPException(status_code=409, detail="Questo nome utente è già preso: scegline un altro.")
         try:
             with conn:
+                # Il nuovo account parte con le preferenze scelte dall'amministratore (tema, colore, font…).
+                prefs = json.dumps(ctx.instance.user_defaults(conn))
                 cur = conn.execute(
-                    "INSERT INTO users (username, display_name, password_hash, created_at) VALUES (?, ?, ?, ?)",
-                    (data.username, data.display_name or data.username, ctx.passwords.hash(data.password), now()),
+                    "INSERT INTO users (username, display_name, password_hash, prefs, created_at) VALUES (?, ?, ?, ?, ?)",
+                    (data.username, data.display_name or data.username, ctx.passwords.hash(data.password), prefs, now()),
                 )
                 user_id = cur.lastrowid
                 if not _consume(conn, row["id"], user_id):

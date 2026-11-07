@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, field_validator
 
 from ..db import now
-from ..deps import User, current_user, get_db
+from ..deps import AppContext, User, current_user, get_ctx, get_db
 from ..reading import query
 from ..reading.matching import recompute_user
 from ..reading.query import ArticleFilter
@@ -33,7 +33,7 @@ def clean_word(value: str) -> str:
     return value
 
 
-def _payload(conn: sqlite3.Connection, user: User) -> dict:
+def _payload(conn: sqlite3.Connection, user: User, secret: bytes) -> dict:
     keywords = conn.execute(
         "SELECT id, keyword, level FROM interests WHERE user_id = ? ORDER BY created_at, id", (user.id,)
     ).fetchall()
@@ -42,13 +42,13 @@ def _payload(conn: sqlite3.Connection, user: User) -> dict:
         "keywords": [dict(r) for r in keywords],
         "muted": [dict(r) for r in muted],
         "rules": {"dedupe": prefs_with_defaults(user.prefs)["dedupe"]},
-        "ai": status_payload(ai_config.load(conn)),
+        "ai": status_payload(ai_config.load(conn, secret)),
     }
 
 
 @router.get("")
-def interests(user: User = Depends(current_user), conn: sqlite3.Connection = Depends(get_db)):
-    return _payload(conn, user)
+def interests(user: User = Depends(current_user), conn: sqlite3.Connection = Depends(get_db), ctx: AppContext = Depends(get_ctx)):
+    return _payload(conn, user, ctx.secret)
 
 
 class NewKeyword(BaseModel):
@@ -59,7 +59,7 @@ class NewKeyword(BaseModel):
 
 
 @router.post("/keywords", status_code=201)
-def add_keyword(body: NewKeyword, user: User = Depends(current_user), conn: sqlite3.Connection = Depends(get_db)):
+def add_keyword(body: NewKeyword, user: User = Depends(current_user), conn: sqlite3.Connection = Depends(get_db), ctx: AppContext = Depends(get_ctx)):
     if conn.execute("SELECT COUNT(*) FROM interests WHERE user_id = ?", (user.id,)).fetchone()[0] >= MAX_ITEMS:
         raise HTTPException(status_code=422, detail=f"Puoi avere al massimo {MAX_ITEMS} interessi.")
     try:
@@ -71,7 +71,7 @@ def add_keyword(body: NewKeyword, user: User = Depends(current_user), conn: sqli
     except sqlite3.IntegrityError:
         raise HTTPException(status_code=409, detail="Questo interesse c'è già.")
     recompute_user(conn, user.id)
-    return _payload(conn, user)
+    return _payload(conn, user, ctx.secret)
 
 
 class KeywordPatch(BaseModel):
@@ -80,24 +80,24 @@ class KeywordPatch(BaseModel):
 
 @router.patch("/keywords/{keyword_id}")
 def update_keyword(
-    keyword_id: int, body: KeywordPatch, user: User = Depends(current_user), conn: sqlite3.Connection = Depends(get_db)
+    keyword_id: int, body: KeywordPatch, user: User = Depends(current_user), conn: sqlite3.Connection = Depends(get_db), ctx: AppContext = Depends(get_ctx)
 ):
     with conn:
         cur = conn.execute("UPDATE interests SET level = ? WHERE id = ? AND user_id = ?", (body.level, keyword_id, user.id))
     if cur.rowcount == 0:
         raise HTTPException(status_code=404, detail="Interesse non trovato.")
     recompute_user(conn, user.id)
-    return _payload(conn, user)
+    return _payload(conn, user, ctx.secret)
 
 
 @router.delete("/keywords/{keyword_id}")
-def delete_keyword(keyword_id: int, user: User = Depends(current_user), conn: sqlite3.Connection = Depends(get_db)):
+def delete_keyword(keyword_id: int, user: User = Depends(current_user), conn: sqlite3.Connection = Depends(get_db), ctx: AppContext = Depends(get_ctx)):
     with conn:
         cur = conn.execute("DELETE FROM interests WHERE id = ? AND user_id = ?", (keyword_id, user.id))
     if cur.rowcount == 0:
         raise HTTPException(status_code=404, detail="Interesse non trovato.")
     recompute_user(conn, user.id)
-    return _payload(conn, user)
+    return _payload(conn, user, ctx.secret)
 
 
 class NewMuted(BaseModel):
@@ -107,7 +107,7 @@ class NewMuted(BaseModel):
 
 
 @router.post("/muted", status_code=201)
-def add_muted(body: NewMuted, user: User = Depends(current_user), conn: sqlite3.Connection = Depends(get_db)):
+def add_muted(body: NewMuted, user: User = Depends(current_user), conn: sqlite3.Connection = Depends(get_db), ctx: AppContext = Depends(get_ctx)):
     if conn.execute("SELECT COUNT(*) FROM muted_words WHERE user_id = ?", (user.id,)).fetchone()[0] >= MAX_ITEMS:
         raise HTTPException(status_code=422, detail=f"Puoi avere al massimo {MAX_ITEMS} parole silenziate.")
     try:
@@ -118,17 +118,17 @@ def add_muted(body: NewMuted, user: User = Depends(current_user), conn: sqlite3.
     except sqlite3.IntegrityError:
         raise HTTPException(status_code=409, detail="Questa parola è già silenziata.")
     recompute_user(conn, user.id)
-    return _payload(conn, user)
+    return _payload(conn, user, ctx.secret)
 
 
 @router.delete("/muted/{word_id}")
-def delete_muted(word_id: int, user: User = Depends(current_user), conn: sqlite3.Connection = Depends(get_db)):
+def delete_muted(word_id: int, user: User = Depends(current_user), conn: sqlite3.Connection = Depends(get_db), ctx: AppContext = Depends(get_ctx)):
     with conn:
         cur = conn.execute("DELETE FROM muted_words WHERE id = ? AND user_id = ?", (word_id, user.id))
     if cur.rowcount == 0:
         raise HTTPException(status_code=404, detail="Parola non trovata.")
     recompute_user(conn, user.id)
-    return _payload(conn, user)
+    return _payload(conn, user, ctx.secret)
 
 
 @router.get("/preview")
