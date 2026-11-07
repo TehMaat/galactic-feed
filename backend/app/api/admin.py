@@ -7,7 +7,7 @@ import sqlite3
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from .. import instance
+from .. import instance, oidc
 from ..config import VERSION
 from ..db import get_setting, iso, now
 from ..deps import AppContext, User, get_ctx, get_db, require_admin
@@ -297,3 +297,94 @@ def update_feed(feed_id: int, body: FeedPatch, _: User = Depends(require_admin),
     if cur.rowcount == 0:
         raise HTTPException(status_code=404, detail="Feed non trovato.")
     return list_feeds(_, conn)
+
+
+# ---------- Accesso con un provider OIDC (#22) ----------
+
+
+def _oidc_payload(conn: sqlite3.Connection, ctx: AppContext) -> dict:
+    cfg = oidc.load(conn, ctx.secret)
+    data = oidc.describe(cfg, ctx.settings.public_url)
+    data["linked_admins"] = conn.execute(
+        "SELECT COUNT(DISTINCT u.id) FROM users u JOIN user_identities i ON i.user_id = u.id WHERE u.is_admin = 1 AND u.disabled = 0"
+    ).fetchone()[0]
+    data["linked_users"] = conn.execute("SELECT COUNT(DISTINCT user_id) FROM user_identities").fetchone()[0]
+    return data
+
+
+@router.get("/oidc")
+def get_oidc(_: User = Depends(require_admin), conn: sqlite3.Connection = Depends(get_db), ctx: AppContext = Depends(get_ctx)):
+    return _oidc_payload(conn, ctx)
+
+
+class OIDCBody(BaseModel):
+    enabled: bool | None = None
+    issuer: str | None = None
+    client_id: str | None = None
+    # None: resta quello salvato; "": si cancella.
+    client_secret: str | None = None
+    scopes: str | None = None
+    label: str | None = None
+    auto_create: bool | None = None
+    link_email: bool | None = None
+    link_username: bool | None = None
+    admin_claim: str | None = None
+    admin_value: str | None = None
+    password_login: bool | None = None
+    rp_logout: bool | None = None
+
+
+@router.put("/oidc")
+def put_oidc(
+    body: OIDCBody, _: User = Depends(require_admin), conn: sqlite3.Connection = Depends(get_db), ctx: AppContext = Depends(get_ctx)
+):
+    cfg = oidc.load(conn, ctx.secret)
+    for key, value in body.model_dump(exclude_none=True).items():
+        if isinstance(value, str):
+            value = value.strip()
+        setattr(cfg, key, value)
+    cfg.issuer = cfg.issuer.rstrip("/")
+    if cfg.issuer and not cfg.issuer.startswith(("https://", "http://")):
+        raise HTTPException(status_code=422, detail="L'issuer deve iniziare con https:// (o http:// nella rete di casa).")
+    if "openid" not in cfg.scopes.split():
+        cfg.scopes = ("openid " + cfg.scopes).strip()
+    cfg.label = " ".join(cfg.label.split())[:40] or "Entra con il tuo account"
+    if cfg.enabled and (not cfg.issuer or not cfg.client_id):
+        raise HTTPException(status_code=422, detail="Per accendere l'accesso servono issuer e client ID.")
+    if not cfg.password_login:
+        linked = conn.execute(
+            "SELECT 1 FROM users u JOIN user_identities i ON i.user_id = u.id WHERE u.is_admin = 1 AND u.disabled = 0 LIMIT 1"
+        ).fetchone()
+        if not cfg.ready or not linked:
+            raise HTTPException(
+                status_code=422,
+                detail="Prima di spegnere l'accesso con password, accendi il provider e collega l'account di almeno un amministratore.",
+            )
+    oidc.save(conn, cfg, ctx.secret)
+    oidc.forget_cache()
+    return _oidc_payload(conn, ctx)
+
+
+@router.post("/oidc/test")
+async def test_oidc(_: User = Depends(require_admin), ctx: AppContext = Depends(get_ctx)):
+    """«Prova la configurazione»: legge la configurazione del provider e le sue chiavi."""
+    with ctx.db.session() as conn:
+        cfg = oidc.load(conn, ctx.secret)
+    if not cfg.issuer or not cfg.client_id:
+        raise HTTPException(status_code=422, detail="Scrivi almeno issuer e client ID.")
+    try:
+        doc = await oidc.discover(cfg.issuer, fresh=True)
+        keys = await oidc.jwks(doc, fresh=True)
+    except oidc.OIDCError as exc:
+        raise HTTPException(status_code=502, detail=exc.message)
+    algs = doc.get("id_token_signing_alg_values_supported") or ["RS256"]
+    if any(a.startswith("HS") for a in algs) and not any(not a.startswith("HS") for a in algs) and not cfg.client_secret:
+        raise HTTPException(status_code=422, detail="Il provider firma i token con il client secret: inseriscilo.")
+    return {
+        "ok": True,
+        "issuer": doc["issuer"],
+        "keys": len(keys),
+        "algorithms": algs,
+        "end_session": bool(doc.get("end_session_endpoint")),
+        "message": f"Il provider risponde: {len(keys)} chiavi, firma {', '.join(algs)}. Ora prova a entrare con «{cfg.label}».",
+    }

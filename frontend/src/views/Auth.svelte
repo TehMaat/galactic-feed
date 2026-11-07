@@ -12,6 +12,10 @@
   let f = $state({ code: "", display_name: "", username: "", password: "", repeat: "", remember: false });
 
   const mode = $derived(session.phase);
+  // Accesso con il provider (#22): pulsante sopra il modulo; senza password, solo il pulsante.
+  const oidcOn = $derived(mode === "login" && session.oidc?.enabled);
+  const passwordOn = $derived(mode !== "login" || session.oidc?.password_login !== false);
+  const oidcHref = $derived(`/api/auth/oidc/start?remember=${f.remember ? 1 : 0}`);
   const linkBroken = $derived((mode === "invite" || mode === "reset") && !session.invite);
 
   onMount(() => {
@@ -84,12 +88,29 @@
       {/if}
     </section>
 
+    {#if mode === "login" && session.oidcError}
+      <p class="form-error panel" role="alert">{session.oidcError}</p>
+    {/if}
+    {#if oidcOn}
+      <div class="panel form-stack">
+        <a class="btn-primary oidc-btn" href={oidcHref}><Icon name="key" />{session.oidc.label}</a>
+        {#if !passwordOn}
+          <label class="check">
+            <input type="checkbox" bind:checked={f.remember} />
+            <span>Ricordami su questo dispositivo<small>Senza la casella, chiudendo il browser dovrai rientrare.</small></span>
+          </label>
+          <p class="hint center">L'accesso con password è spento. Se il provider non risponde, l'amministratore può riaccenderlo dal server.</p>
+        {:else}
+          <p class="hint center">Oppure entra con nome utente e password.</p>
+        {/if}
+      </div>
+    {/if}
     {#if linkBroken}
       <section class="panel">
         <p class="form-error" role="alert">{session.inviteError || "Questo link non è valido."}</p>
         <button type="button" class="btn-secondary" onclick={toLogin}>Vai all'accesso</button>
       </section>
-    {:else}
+    {:else if passwordOn}
       <form class="panel form-stack" onsubmit={submit}>
         {#if mode === "setup"}
           <div class="field">

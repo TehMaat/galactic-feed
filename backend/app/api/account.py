@@ -84,7 +84,7 @@ def update_me(
 
 
 class PasswordChange(BaseModel):
-    current: str
+    current: str = ""
     new: str
 
     _p = field_validator("new")(check_password)
@@ -98,7 +98,9 @@ def change_password(
     ctx: AppContext = Depends(get_ctx),
 ):
     row = conn.execute("SELECT password_hash FROM users WHERE id = ?", (user.id,)).fetchone()
-    if not ctx.passwords.verify(row["password_hash"], body.current):
+    # Chi è stato creato dal provider OIDC non ha ancora una password: la sceglie senza quella attuale.
+    no_password = row["password_hash"] == "!oidc"
+    if not no_password and not ctx.passwords.verify(row["password_hash"], body.current):
         raise HTTPException(status_code=403, detail="La password attuale non è corretta.")
     with conn:
         conn.execute("UPDATE users SET password_hash = ? WHERE id = ?", (ctx.passwords.hash(body.new), user.id))

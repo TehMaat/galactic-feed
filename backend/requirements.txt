@@ -9,3 +9,4 @@ nh3==0.3.7
 python-multipart==0.0.32
 anthropic==2.4.0
 cryptography==50.0.2
+PyJWT==2.10.1

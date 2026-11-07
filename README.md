@@ -41,7 +41,7 @@ Il codice cambia a ogni riavvio finché non esiste un account. Serve solo a evit
 
 ### Aggiornare
 
-Le correzioni della versione che usi (per esempio da 0.5.0 a 0.5.1) arrivano con:
+Le correzioni della versione che usi (per esempio da 0.6.0 a 0.6.1) arrivano con:
 
 ```bash
 docker compose pull
@@ -51,7 +51,7 @@ docker compose pull
 docker compose up -d
 ```
 
-Per passare a una versione nuova (per esempio da 0.5 a 0.6) leggi cosa cambia in [CHANGELOG.md](CHANGELOG.md), fai una copia dei dati (vedi sotto), poi cambia il numero nel `docker-compose.yml` (`galactic-feed:0.6`) e ripeti i due comandi. Il database si aggiorna da solo all'avvio. La versione in uso è scritta in fondo alle Impostazioni.
+Per passare a una versione nuova (per esempio da 0.6 a 0.7) leggi cosa cambia in [CHANGELOG.md](CHANGELOG.md), fai una copia dei dati (vedi sotto), poi cambia il numero nel `docker-compose.yml` (`galactic-feed:0.7`) e ripeti i due comandi. Il database si aggiorna da solo all'avvio. La versione in uso è scritta in fondo alle Impostazioni.
 
 ## Versioni e aggiornamenti
 
@@ -59,8 +59,8 @@ Le versioni sono numerate `MAGGIORE.MINORE.CORRETTIVA` ([semver](https://semver.
 
 | Etichetta dell'immagine | Cosa ricevi |
 |---|---|
-| `0.5` (consigliata) | La versione 0.5 con tutte le sue correzioni |
-| `0.5.0` | Esattamente quella versione, senza aggiornamenti |
+| `0.6` (consigliata) | La versione 0.6 con tutte le sue correzioni |
+| `0.6.0` | Esattamente quella versione, senza aggiornamenti |
 | `latest` | L'ultima modifica del ramo principale, anche prima di una release |
 
 **Copia dei dati.** Gli aggiornamenti del database vanno solo in avanti: per tornare a una versione precedente serve la copia fatta prima. Con il volume del `docker-compose.yml`:
@@ -112,7 +112,7 @@ Se i permessi non vanno bene, il log lo dice con un messaggio chiaro e il comand
 Quasi tutto si configura dall'app: **Amministrazione** (solo per gli amministratori) è nella barra laterale sotto Impostazioni, oppure, sul telefono, in Impostazioni → Amministrazione. Le modifiche valgono subito, senza riavviare.
 
 - **Utenti e inviti**: inviti, nuove password, permessi, validità dei link.
-- **Accesso**: durata delle sessioni con e senza «Ricordami».
+- **Accesso**: durata delle sessioni con e senza «Ricordami», accesso con un provider OIDC.
 - **Fonti e archivio**: per quanti giorni tenere gli articoli, ogni quanto controllare le fonti nuove, fonti della rete di casa sì o no.
 - **AI**: fornitore, modello, chiave (salvata cifrata) e limite giornaliero.
 - **Predefiniti per i nuovi utenti**: tema, colore, font, Edizione e orari con cui parte chi si iscrive.
@@ -137,6 +137,7 @@ Si scrivono nel `docker-compose.yml`. Le prime quattro servono prima dell'avvio 
 | `REMEMBER_DAYS` | `90` | Durata di un accesso con «Ricordami», in giorni dall'ultimo utilizzo |
 | `SESSION_HOURS` | `12` | Senza «Ricordami»: dopo quante ore senza usare l'app bisogna rientrare |
 | `INVITE_HOURS` | `48` | Per quante ore valgono i link d'invito e quelli per una nuova password |
+| `EMERGENCY_PASSWORD_LOGIN` | `false` | Con `true` l'accesso con password resta acceso anche se l'amministratore l'ha spento (emergenza OIDC) |
 
 ## Aspetto
 
@@ -146,6 +147,34 @@ In Impostazioni → Aspetto ognuno sceglie tema (automatico, chiaro, scuro), col
 - Il font **Sistema** usa quello del dispositivo (San Francisco su iPhone e Mac, Roboto su Android). Inter e Alta leggibilità (Atkinson Hyperlegible) sono inclusi nell'app e funzionano anche offline.
 
 Accanto a ogni fonte compare l'icona del sito o l'avatar del canale YouTube, trovata in automatico. Dalla scheda della fonte la puoi aggiornare, sostituire con un'altra immagine o togliere per tornare alle iniziali.
+
+## Accesso con un provider (OIDC)
+
+Se hai già un sistema di login self-hosted, gli utenti possono entrare con quello, senza un'altra password. Funziona con Authentik, Authelia, Keycloak, Pocket ID e gli altri provider OpenID Connect. Si configura tutto dall'app, in **Amministrazione → Accesso**, senza riavviare.
+
+1. Nel provider crea un'applicazione (client) **confidenziale** con il flusso *authorization code*. Come indirizzo di ritorno (redirect URI) registra quello mostrato nel pannello: `https://<il tuo indirizzo>/api/auth/oidc/callback`.
+2. Nel pannello scrivi l'**issuer** (l'app legge da sola `/.well-known/openid-configuration`), il **client ID**, il **client secret** e il testo del pulsante, per esempio «Entra con Authentik». Poi premi **Prova la configurazione**.
+3. Scegli come trattare gli utenti: crearli al primo accesso, oppure collegare quelli esistenti per email verificata o nome utente. Senza creazione automatica serve ancora un invito; poi ognuno collega il suo account da **Impostazioni → Account collegati**.
+4. Facoltativo: un gruppo del provider per gli amministratori (claim `groups`, valore per esempio `galactic-admin`).
+
+Dove trovare l'issuer:
+
+| Provider | Issuer |
+|---|---|
+| Authentik | `https://auth.example.org/application/o/<slug dell'applicazione>/` |
+| Authelia | `https://auth.example.org` |
+| Keycloak | `https://auth.example.org/realms/<realm>` |
+| Pocket ID | `https://id.example.org` |
+
+L'accesso usa il flusso *authorization code* con PKCE, `state` e `nonce`; l'ID token si verifica con le chiavi del provider. Il client secret è salvato cifrato e l'app non lo mostra mai.
+
+**Accesso d'emergenza.** Il login con password si può spegnere, ma solo dopo aver collegato al provider almeno un amministratore. Se poi il provider non risponde:
+
+```bash
+docker compose exec galactic-feed python -m app.emergency
+```
+
+Questo comando riaccende l'accesso con password; con `--reset <nome utente>` stampa anche un link per sceglierne una nuova. In alternativa, la variabile `EMERGENCY_PASSWORD_LOGIN=true` tiene acceso l'accesso con password finché resta impostata.
 
 ## Interessi, tag e nazioni
 
@@ -207,7 +236,7 @@ Su iPhone l'app non si aggiorna in background: le notizie le scarica sempre il s
 
 Le immagini sono su GitHub Container Registry: `ghcr.io/tehmaat/galactic-feed`.
 
-- `0.5` e `0.5.0`: le versioni pubblicate (vedi «Versioni e aggiornamenti»);
+- `0.6` e `0.6.0`: le versioni pubblicate (vedi «Versioni e aggiornamenti»);
 - `latest`: l'ultima versione del ramo principale;
 - `sha-xxxxxxx`: un commit preciso.
 
@@ -246,11 +275,11 @@ Il numero di versione sta solo nel file [`VERSION`](VERSION); lo script lo copia
 1. Nella PR che chiude il lavoro, prepara la versione: la sezione «Da pubblicare» prende il numero nuovo.
 
    ```bash
-   python3 scripts/release.py bump 0.6.0
+   python3 scripts/release.py bump 0.7.0
    ```
 
-2. Fai il merge della PR su `main`. Il workflow vede che `v0.6.0` non esiste ancora: pubblica le immagini `:0.6.0` e `:0.6`, poi crea il tag e la release con le note del `CHANGELOG.md`. Nessun tag a mano.
+2. Fai il merge della PR su `main`. Il workflow vede che `v0.7.0` non esiste ancora: pubblica le immagini `:0.7.0` e `:0.7`, poi crea il tag e la release con le note del `CHANGELOG.md`. Nessun tag a mano.
 
-Una versione come `0.6.0-rc.1` diventa una versione di prova: solo `:0.6.0-rc.1`, segnata come pre-release.
+Una versione come `0.7.0-rc.1` diventa una versione di prova: solo `:0.7.0-rc.1`, segnata come pre-release.
 
 Per lavorare sull'interfaccia, avvia il server con `cd backend && DATA_DIR=../data python -m app`, poi `cd frontend && npm run dev`. Vite manda le chiamate `/api` al server sulla porta 8080.

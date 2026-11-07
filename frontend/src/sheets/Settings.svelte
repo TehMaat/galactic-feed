@@ -9,7 +9,8 @@
   import { ACCENTS, FONTS, READ_FONTS, SIZES, countryName, initials, timeAgoLong } from "../lib/format.js";
   import { data, editionConfigs, loadEditionConfigs, logout, openSheet, savePrefs, session, setEditionConfigs, toast, ui } from "../lib/store.svelte.js";
 
-  let page = $state("main"); // main · password · sessions
+  let page = $state("main"); // main · password · sessions · identities
+  let identities = $state(null); // account del provider collegati (#22)
   let sessions = $state([]);
   let pw = $state({ current: "", next: "", repeat: "" });
   let pwError = $state("");
@@ -132,11 +133,12 @@
   );
   const ai = $derived(data.interests.ai);
   const aiLabel = $derived(ai?.enabled ? `${ai.kind === "locale" ? "Locale" : "Cloud"} · ${ai.label}` : "Spenta");
-  const TITLES = { main: "Impostazioni", password: "Cambia password", sessions: "Dispositivi collegati" };
+  const TITLES = { main: "Impostazioni", password: identities && !identities.has_password ? "Scegli una password" : "Cambia password", sessions: "Dispositivi collegati", identities: "Account collegati" };
 
   function go(p) {
     page = p;
     if (p === "sessions") loadSessions();
+    if (p === "identities" || p === "password") loadIdentities();
     if (p === "password") {
       pw = { current: "", next: "", repeat: "" };
       pwError = "";
@@ -156,6 +158,25 @@
       go("main");
     } catch (err) {
       pwError = err.message;
+    }
+  }
+
+  // ---- Account del provider collegati (#22) ----
+  async function loadIdentities() {
+    try {
+      identities = await api("/me/identities");
+    } catch (err) {
+      toast(err.message);
+    }
+  }
+
+  async function unlinkIdentity(i) {
+    if (!confirm("Scollegare questo account del provider? Non potrai più entrare con quello finché non lo ricolleghi.")) return;
+    try {
+      identities = await api(`/me/identities/${i.id}`, { method: "DELETE" });
+      toast("Account scollegato");
+    } catch (err) {
+      toast(err.message);
     }
   }
 
@@ -198,6 +219,9 @@
           <button type="button" class="link-row" onclick={() => openSheet("admin")}><Icon name="shield" />Amministrazione</button>
         {/if}
         <button type="button" class="link-row" onclick={() => go("password")}><Icon name="key" />Cambia password</button>
+        {#if session.oidc?.enabled}
+          <button type="button" class="link-row" onclick={() => go("identities")}><Icon name="user" />Account collegati · {session.oidc.label.replace(/^Entra con /i, "")}</button>
+        {/if}
         <button type="button" class="link-row" onclick={() => go("sessions")}><Icon name="devices" />Dispositivi collegati</button>
         <button type="button" class="link-row" onclick={logout}><Icon name="logout" />Esci</button>
       </div>
@@ -322,13 +346,37 @@
       {#if session.version}<p class="app-version">Galactic Feed <span>versione {session.version}</span></p>{/if}
     {:else if page === "password"}
       <form class="form-stack" onsubmit={changePassword}>
-        <div class="field"><label for="pw-cur">Password attuale</label><input class="input" id="pw-cur" type="password" autocomplete="current-password" bind:value={pw.current} /></div>
+        {#if !identities || identities.has_password}
+          <div class="field"><label for="pw-cur">Password attuale</label><input class="input" id="pw-cur" type="password" autocomplete="current-password" bind:value={pw.current} /></div>
+        {:else}
+          <p class="set-note top">Sei entrato con il provider e non hai ancora una password: sceglila per poter entrare anche con nome utente e password.</p>
+        {/if}
         <div class="field"><label for="pw-new">Nuova password</label><input class="input" id="pw-new" type="password" autocomplete="new-password" minlength="8" bind:value={pw.next} /></div>
         <div class="field"><label for="pw-rep">Ripeti la nuova password</label><input class="input" id="pw-rep" type="password" autocomplete="new-password" minlength="8" bind:value={pw.repeat} /></div>
         <p class="hint">Almeno 8 caratteri. Una frase di più parole è facile da ricordare e difficile da indovinare.</p>
         {#if pwError}<p class="form-error" role="alert">{pwError}</p>{/if}
-        <button type="submit" class="btn-primary" disabled={!pw.current || pw.next.length < 8}><Icon name="check" />Cambia password</button>
+        <button type="submit" class="btn-primary" disabled={(identities?.has_password !== false && !pw.current) || pw.next.length < 8}><Icon name="check" />Cambia password</button>
       </form>
+    {:else if page === "identities"}
+      {#if identities}
+        {#if identities.identities.length}
+          <div class="set-group">
+            {#each identities.identities as i (i.id)}
+              <div class="set-row"><span class="feed-name"><b>{i.username || i.email || "Account collegato"}</b><small>{i.email ? i.email + " · " : ""}{i.issuer}</small></span>
+                <button type="button" class="icon-btn" aria-label="Scollega questo account" onclick={() => unlinkIdentity(i)}><Icon name="close" /></button>
+              </div>
+            {/each}
+          </div>
+        {:else}
+          <p class="set-note top">Nessun account del provider collegato.</p>
+        {/if}
+        <div class="set-group mt">
+          <a class="link-row" href="/api/auth/oidc/start?link=1&remember=1"><Icon name="plus" />Collega un account</a>
+        </div>
+        <p class="set-note">Dopo averlo collegato puoi entrare con «{session.oidc.label}» oltre che con la password. Ti porta alla pagina del provider e poi torna qui.</p>
+      {:else}
+        <p class="loading">Carico gli account…</p>
+      {/if}
     {:else if page === "sessions"}
       <div class="set-group">
         {#each sessions as s (s.id)}

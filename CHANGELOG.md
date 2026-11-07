@@ -4,6 +4,21 @@ Tutte le versioni di Galactic Feed, dalla più recente. I numeri seguono [semver
 
 Per aggiornare basta scaricare la nuova immagine: le modifiche al database si applicano da sole all'avvio. Prima di saltare a una nuova versione minore conviene fare una copia del volume `/data` (vedi il README, «Versioni e aggiornamenti»).
 
+## [0.6.0] – 2026-11-07
+
+### Novità
+- **Accesso con un provider OpenID Connect** (Authentik, Authelia, Keycloak, Pocket ID…), configurato e provato tutto dall'app in Amministrazione → Accesso: pulsante «Entra con …», utenti creati al primo accesso o collegati per email verificata o nome utente, account collegati nelle Impostazioni, amministratori da un gruppo del provider, uscita anche dal provider (#22).
+- Il login con password si può spegnere, con un accesso d'emergenza sempre disponibile: `python -m app.emergency` nel container o `EMERGENCY_PASSWORD_LOGIN=true`.
+- Chi è entrato con il provider può scegliersi anche una password.
+
+### Sicurezza
+- Flusso authorization code con PKCE, `state` e `nonce`; l'ID token si verifica con le chiavi del provider. Il client secret è salvato cifrato e non viene mai mostrato.
+
+### Da sapere per aggiornare
+- Migrazione automatica `011`.
+- Nuova dipendenza: PyJWT.
+- Il `docker-compose.yml` d'esempio ora usa `:0.6`.
+
 ## [0.5.0] – 2026-11-07
 
 Prima versione pubblicata come release: immagini `ghcr.io/tehmaat/galactic-feed:0.5.0` e `:0.5`. Contiene anche le novità di 0.3.0 e 0.4.0.
