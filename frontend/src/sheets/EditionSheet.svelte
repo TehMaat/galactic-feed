@@ -5,7 +5,7 @@
   import Sheet from "../components/Sheet.svelte";
   import { api } from "../lib/api.js";
   import { COUNTRIES, countryName, flag, folderColor, nextRun } from "../lib/format.js";
-  import { closeSheet, data, editionConfigs, setEditionConfigs, showEdition, switchTab, toast, ui } from "../lib/store.svelte.js";
+  import { ask, closeSheet, data, editionConfigs, setEditionConfigs, showEdition, switchTab, toast, ui } from "../lib/store.svelte.js";
 
   let config = $state(null);
   let preview = $state(null);
@@ -135,7 +135,7 @@
   }
 
   async function remove() {
-    if (!confirm(`Eliminare «${config.name}» e le sue uscite?`)) return;
+    if (!(await ask("Si cancellano anche tutte le sue uscite. Per fermarla e basta, spegnila.", { title: `Eliminare «${config.name}»?` }))) return;
     try {
       const r = await api(`/edition-configs/${config.id}`, { method: "DELETE" });
       await setEditionConfigs(r);

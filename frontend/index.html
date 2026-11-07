@@ -19,11 +19,15 @@
   try {
     var d = document.documentElement.dataset, s = localStorage;
     var t = s.getItem("gf-theme"), a = s.getItem("gf-accent"), f = s.getItem("gf-font"), r = s.getItem("gf-read");
-    if (t === "light" || t === "dark") {
-      d.theme = t;
-      var bar = t === "dark" ? "#0C0F1C" : "#F4F5F9";
-      document.querySelectorAll('meta[name="theme-color"]').forEach(function (m) { m.content = bar; });
-    }
+    var dk = s.getItem("gf-dark"), lt = s.getItem("gf-light");
+    if (dk === "grigio" || dk === "nero") d.dark = dk;
+    if (lt === "carta") d.light = lt;
+    // Stessi colori di BAR_COLORS in store.svelte.js.
+    var bars = { dark: { grigio: "#18181B", nero: "#000000" }[dk] || "#0C0F1C", light: lt === "carta" ? "#F8F5EE" : "#F4F5F9" };
+    document.querySelectorAll('meta[name="theme-color"]').forEach(function (m) {
+      m.content = t === "light" || t === "dark" ? bars[t] : bars[m.media.indexOf("dark") >= 0 ? "dark" : "light"];
+    });
+    if (t === "light" || t === "dark") d.theme = t;
     if (a && a !== "galassia") d.accent = a;
     if (f && f !== "galactic") d.font = f;
     if (r && r !== "serif") d.read = r;

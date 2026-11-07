@@ -55,6 +55,16 @@ def test_update_profile_and_prefs(admin):
     assert r.json()["user"]["prefs"]["text_size"] == 1.12
 
 
+def test_theme_styles(admin):
+    """Varianti del tema: scuro blu notte, grigio o nero; chiaro neutro o carta."""
+    prefs = admin.get("/api/me").json()["user"]["prefs"]
+    assert (prefs["dark_style"], prefs["light_style"]) == ("notte", "neutro")
+    r = admin.patch("/api/me", json={"prefs": {"dark_style": "grigio", "light_style": "carta"}})
+    assert (r.json()["user"]["prefs"]["dark_style"], r.json()["user"]["prefs"]["light_style"]) == ("grigio", "carta")
+    assert admin.patch("/api/me", json={"prefs": {"dark_style": "nero"}}).json()["user"]["prefs"]["dark_style"] == "nero"
+    assert admin.patch("/api/me", json={"prefs": {"dark_style": "viola"}}).status_code == 422
+
+
 def test_invalid_prefs(admin):
     r = admin.patch("/api/me", json={"prefs": {"theme": "viola"}})
     assert r.status_code == 422

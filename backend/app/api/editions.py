@@ -370,6 +370,22 @@ def get_edition(
     }
 
 
+@router.delete("/editions/{edition_id}")
+def delete_edition(
+    edition_id: int, user: User = Depends(current_user), conn: sqlite3.Connection = Depends(get_db), ctx: AppContext = Depends(get_ctx)
+):
+    """Elimina un'uscita (per esempio una composta per prova); l'Edizione e le altre uscite restano.
+
+    Restituisce l'uscita più recente rimasta della stessa Edizione, come «editions/latest».
+    """
+    row = conn.execute("SELECT config_id FROM editions WHERE id = ? AND user_id = ?", (edition_id, user.id)).fetchone()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Edizione non trovata.")
+    with conn:
+        conn.execute("DELETE FROM editions WHERE id = ?", (edition_id,))
+    return latest(config=row["config_id"], user=user, conn=conn, ctx=ctx)
+
+
 class ComposeBody(BaseModel):
     config_id: int | None = None
 

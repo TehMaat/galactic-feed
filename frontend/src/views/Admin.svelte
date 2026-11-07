@@ -4,11 +4,13 @@
   // (scelto qui, variabile d'ambiente o predefinito) e si può riportare al predefinito.
   // Restano variabili d'ambiente solo quelle che servono prima dell'avvio (vedi «Stato del sistema»).
   import Icon from "../components/Icon.svelte";
-  import Sheet from "../components/Sheet.svelte";
-  import AiSettings from "./AiSettings.svelte";
+  import Page from "../components/Page.svelte";
+  import AiSettings from "../sheets/AiSettings.svelte";
   import { api } from "../lib/api.js";
-  import { ACCENTS, COUNTRIES, FONTS, READ_FONTS, SIZES, bytesLabel, countryName, durationLabel, flag, initials, timeAgoLong } from "../lib/format.js";
-  import { loadSources, session, toast, ui } from "../lib/store.svelte.js";
+  import { ACCENTS, DARK_STYLES, LIGHT_STYLES, COUNTRIES, FONTS, READ_FONTS, SIZES, bytesLabel, countryName, durationLabel, flag, initials, timeAgoLong } from "../lib/format.js";
+  import { ask, loadSources, session, toast, ui } from "../lib/store.svelte.js";
+
+  let { active } = $props();
 
   // main · users · user · access · sources · presets · ai · defaults · status
   let page = $state("main");
@@ -35,7 +37,8 @@
     main: "Amministrazione",
     users: "Utenti e inviti",
     user: "Utente",
-    access: "Accesso",
+    access: "Sessioni",
+    oidc: "Accesso con OIDC",
     sources: "Fonti e archivio",
     presets: "Gruppi di parole pronti",
     feeds: "Nazione delle fonti",
@@ -45,7 +48,8 @@
   };
   const SECTIONS = [
     ["users", "user", "Utenti e inviti", "Invita, disattiva, nuove password"],
-    ["access", "key", "Accesso", "Durata delle sessioni e di «Ricordami»"],
+    ["oidc", "key", "Accesso con OIDC", "Authentik, Authelia, Keycloak, Pocket ID…"],
+    ["access", "devices", "Sessioni", "Durata delle sessioni e di «Ricordami»"],
     ["sources", "rss", "Fonti e archivio", "Conservazione, controlli, rete locale"],
     ["presets", "folder", "Gruppi di parole pronti", "Proposti a tutti negli Interessi"],
     ["ai", "spark", "AI", "Fornitore, modello e limite giornaliero"],
@@ -53,8 +57,10 @@
     ["status", "devices", "Stato del sistema", "Versione, spazio, errori recenti"],
   ];
 
+  // A ogni apertura: la sottopagina chiesta (per esempio «ai» dalle Impostazioni) o il menu.
   $effect(() => {
-    if (ui.sheet === "admin") go(typeof ui.sheetArg === "string" ? ui.sheetArg : "main");
+    ui.pageTick;
+    if (active) go(typeof ui.pageArg === "string" ? ui.pageArg : "main");
   });
 
   function go(p) {
@@ -62,10 +68,11 @@
     newLink = null;
     if (p === "users") loadUsers();
     if (["users", "access", "sources", "status"].includes(p)) loadInstance();
+    if (p === "main") loadOidc();
     if (p === "defaults") loadDefaults();
     if (p === "presets") loadPresets();
     if (p === "feeds") loadFeeds();
-    if (p === "access") loadOidc();
+    if (p === "oidc") loadOidc();
     if (p === "status") loadStatus();
   }
 
@@ -223,6 +230,13 @@
     loadUsers();
   }
 
+  // Come entra un utente: account locale (password), provider OIDC o tutti e due.
+  function accessLabel(u) {
+    if (u.has_password && u.linked_identities) return "password e OIDC";
+    if (u.linked_identities) return "OIDC";
+    return "password";
+  }
+
   function openUser(u) {
     current = u;
     newLink = null;
@@ -250,7 +264,7 @@
   }
 
   async function removeUser() {
-    if (!confirm(`Eliminare l'account di ${current.display_name}? Fonti, interessi e salvati di questo utente spariscono.`)) return;
+    if (!(await ask("Fonti, interessi e salvati di questo utente spariscono.", { title: `Eliminare l'account di ${current.display_name}?` }))) return;
     try {
       await api(`/admin/users/${current.id}`, { method: "DELETE" });
       toast("Utente eliminato");
@@ -339,7 +353,7 @@
   }
 
   async function removePreset(p) {
-    if (!p.builtin && !confirm(`Eliminare il gruppo pronto «${p.name}»? Chi l'ha già preso tiene la sua copia.`)) return;
+    if (!p.builtin && !(await ask("Chi l'ha già preso tiene la sua copia.", { title: `Eliminare il gruppo pronto «${p.name}»?` }))) return;
     if (await presetRequest(`/admin/presets/${p.id}`, { method: "DELETE" }, p.builtin ? `${p.name} nascosto` : `${p.name} eliminato`)) openPreset = null;
   }
 
@@ -403,13 +417,28 @@
   <p class="set-note">{note} {originNote(opt)}</p>
 {/snippet}
 
-<Sheet name="admin" title={TITLES[page]} back={page === "main" ? null : back}>
+{#snippet styleChoice(list, value, label, onpick)}
+  <div class="theme-styles" role="group" aria-label={label}>
+    {#each list as [k, name, bg, card, ink] (k)}
+      <button type="button" class="theme-style" aria-pressed={value === k} onclick={() => onpick(k)} style="--ts-bg:{bg};--ts-card:{card};--ts-ink:{ink}">
+        <span class="theme-preview" aria-hidden="true"><i></i><i></i></span>{name}
+      </button>
+    {/each}
+  </div>
+{/snippet}
+
+{#snippet sectionSub(key, sub)}
+  {#if key === "oidc" && oidcCfg}{oidcCfg.enabled ? `Attivo · ${oidcCfg.linked_users === 1 ? "1 utente collegato" : `${oidcCfg.linked_users} utenti collegati`}` : "Spento · la password resta sempre"}{:else}{sub}{/if}
+{/snippet}
+
+<Page label="Amministrazione" title={TITLES[page]} {active} back={page === "main" ? null : back}
+  nav={SECTIONS.map(([k, icon, label]) => [k, icon, label])} current={page === "user" ? "users" : page === "feeds" ? "sources" : page} onnav={go} scrollKey={page}>
   {#if me?.is_admin}
     {#if page === "main"}
       <div class="set-group">
         {#each SECTIONS as [key, icon, label, sub] (key)}
           <button type="button" class="set-row as-button" onclick={() => go(key)}>
-            <span class="admin-entry"><Icon name={icon} /><span><b>{label}</b><small>{sub}</small></span></span>
+            <span class="admin-entry"><Icon name={icon} /><span><b>{label}</b><small>{@render sectionSub(key, sub)}</small></span></span>
             <Icon name="chevron" />
           </button>
         {/each}
@@ -434,7 +463,7 @@
       <div class="set-group">
         {#each users as u (u.id)}
           <button type="button" class="set-row as-button" onclick={() => openUser(u)}>
-            <span class="who"><span class="user-av">{initials(u.display_name)}</span><span><b>{u.display_name}</b><br /><small>{u.is_admin ? "amministratore" : "utente"}{u.disabled ? " · disattivato" : ""} · {u.last_seen_at ? "ultimo accesso " + timeAgoLong(u.last_seen_at) : "mai entrato"}</small></span></span>
+            <span class="who"><span class="user-av">{initials(u.display_name)}</span><span><b>{u.display_name}</b><br /><small>{u.is_admin ? "amministratore" : "utente"} · {accessLabel(u)}{u.disabled ? " · disattivato" : ""} · {u.last_seen_at ? "ultimo accesso " + timeAgoLong(u.last_seen_at) : "mai entrato"}</small></span></span>
             <Icon name="chevron" />
           </button>
         {/each}
@@ -445,7 +474,7 @@
       {/if}
     {:else if page === "user" && current}
       <div class="set-group">
-        <div class="set-row"><span class="who"><span class="user-av">{initials(current.display_name)}</span><span><b>{current.display_name}</b><br /><small>@{current.username} · {current.is_admin ? "amministratore" : "utente"}{current.disabled ? " · disattivato" : ""}</small></span></span></div>
+        <div class="set-row"><span class="who"><span class="user-av">{initials(current.display_name)}</span><span><b>{current.display_name}</b><br /><small>@{current.username} · {current.is_admin ? "amministratore" : "utente"} · {accessLabel(current)}{current.disabled ? " · disattivato" : ""}</small></span></span></div>
       </div>
       {#if current.id === me.id}
         <p class="set-note">Questo sei tu. Un altro amministratore può cambiare i tuoi permessi.</p>
@@ -458,6 +487,10 @@
           <button type="button" class="link-row danger" onclick={removeUser}><Icon name="trash" />Elimina l'account</button>
         </div>
         {#if newLink}{@render linkBox(newLink)}{/if}
+        <p class="set-note">{current.linked_identities && !current.has_password
+          ? "Entra con il provider OIDC. Con il link per una nuova password può entrare anche con nome utente e password."
+          : current.linked_identities ? "Entra con la password oppure con il provider OIDC." : "Account locale: entra con nome utente e password."}
+          {current.is_admin && current.admin_via_group ? " Amministratore grazie al gruppo del provider." : ""}</p>
       {/if}
     {:else if page === "access"}
       {#if instance}
@@ -466,63 +499,72 @@
         <div class="set-label">Senza «Ricordami»</div>
         {@render option("session_hours", "Esce dopo", "La sessione finisce anche chiudendo il browser.", " senza usarla")}
         <p class="set-note">Le nuove durate valgono subito; le sessioni già aperte si adeguano al prossimo utilizzo.</p>
-
-        {#snippet oidcSwitch(key, label)}
-          <div class="set-row"><span>{label}</span>
-            <button type="button" class="switch" role="switch" aria-checked={!!oidcForm[key]} aria-label={label} onclick={() => (oidcForm[key] = !oidcForm[key])}></button>
-          </div>
-        {/snippet}
-        <div class="set-label">Accesso con un provider (OIDC)</div>
-        {#if oidcForm}
-          <form class="form-stack" onsubmit={saveOidc}>
-            <div class="set-group">{@render oidcSwitch("enabled", "Accesso con il provider")}</div>
-            <div class="field"><label for="oidc-issuer">Issuer</label>
-              <input class="input" id="oidc-issuer" bind:value={oidcForm.issuer} placeholder="https://auth.example.org/application/o/galactic-feed/" autocapitalize="off" spellcheck="false" inputmode="url" />
-              <p class="hint">L'indirizzo del provider: l'app legge da sola /.well-known/openid-configuration. Funziona con Authentik, Authelia, Keycloak, Pocket ID e gli altri provider OpenID Connect.</p></div>
-            <div class="field"><label for="oidc-client">Client ID</label>
-              <input class="input" id="oidc-client" bind:value={oidcForm.client_id} autocapitalize="off" spellcheck="false" /></div>
-            <div class="field"><label for="oidc-secret">Client secret</label>
-              <input class="input" id="oidc-secret" type="password" autocomplete="new-password" bind:value={oidcForm.client_secret}
-                placeholder={oidcCfg.has_secret ? "Salvato: lascia vuoto per non cambiarlo" : "Il segreto del client"} />
-              <p class="hint">Salvato cifrato; non viene mai mostrato né restituito.</p></div>
-            <div class="field"><label for="oidc-redirect">Indirizzo di ritorno (da copiare nel provider)</label>
-              <input class="input mono" id="oidc-redirect" readonly value={oidcCfg.redirect_uri} onfocus={(e) => e.target.select()} />
-              <p class="hint">Si basa su PUBLIC_URL. Nel provider va registrato esattamente così.</p></div>
-            <div class="field"><label for="oidc-scopes">Scope</label>
-              <input class="input" id="oidc-scopes" bind:value={oidcForm.scopes} autocapitalize="off" spellcheck="false" /></div>
-            <div class="field"><label for="oidc-label">Testo del pulsante</label>
-              <input class="input" id="oidc-label" bind:value={oidcForm.label} maxlength="40" placeholder="Entra con Authentik" /></div>
-
-            <span class="sublabel">Utenti</span>
-            <div class="set-group">
-              {@render oidcSwitch("auto_create", "Crea gli utenti al primo accesso")}
-              {@render oidcSwitch("link_email", "Collega gli utenti con la stessa email verificata")}
-              {@render oidcSwitch("link_username", "Collega gli utenti con lo stesso nome utente")}
-            </div>
-            <p class="hint">Senza la creazione automatica serve ancora un invito; poi ognuno collega il suo account da Impostazioni → Account collegati.</p>
-            <div class="two-selects">
-              <div class="field"><label for="oidc-claim">Claim dei gruppi</label><input class="input" id="oidc-claim" bind:value={oidcForm.admin_claim} placeholder="groups" autocapitalize="off" spellcheck="false" /></div>
-              <div class="field"><label for="oidc-admin">Gruppo degli amministratori</label><input class="input" id="oidc-admin" bind:value={oidcForm.admin_value} placeholder="galactic-admin" autocapitalize="off" spellcheck="false" /></div>
-            </div>
-            <p class="hint">Facoltativo: chi è nel gruppo diventa amministratore, chi ne esce smette di esserlo (mai l'ultimo).</p>
-
-            <span class="sublabel">Sicurezza</span>
-            <div class="set-group">
-              {@render oidcSwitch("password_login", "Accesso anche con nome utente e password")}
-              {@render oidcSwitch("rp_logout", "Uscendo, esci anche dal provider")}
-            </div>
-            <p class="hint">Per spegnere la password serve almeno un amministratore collegato al provider (ora: {oidcCfg.linked_admins}). Se il provider non risponde: <code>docker compose exec galactic-feed python -m app.emergency</code> riaccende la password, oppure la variabile EMERGENCY_PASSWORD_LOGIN=true.{#if oidcCfg.emergency} Adesso è attiva.{/if}</p>
-
-            <button type="submit" class="btn-primary" disabled={oidcBusy}><Icon name="check" />Salva</button>
-            <button type="button" class="btn-secondary" disabled={oidcBusy || !oidcForm.issuer || !oidcForm.client_id} onclick={testOidc}><Icon name="refresh" />Prova la configurazione</button>
-            {#if oidcTest}<p class={oidcTest.ok ? "form-ok" : "form-error"} role="status">{oidcTest.message}</p>{/if}
-            <p class="set-note">{oidcCfg.linked_users === 1 ? "1 utente collegato" : `${oidcCfg.linked_users} utenti collegati`} al provider.</p>
-          </form>
-        {:else}
-          <p class="loading">Carico l'accesso con il provider…</p>
-        {/if}
       {:else}
         <p class="loading">Carico le impostazioni…</p>
+      {/if}
+    {:else if page === "oidc"}
+      {#snippet oidcSwitch(key, label)}
+        <div class="set-row"><span>{label}</span>
+          <button type="button" class="switch" role="switch" aria-checked={!!oidcForm[key]} aria-label={label} onclick={() => (oidcForm[key] = !oidcForm[key])}></button>
+        </div>
+      {/snippet}
+      <div class="oidc-intro">
+        <Icon name="key" />
+        <p>Aggiunge il pulsante «Entra con …» nella pagina di accesso. <b>Non sostituisce gli account locali</b>: l'amministratore creato al primo avvio e gli utenti invitati continuano a entrare con nome utente e password. Gli utenti del provider sono account a parte, che rendi amministratori da <button type="button" class="inline-link" onclick={() => go("users")}>Utenti e inviti</button>.</p>
+      </div>
+      {#if oidcForm}
+        <form class="form-stack" onsubmit={saveOidc}>
+          <div class="set-group">{@render oidcSwitch("enabled", "Accesso con il provider")}</div>
+          <div class="field"><label for="oidc-issuer">Issuer</label>
+            <input class="input" id="oidc-issuer" bind:value={oidcForm.issuer} placeholder="https://auth.example.org/application/o/galactic-feed/" autocapitalize="off" spellcheck="false" inputmode="url" />
+            <p class="hint">L'indirizzo del provider: l'app legge da sola /.well-known/openid-configuration. Funziona con Authentik, Authelia, Keycloak, Pocket ID e gli altri provider OpenID Connect.</p></div>
+          <div class="field"><label for="oidc-client">Client ID</label>
+            <input class="input" id="oidc-client" bind:value={oidcForm.client_id} autocapitalize="off" spellcheck="false" /></div>
+          <div class="field"><label for="oidc-secret">Client secret</label>
+            <input class="input" id="oidc-secret" type="password" autocomplete="new-password" bind:value={oidcForm.client_secret}
+              placeholder={oidcCfg.has_secret ? "Salvato: lascia vuoto per non cambiarlo" : "Il segreto del client"} />
+            <p class="hint">Salvato cifrato; non viene mai mostrato né restituito.</p></div>
+          <div class="field"><label for="oidc-redirect">Indirizzo di ritorno (da copiare nel provider)</label>
+            <input class="input mono" id="oidc-redirect" readonly value={oidcCfg.redirect_uri} onfocus={(e) => e.target.select()} />
+            <p class="hint">Si basa su PUBLIC_URL. Nel provider va registrato esattamente così.</p></div>
+          <div class="field"><label for="oidc-scopes">Scope</label>
+            <input class="input" id="oidc-scopes" bind:value={oidcForm.scopes} autocapitalize="off" spellcheck="false" /></div>
+          <div class="field"><label for="oidc-label">Testo del pulsante</label>
+            <input class="input" id="oidc-label" bind:value={oidcForm.label} maxlength="40" placeholder="Entra con Authentik" /></div>
+
+          <span class="sublabel">Utenti</span>
+          <div class="set-group">
+            {@render oidcSwitch("auto_create", "Crea gli utenti al primo accesso")}
+            {@render oidcSwitch("link_email", "Collega gli utenti con la stessa email verificata")}
+            {@render oidcSwitch("link_username", "Collega gli utenti con lo stesso nome utente")}
+          </div>
+          <p class="hint">Senza la creazione automatica serve ancora un invito; poi ognuno collega il suo account da Impostazioni → Account collegati. Il collegamento automatico non tocca mai gli amministratori: l'amministratore locale resta un account a parte (se vuoi, lo colleghi a mano dalle sue Impostazioni).</p>
+          <div class="two-selects">
+            <div class="field"><label for="oidc-claim">Claim dei gruppi</label><input class="input" id="oidc-claim" bind:value={oidcForm.admin_claim} placeholder="groups" autocapitalize="off" spellcheck="false" /></div>
+            <div class="field"><label for="oidc-admin">Gruppo degli amministratori</label><input class="input" id="oidc-admin" bind:value={oidcForm.admin_value} placeholder="galactic-admin" autocapitalize="off" spellcheck="false" /></div>
+          </div>
+          <p class="hint">Facoltativo: chi è nel gruppo diventa amministratore. Uscendo dal gruppo perde solo i permessi che gli aveva dato il gruppo: chi rendi amministratore a mano da Utenti e inviti resta tale.</p>
+
+          <span class="sublabel">Uscita</span>
+          <div class="set-group">
+            {@render oidcSwitch("rp_logout", "Uscendo, esci anche dal provider")}
+          </div>
+
+          <details class="advanced">
+            <summary>Avanzate: solo provider</summary>
+            <div class="set-group">
+              {@render oidcSwitch("password_login", "Accesso anche con nome utente e password")}
+            </div>
+            <p class="hint">Lascialo acceso per tenere l'accesso locale. Spento, nella pagina di accesso resta solo il pulsante del provider; serve almeno un amministratore collegato al provider (ora: {oidcCfg.linked_admins}). Se il provider non risponde: <code>docker compose exec galactic-feed python -m app.emergency</code> riaccende la password, oppure la variabile EMERGENCY_PASSWORD_LOGIN=true.{#if oidcCfg.emergency} Adesso è attiva.{/if}</p>
+          </details>
+
+          <button type="submit" class="btn-primary" disabled={oidcBusy}><Icon name="check" />Salva</button>
+          <button type="button" class="btn-secondary" disabled={oidcBusy || !oidcForm.issuer || !oidcForm.client_id} onclick={testOidc}><Icon name="refresh" />Prova la configurazione</button>
+          {#if oidcTest}<p class={oidcTest.ok ? "form-ok" : "form-error"} role="status">{oidcTest.message}</p>{/if}
+          <p class="set-note">{oidcCfg.linked_users === 1 ? "1 utente collegato" : `${oidcCfg.linked_users} utenti collegati`} al provider.</p>
+        </form>
+      {:else}
+        <p class="loading">Carico l'accesso con il provider…</p>
       {/if}
     {:else if page === "sources"}
       {#if instance}
@@ -615,6 +657,14 @@
                 <button type="button" aria-pressed={p.theme === k} onclick={() => saveDefault({ theme: k })}>{l}</button>
               {/each}
             </div>
+          </div>
+          <div class="set-block">
+            <span class="label">Scuro</span>
+            {@render styleChoice(DARK_STYLES, p.dark_style, "Variante del tema scuro predefinita", (k) => saveDefault({ dark_style: k }))}
+          </div>
+          <div class="set-block">
+            <span class="label">Chiaro</span>
+            {@render styleChoice(LIGHT_STYLES, p.light_style, "Variante del tema chiaro predefinita", (k) => saveDefault({ light_style: k }))}
           </div>
           <div class="set-block">
             <span class="label" id="def-accent">Colore</span>
@@ -735,4 +785,4 @@
       {/if}
     {/if}
   {/if}
-</Sheet>
+</Page>

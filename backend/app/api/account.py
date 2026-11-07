@@ -24,6 +24,8 @@ def me(user: User = Depends(current_user)):
 
 class PrefsPatch(BaseModel):
     theme: str | None = None
+    dark_style: str | None = None
+    light_style: str | None = None
     accent: str | None = None
     font: str | None = None
     font_read: str | None = None

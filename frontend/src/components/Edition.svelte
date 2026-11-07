@@ -3,7 +3,7 @@
   // come nel mockup. La compone il server agli orari scelti nelle Impostazioni.
   import { paintStars } from "../lib/art.js";
   import { folderColor, matchLabel, nextRun } from "../lib/format.js";
-  import { composeEdition, edition, foldersById, openArticle, session, showEdition, ui } from "../lib/store.svelte.js";
+  import { composeEdition, deleteEditionIssue, editEditionConfig, edition, foldersById, openArticle, session, showEdition, ui } from "../lib/store.svelte.js";
   import Icon from "./Icon.svelte";
   import SourceMeta from "./SourceMeta.svelte";
   import Thumb from "./Thumb.svelte";
@@ -108,6 +108,10 @@
     {:else}
       <b>Niente di nuovo</b><span>Dall'edizione precedente non sono arrivate notizie.</span>
     {/if}
+  </div>
+  <div class="edition-actions">
+    {#if ed.config_id}<button type="button" class="btn-secondary small" onclick={() => editEditionConfig(ed.config_id)}><Icon name="sliders" />Modifica l'Edizione</button>{/if}
+    <button type="button" class="btn-secondary small danger" onclick={() => deleteEditionIssue(ed)}><Icon name="trash" />Elimina questa uscita</button>
   </div>
 {:else if edition.error}
   <div class="empty"><Icon name="alert" /><h3>Non riesco a caricare l'Edizione</h3><p>{edition.error}</p></div>

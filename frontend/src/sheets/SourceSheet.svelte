@@ -5,7 +5,7 @@
   import SourceIcon from "../components/SourceIcon.svelte";
   import { api } from "../lib/api.js";
   import { COUNTRIES, KIND_LABEL, countryName, flag, folderColor, intervalLabel, shortUrl, since, sourceColor, timeAgoLong } from "../lib/format.js";
-  import { closeSheet, data, foldersById, loadAll, loadCounts, loadSources, patchSourceInLists, showSource, toast, ui } from "../lib/store.svelte.js";
+  import { ask, closeSheet, data, foldersById, loadAll, loadCounts, loadSources, patchSourceInLists, showSource, toast, ui } from "../lib/store.svelte.js";
 
   let source = $state(null);
   let title = $state("");
@@ -169,7 +169,7 @@
   }
 
   async function unfollow() {
-    if (!confirm(`Smettere di seguire «${source.title}»? Gli articoli salvati restano nei Salvati.`)) return;
+    if (!(await ask("Gli articoli salvati restano nei Salvati.", { title: `Smettere di seguire «${source.title}»?`, action: "Smetti di seguire" }))) return;
     try {
       await api(`/sources/${source.id}`, { method: "DELETE" });
       toast(`Non segui più ${source.title}`);

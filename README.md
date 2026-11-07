@@ -35,13 +35,13 @@ Serve Docker con il plugin Compose.
    Codice di primo avvio: 291619
    ```
 
-5. Apri l'indirizzo, inserisci il codice e crea il tuo account: sei l'amministratore. Gli altri utenti li inviti da **Impostazioni → Utenti e inviti**.
+5. Apri l'indirizzo, inserisci il codice e crea il tuo account: sei l'amministratore. Gli altri utenti li inviti da **Amministrazione → Utenti e inviti**.
 
 Il codice cambia a ogni riavvio finché non esiste un account. Serve solo a evitare che qualcun altro crei l'amministratore prima di te.
 
 ### Aggiornare
 
-Le correzioni della versione che usi (per esempio da 0.6.0 a 0.6.1) arrivano con:
+Le correzioni della versione che usi (per esempio da 0.7.0 a 0.7.1) arrivano con:
 
 ```bash
 docker compose pull
@@ -51,7 +51,7 @@ docker compose pull
 docker compose up -d
 ```
 
-Per passare a una versione nuova (per esempio da 0.6 a 0.7) leggi cosa cambia in [CHANGELOG.md](CHANGELOG.md), fai una copia dei dati (vedi sotto), poi cambia il numero nel `docker-compose.yml` (`galactic-feed:0.7`) e ripeti i due comandi. Il database si aggiorna da solo all'avvio. La versione in uso è scritta in fondo alle Impostazioni.
+Per passare a una versione nuova (per esempio da 0.7 a 0.8) leggi cosa cambia in [CHANGELOG.md](CHANGELOG.md), fai una copia dei dati (vedi sotto), poi cambia il numero nel `docker-compose.yml` (`galactic-feed:0.8`) e ripeti i due comandi. Il database si aggiorna da solo all'avvio. La versione in uso è scritta in fondo alle Impostazioni.
 
 ## Versioni e aggiornamenti
 
@@ -59,8 +59,8 @@ Le versioni sono numerate `MAGGIORE.MINORE.CORRETTIVA` ([semver](https://semver.
 
 | Etichetta dell'immagine | Cosa ricevi |
 |---|---|
-| `0.6` (consigliata) | La versione 0.6 con tutte le sue correzioni |
-| `0.6.0` | Esattamente quella versione, senza aggiornamenti |
+| `0.7` (consigliata) | La versione 0.7 con tutte le sue correzioni |
+| `0.7.0` | Esattamente quella versione, senza aggiornamenti |
 | `latest` | L'ultima modifica del ramo principale, anche prima di una release |
 
 **Copia dei dati.** Gli aggiornamenti del database vanno solo in avanti: per tornare a una versione precedente serve la copia fatta prima. Con il volume del `docker-compose.yml`:
@@ -109,13 +109,14 @@ Se i permessi non vanno bene, il log lo dice con un messaggio chiaro e il comand
 
 ## Impostazioni
 
-Quasi tutto si configura dall'app: **Amministrazione** (solo per gli amministratori) è nella barra laterale sotto Impostazioni, oppure, sul telefono, in Impostazioni → Amministrazione. Le modifiche valgono subito, senza riavviare.
+Quasi tutto si configura dall'app. **Impostazioni** (`/impostazioni`) e **Amministrazione** (`/amministrazione`, solo per gli amministratori) sono pagine nella barra laterale; sul computer occupano tutta la larghezza, con l'indice delle sezioni a sinistra. Sul telefono le Impostazioni si aprono dall'icona in alto a destra e l'Amministrazione da lì. Le modifiche valgono subito, senza riavviare.
 
-- **Utenti e inviti**: inviti, nuove password, permessi, validità dei link.
-- **Accesso**: durata delle sessioni con e senza «Ricordami», accesso con un provider OIDC.
+- **Utenti e inviti**: inviti, nuove password, permessi, validità dei link; per ogni utente si vede se entra con la password, con il provider OIDC o con entrambi.
+- **Accesso con OIDC**: il pulsante «Entra con …» di un provider (vedi sotto).
+- **Sessioni**: durata delle sessioni con e senza «Ricordami».
 - **Fonti e archivio**: per quanti giorni tenere gli articoli, ogni quanto controllare le fonti nuove, fonti della rete di casa sì o no.
 - **AI**: fornitore, modello, chiave (salvata cifrata) e limite giornaliero.
-- **Predefiniti per i nuovi utenti**: tema, colore, font, Edizione e orari con cui parte chi si iscrive.
+- **Predefiniti per i nuovi utenti**: tema e sue varianti, colore, font, Edizione e orari con cui parte chi si iscrive.
 - **Stato del sistema**: versione, spazio occupato, ultimo controllo dei feed, errori recenti, fuso orario.
 
 Ogni impostazione mostra da dove arriva il valore: scelto nell'app, dalla variabile d'ambiente o predefinito. Il valore scelto nell'app vale più della variabile d'ambiente, e si può riportare al predefinito.
@@ -141,7 +142,7 @@ Si scrivono nel `docker-compose.yml`. Le prime quattro servono prima dell'avvio 
 
 ## Aspetto
 
-In Impostazioni → Aspetto ognuno sceglie tema (automatico, chiaro, scuro), colore principale, font dell'interfaccia e degli articoli e dimensione del testo. Le scelte valgono su tutti i suoi dispositivi.
+In Impostazioni → Aspetto ognuno sceglie tema (automatico, chiaro, scuro), la variante dello scuro (Notte, Grigio o Nero, per gli schermi OLED) e del chiaro (Neutro o Carta), colore principale, font dell'interfaccia e degli articoli e dimensione del testo. Le scelte valgono su tutti i suoi dispositivi.
 
 - Il **colore del sistema** funziona solo dove il browser lo fa conoscere, soprattutto sui computer: su iPhone, iPad e Android una web app non può leggere i colori del sistema (per esempio Material You), quindi resta il colore predefinito.
 - Il font **Sistema** usa quello del dispositivo (San Francisco su iPhone e Mac, Roboto su Android). Inter e Alta leggibilità (Atkinson Hyperlegible) sono inclusi nell'app e funzionano anche offline.
@@ -150,12 +151,16 @@ Accanto a ogni fonte compare l'icona del sito o l'avatar del canale YouTube, tro
 
 ## Accesso con un provider (OIDC)
 
-Se hai già un sistema di login self-hosted, gli utenti possono entrare con quello, senza un'altra password. Funziona con Authentik, Authelia, Keycloak, Pocket ID e gli altri provider OpenID Connect. Si configura tutto dall'app, in **Amministrazione → Accesso**, senza riavviare.
+Se hai già un sistema di login self-hosted, gli utenti possono entrare con quello, senza un'altra password. Funziona con Authentik, Authelia, Keycloak, Pocket ID e gli altri provider OpenID Connect. Si configura tutto dall'app, in **Amministrazione → Accesso con OIDC**, senza riavviare.
+
+**Non sostituisce gli account locali.** L'amministratore creato al primo avvio e gli utenti invitati continuano a entrare con nome utente e password; il provider aggiunge solo il pulsante «Entra con …». Un caso tipico: un amministratore locale, per le emergenze, e il tuo utente di tutti i giorni dal provider, che rendi amministratore da **Amministrazione → Utenti e inviti → Rendi amministratore**.
 
 1. Nel provider crea un'applicazione (client) **confidenziale** con il flusso *authorization code*. Come indirizzo di ritorno (redirect URI) registra quello mostrato nel pannello: `https://<il tuo indirizzo>/api/auth/oidc/callback`.
 2. Nel pannello scrivi l'**issuer** (l'app legge da sola `/.well-known/openid-configuration`), il **client ID**, il **client secret** e il testo del pulsante, per esempio «Entra con Authentik». Poi premi **Prova la configurazione**.
 3. Scegli come trattare gli utenti: crearli al primo accesso, oppure collegare quelli esistenti per email verificata o nome utente. Senza creazione automatica serve ancora un invito; poi ognuno collega il suo account da **Impostazioni → Account collegati**.
-4. Facoltativo: un gruppo del provider per gli amministratori (claim `groups`, valore per esempio `galactic-admin`).
+4. Facoltativo: un gruppo del provider per gli amministratori (claim `groups`, valore per esempio `galactic-admin`). Il gruppo dà i permessi e toglie solo quelli che ha dato lui: chi rendi amministratore a mano resta tale.
+
+Il collegamento automatico (stessa email verificata o stesso nome utente) non tocca mai un amministratore: se il tuo utente del provider si chiama come l'amministratore locale, nasce un account a parte. Per usare il provider anche con l'account locale, collegalo a mano da **Impostazioni → Account collegati**.
 
 Dove trovare l'issuer:
 
@@ -168,7 +173,7 @@ Dove trovare l'issuer:
 
 L'accesso usa il flusso *authorization code* con PKCE, `state` e `nonce`; l'ID token si verifica con le chiavi del provider. Il client secret è salvato cifrato e l'app non lo mostra mai.
 
-**Accesso d'emergenza.** Il login con password si può spegnere, ma solo dopo aver collegato al provider almeno un amministratore. Se poi il provider non risponde:
+**Solo provider (facoltativo).** In «Avanzate» il login con password si può spegnere, ma solo dopo aver collegato al provider almeno un amministratore. Se poi il provider non risponde (accesso d'emergenza):
 
 ```bash
 docker compose exec galactic-feed python -m app.emergency
@@ -190,7 +195,7 @@ Sono tutte facoltative e si accendono dalle Impostazioni.
   - **Quando**: ogni giorno, in alcuni giorni della settimana (per esempio il lunedì) o una volta al mese (il giorno 1, l'ultimo giorno, il primo lunedì…), a uno o più orari, nel tuo fuso orario.
   - **Cosa**: senza regole, le notizie per te. Con le regole (tag delle fonti, cartelle, nazioni, gruppi di parole) solo quelle che le rispettano: per esempio «Politica · Italia» con #Politica e Italia, o «Videogiochi» del venerdì con il gruppo Videogiochi.
   - L'anteprima dice quante notizie avrebbe adesso; il numero massimo e il periodo coperto si scelgono per ogni Edizione.
-- **AI**: la configura l'amministratore in Impostazioni → AI.
+- **AI**: la configura l'amministratore in Amministrazione → AI.
   - **Locale**: [Ollama](https://ollama.com) su un computer della tua rete. Scrivi l'indirizzo con `/v1` in fondo (per esempio `http://192.168.1.20:11434/v1`) e il nome del modello (quello che vedi con `ollama list`). I testi non escono da casa; su un Raspberry Pi è molto lento, meglio un PC.
   - **Cloud**: Anthropic (Claude) oppure OpenAI, con la chiave API del servizio. Il modello predefinito per Claude è `claude-opus-5-5`; per scegliere e riassumere notizie basta `claude-haiku-5-5`, che costa molto meno. Si paga a consumo e titoli e testi degli articoli vengono inviati al servizio.
   - Il tetto di richieste al giorno limita la spesa; «Prova il collegamento» dice subito se qualcosa non va.
@@ -236,7 +241,7 @@ Su iPhone l'app non si aggiorna in background: le notizie le scarica sempre il s
 
 Le immagini sono su GitHub Container Registry: `ghcr.io/tehmaat/galactic-feed`.
 
-- `0.6` e `0.6.0`: le versioni pubblicate (vedi «Versioni e aggiornamenti»);
+- `0.7` e `0.7.0`: le versioni pubblicate (vedi «Versioni e aggiornamenti»);
 - `latest`: l'ultima versione del ramo principale;
 - `sha-xxxxxxx`: un commit preciso.
 

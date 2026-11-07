@@ -4,17 +4,19 @@
   // barra in basso sul telefono, barra laterale sul tablet, tre colonne sul computer.
   // Il nome dell'app sta nella barra in alto sul telefono e in cima alla barra laterale
   // altrove; le Impostazioni in fondo alla barra laterale (in alto a destra sul telefono).
+  // Impostazioni e Amministrazione sono pagine (/impostazioni, /amministrazione), non finestre.
   // Toccando il nome dell'app si torna a Oggi.
+  import Confirm from "./components/Confirm.svelte";
   import Icon from "./components/Icon.svelte";
   import Reader from "./components/Reader.svelte";
   import AddSource from "./sheets/AddSource.svelte";
   import EditionSheet from "./sheets/EditionSheet.svelte";
-  import Admin from "./sheets/Admin.svelte";
+  import Admin from "./views/Admin.svelte";
   import FolderSheet from "./sheets/FolderSheet.svelte";
-  import Settings from "./sheets/Settings.svelte";
+  import Settings from "./views/Settings.svelte";
   import SourceSheet from "./sheets/SourceSheet.svelte";
   import TagsSheet from "./sheets/TagsSheet.svelte";
-  import { closeReader, closeSheet, data, goHome, openSheet, session, switchTab, ui } from "./lib/store.svelte.js";
+  import { closeReader, closeSheet, data, goHome, openPage, session, switchTab, ui } from "./lib/store.svelte.js";
   import Fonti from "./views/Fonti.svelte";
   import Interessi from "./views/Interessi.svelte";
   import Oggi from "./views/Oggi.svelte";
@@ -44,6 +46,11 @@
     goHome();
   }
 
+  // L'Amministrazione è solo per gli amministratori (anche aprendo /amministrazione a mano).
+  $effect(() => {
+    if (ui.tab === "amministrazione" && session.user && !session.user.is_admin) switchTab("impostazioni");
+  });
+
   function onKey(e) {
     if (e.key !== "Escape") return;
     if (ui.sheet) closeSheet();
@@ -59,11 +66,13 @@
     <Fonti active={ui.tab === "fonti"} />
     <Interessi active={ui.tab === "interessi"} />
     <Salvati active={ui.tab === "salvati"} />
+    <Settings active={ui.tab === "impostazioni"} />
+    {#if session.user?.is_admin}<Admin active={ui.tab === "amministrazione"} />{/if}
   </main>
 
   <header class="appbar">
     <a class="wordmark" href="/" aria-label="galactic feed: vai a Oggi" title="Vai a Oggi" onclick={home}><Icon name="orbit" /><span>galactic feed</span></a>
-    <button type="button" class="icon-btn" aria-label="Impostazioni" onclick={() => openSheet("settings")}><Icon name="sliders" /></button>
+    <button type="button" class="icon-btn" aria-label="Impostazioni" aria-pressed={ui.tab === "impostazioni" || ui.tab === "amministrazione"} onclick={() => openPage("impostazioni")}><Icon name="sliders" /></button>
   </header>
 
   <nav class="tabbar" aria-label="Sezioni">
@@ -74,12 +83,12 @@
         {#if key === "salvati" && data.counts.salvati}<b class="tab-badge">{data.counts.salvati}</b>{/if}
       </button>
     {/each}
-    <button type="button" class="nav-settings" aria-pressed={ui.sheet === "settings"} onclick={() => openSheet("settings")}>
+    <button type="button" class="nav-settings" aria-current={ui.tab === "impostazioni" ? "page" : undefined} onclick={() => openPage("impostazioni")}>
       <Icon name="sliders" /><span>Impostazioni</span>
     </button>
     {#if session.user?.is_admin}
       <!-- Solo per gli amministratori; sul telefono si apre dalle Impostazioni. -->
-      <button type="button" class="nav-admin" aria-pressed={ui.sheet === "admin"} onclick={() => openSheet("admin")}>
+      <button type="button" class="nav-admin" aria-current={ui.tab === "amministrazione" ? "page" : undefined} onclick={() => openPage("amministrazione")}>
         <Icon name="shield" /><span>Amministrazione</span>
       </button>
     {/if}
@@ -94,8 +103,7 @@
   <TagsSheet />
   <EditionSheet />
   <FolderSheet />
-  <Settings />
-  <Admin />
+  <Confirm />
 
   <div class="toast" class:is-on={ui.toastOn} role="status" aria-live="polite">{ui.toast}</div>
 </div>

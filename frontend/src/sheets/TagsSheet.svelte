@@ -5,7 +5,7 @@
   import Sheet from "../components/Sheet.svelte";
   import { api } from "../lib/api.js";
   import { folderColor } from "../lib/format.js";
-  import { data, loadCounts, loadSources, session, savePrefs, setFilter, stream, toast, ui } from "../lib/store.svelte.js";
+  import { ask, data, loadCounts, loadSources, session, savePrefs, setFilter, stream, toast, ui } from "../lib/store.svelte.js";
 
   let open = $state(null);
   let newName = $state("");
@@ -46,7 +46,7 @@
 
   async function merge(t, intoId) {
     const into = data.tags.find((x) => x.id === Number(intoId));
-    if (!into || !confirm(`Unire #${t.name} a #${into.name}? Le fonti di #${t.name} prendono #${into.name}.`)) return;
+    if (!into || !(await ask(`Le fonti di #${t.name} prendono #${into.name}.`, { title: `Unire #${t.name} a #${into.name}?`, action: "Unisci", danger: false }))) return;
     if (await request(`/tags/${t.id}/merge`, { method: "POST", body: { into: into.id } }, `#${t.name} unito a #${into.name}`)) {
       if (stream.tag === t.id) setFilter({ tag: null });
       open = null;
@@ -54,7 +54,7 @@
   }
 
   async function remove(t) {
-    if (!confirm(`Eliminare il tag #${t.name}? Le fonti restano, senza questo tag.`)) return;
+    if (!(await ask("Le fonti restano, senza questo tag.", { title: `Eliminare il tag #${t.name}?` }))) return;
     if (await request(`/tags/${t.id}`, { method: "DELETE" }, `#${t.name} eliminato`)) {
       if (stream.tag === t.id) setFilter({ tag: null });
       open = null;

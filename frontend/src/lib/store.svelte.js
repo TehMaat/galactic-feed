@@ -4,8 +4,12 @@ import { api, qs, setUnauthorizedHandler } from "./api.js";
 import { disablePush, setBadge } from "./push.js";
 import { clearAll, enqueue, flushQueue, hasPending, overlay, prepareForUser, refreshCopy, syncSaved } from "./offline.js";
 
-const TABS = { "/": "oggi", "/fonti": "fonti", "/interessi": "interessi", "/salvati": "salvati" };
-const PATHS = { oggi: "/", fonti: "/fonti", interessi: "/interessi", salvati: "/salvati" };
+// Le Impostazioni e l'Amministrazione sono pagine come le altre sezioni (non finestre sopra l'app).
+const TABS = {
+  "/": "oggi", "/fonti": "fonti", "/interessi": "interessi", "/salvati": "salvati",
+  "/impostazioni": "impostazioni", "/amministrazione": "amministrazione",
+};
+const PATHS = Object.fromEntries(Object.entries(TABS).map(([path, tab]) => [tab, path]));
 export const TEXT_SIZES = [1, 1.12, 0.92];
 
 // ---------- Sessione ----------
@@ -46,8 +50,10 @@ export const ui = $state({
   tab: "oggi",
   reader: null, // id dell'articolo aperto
   readerFromHistory: false,
-  sheet: null, // add · settings · source · folder
+  sheet: null, // add · source · folder · tags · edition-config
   sheetArg: null,
+  pageArg: null, // sottopagina da aprire nelle Impostazioni o nell'Amministrazione (per esempio «ai»)
+  pageTick: 0, // cresce a ogni apertura di una pagina: si torna alla sua prima schermata
   toast: "",
   toastOn: false,
   refreshing: false,
@@ -126,6 +132,17 @@ export function switchTab(tab) {
   ui.sheet = null;
   if (!isWide()) ui.reader = null;
   writeLocation(true);
+}
+
+/** Apre le Impostazioni o l'Amministrazione, facoltativamente su una sottopagina. */
+export function openPage(tab, arg = null) {
+  ui.pageArg = arg;
+  ui.pageTick += 1;
+  if (ui.tab === tab) {
+    ui.sheet = null;
+    return;
+  }
+  switchTab(tab);
 }
 
 /** Il logo «galactic feed»: torna a Oggi, chiude lettore e schede, scorre in cima. */
@@ -271,22 +288,35 @@ export async function logout() {
 
 export function applyPrefs(prefs) {
   if (!prefs) return;
-  applyTheme(prefs.theme);
+  applyTheme(prefs.theme, prefs.dark_style, prefs.light_style);
   applyLook({ accent: prefs.accent, font: prefs.font, font_read: prefs.font_read });
 }
 
-// Colore della barra del browser (meta theme-color): segue lo sfondo del tema in uso.
-const BAR_COLORS = { light: "#F4F5F9", dark: "#0C0F1C" };
+// Colore della barra del browser (meta theme-color): segue lo sfondo del tema e della variante in uso.
+export const BAR_COLORS = {
+  light: { neutro: "#F4F5F9", carta: "#F8F5EE" },
+  dark: { notte: "#0C0F1C", grigio: "#18181B", nero: "#000000" },
+};
 
-export function applyTheme(theme) {
+/** Tema (auto, light, dark) e varianti: scuro notte, grigio o nero; chiaro neutro o carta. */
+export function applyTheme(theme, dark = "notte", light = "neutro") {
   const root = document.documentElement;
   if (theme === "light" || theme === "dark") root.dataset.theme = theme;
   else delete root.dataset.theme;
+  dark = dark in BAR_COLORS.dark ? dark : "notte";
+  light = light in BAR_COLORS.light ? light : "neutro";
+  if (dark === "notte") delete root.dataset.dark;
+  else root.dataset.dark = dark;
+  if (light === "neutro") delete root.dataset.light;
+  else root.dataset.light = light;
+  const bars = { light: BAR_COLORS.light[light], dark: BAR_COLORS.dark[dark] };
   for (const meta of document.querySelectorAll('meta[name="theme-color"]')) {
-    const own = meta.media.includes("dark") ? BAR_COLORS.dark : BAR_COLORS.light;
-    meta.content = theme === "light" || theme === "dark" ? BAR_COLORS[theme] : own;
+    const own = meta.media.includes("dark") ? bars.dark : bars.light;
+    meta.content = theme === "light" || theme === "dark" ? bars[theme] : own;
   }
   remember("gf-theme", theme || "auto");
+  remember("gf-dark", dark);
+  remember("gf-light", light);
 }
 
 // Aspetto (data-* su <html>, letti dal CSS in base.css). Il valore predefinito toglie l'attributo.
@@ -493,10 +523,34 @@ export async function loadEditionConfigs() {
   }
 }
 
+/** Elimina un'uscita (per esempio una composta per prova): si vede quella precedente della stessa Edizione. */
+export async function deleteEditionIssue(ed) {
+  const label = ed.name ? `«${ed.name}» n. ${ed.number}` : `l'Edizione n. ${ed.number}`;
+  if (!(await ask("L'Edizione resta, con le sue regole e i suoi orari: si cancella solo questa uscita.", { title: `Eliminare ${label}?` }))) return;
+  try {
+    const r = await api(`/editions/${ed.id}`, { method: "DELETE" });
+    edition.data = r.edition ? overlayEdition(r.edition) : null;
+    edition.schedule = r.schedule;
+    edition.configs = r.configs || [];
+    toast("Uscita eliminata");
+  } catch (err) {
+    toast(err.message);
+  }
+}
+
+/** Apre la scheda di un'Edizione (regole, orari, elimina) partendo dal suo id. */
+export async function editEditionConfig(id) {
+  if (!editionConfigs.loaded) await loadEditionConfigs();
+  const config = editionConfigs.list.find((c) => c.id === id);
+  if (config) openSheet("edition-config", config);
+}
+
 /** Applica la risposta delle API delle Edizioni (elenco aggiornato) e ricarica quello che dipende da lì. */
 export async function setEditionConfigs(r) {
   editionConfigs.list = r.configs;
   editionConfigs.timezone = r.timezone;
+  // L'Edizione mostrata in Oggi non c'è più (eliminata): si torna all'ultima uscita di tutte.
+  if (edition.config && !r.configs.some((c) => c.id === edition.config)) edition.config = null;
   const active = r.configs.some((c) => c.active);
   if (session.user && Boolean(session.user.prefs.edition) !== active) session.user.prefs = { ...session.user.prefs, edition: active };
   if (active) loadEdition();
@@ -655,4 +709,25 @@ export function showSource(source) {
   if (!isWide()) ui.reader = null;
   writeLocation(true);
   setFilter({ view: "tutti", folder: null, tag: null, country: null, source: source.id, sourceTitle: source.title });
+}
+
+// ---------- Conferme ----------
+// Al posto di window.confirm(), che alcuni browser e alcune app installate bloccano o non
+// mostrano (e allora «Elimina» sembrava non fare niente): una finestra dell'app.
+
+export const confirmation = $state({ open: false, title: "", message: "", action: "Conferma", danger: true });
+let confirmResolve = null;
+
+/** Chiede conferma. Restituisce una promessa: true se la persona conferma. */
+export function ask(message, { title = "Sei sicuro?", action = "Elimina", danger = true } = {}) {
+  confirmResolve?.(false);
+  Object.assign(confirmation, { open: true, title, message, action, danger });
+  return new Promise((resolve) => (confirmResolve = resolve));
+}
+
+export function answer(yes) {
+  confirmation.open = false;
+  const resolve = confirmResolve;
+  confirmResolve = null;
+  resolve?.(yes);
 }
