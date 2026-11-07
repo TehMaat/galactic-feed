@@ -389,6 +389,9 @@ test("icone delle fonti, logo, «Ricordami» e aspetto", async ({ browser }) => 
 
   // Colore e font: si vedono subito e restano dopo aver ricaricato la pagina.
   await page.getByRole("button", { name: "Impostazioni" }).click();
+  // In fondo alle Impostazioni c'è la versione in uso (dal file VERSION).
+  const version = fs.readFileSync(path.join(path.dirname(new URL(import.meta.url).pathname), "..", "..", "VERSION"), "utf8").trim();
+  await expect(page.locator(".sheet.is-open .app-version")).toHaveText(`Galactic Feed versione ${version}`);
   await sheetClick(page, "Viola");
   await page.getByRole("group", { name: "Font", exact: true }).getByRole("button", { name: "Sistema" }).click();
   // Il colore vero dipende dal tema in uso: variante chiara o scura del viola.

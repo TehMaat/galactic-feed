@@ -199,3 +199,7 @@ img.src-av.is-icon { padding: 3px; }
 .icon-preview .src-av { width: 44px; height: 44px; font-size: 15px; }
 .icon-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .icon-actions .btn-secondary { flex: 1 1 auto; width: auto; }
+
+/* Versione in fondo alle Impostazioni: piccola ma leggibile (--ink-2 ha contrasto AA). */
+.app-version { margin: 24px 0 4px; text-align: center; font-size: 13px; color: var(--ink-2); }
+.app-version span { display: block; margin-top: 2px; font-family: var(--font-mono); font-size: 12px; }

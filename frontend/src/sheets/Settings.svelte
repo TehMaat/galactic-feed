@@ -443,7 +443,8 @@
 
       <div class="set-label">Dati</div>
       <div class="set-group"><a class="link-row" href="/api/opml/export" download><Icon name="download" />Esporta le fonti (OPML)</a></div>
-      <p class="set-note">Galactic Feed {session.version} · sola lettura: niente commenti né voti, solo il link all'articolo originale.</p>
+      <p class="set-note">Sola lettura: niente commenti né voti, solo il link all'articolo originale.</p>
+      {#if session.version}<p class="app-version">Galactic Feed <span>versione {session.version}</span></p>{/if}
     {:else if page === "users"}
       <div class="set-label">Invita</div>
       <div class="set-group">
