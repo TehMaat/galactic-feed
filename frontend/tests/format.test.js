@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { frequency, initials, intervalLabel, pathOf, since, sourceColor, timeAgo, timeAgoLong } from "../src/lib/format.js";
+import { countryName, flag, frequency, initials, intervalLabel, matchLabel, nextRun, pathOf, since, sourceColor, timeAgo, timeAgoLong } from "../src/lib/format.js";
 
 const NOW = new Date("2026-10-31T12:00:00Z").getTime();
 const ago = (s) => new Date(NOW - s * 1000).toISOString();
@@ -49,5 +49,26 @@ describe("fonti", () => {
   it("percorso del feed", () => {
     expect(pathOf("https://orbita.example/feed.xml")).toBe("/feed.xml");
     expect(pathOf("non un url")).toBe("non un url");
+  });
+});
+
+describe("gruppi, nazioni e uscite", () => {
+  it("la corrispondenza mostra il gruppo", () => {
+    expect(matchLabel({ keyword: "iPhone", group: "Tecnologia" })).toBe("Tecnologia · iPhone");
+    expect(matchLabel({ keyword: "Luna", group: null })).toBe("Luna");
+    expect(matchLabel(null)).toBe("");
+  });
+  it("nomi e bandiere delle nazioni", () => {
+    expect(countryName("IT")).toBe("Italia");
+    expect(flag("IT")).toBe("🇮🇹");
+    expect(flag("")).toBe("");
+  });
+  it("prossima uscita", () => {
+    const now = new Date(2026, 10, 7, 10, 0).getTime();
+    expect(nextRun(new Date(2026, 10, 7, 19, 0).toISOString(), undefined, now)).toBe("oggi alle 19:00");
+    expect(nextRun(new Date(2026, 10, 8, 7, 30).toISOString(), undefined, now)).toBe("domani alle 07:30");
+    expect(nextRun(new Date(2026, 10, 9, 7, 30).toISOString(), undefined, now)).toBe("lunedì 9 novembre alle 07:30");
+    // Nel fuso dell'Edizione, qualunque sia quello del dispositivo: 06:30 UTC sono le 07:30 a Roma.
+    expect(nextRun("2026-11-09T06:30:00Z", "Europe/Rome", Date.parse("2026-11-07T10:00:00Z"))).toBe("lunedì 9 novembre alle 07:30");
   });
 });

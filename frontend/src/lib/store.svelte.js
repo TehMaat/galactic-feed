@@ -27,7 +27,7 @@ export const data = $state({
   tags: [], // tag delle fonti (#17)
   colors: [],
   intervals: [],
-  counts: { tutti: 0, perte: 0, nonletti: 0, video: 0, salvati: 0, folders: {}, no_folder: 0, tags: {}, hidden: 0 },
+  counts: { tutti: 0, perte: 0, nonletti: 0, video: 0, salvati: 0, folders: {}, no_folder: 0, tags: {}, countries: {}, hidden: 0 },
   interests: { keywords: [], muted: [], rules: { dedupe: true } },
   preview: null,
   loaded: false,
@@ -61,6 +61,7 @@ export const stream = $state({
   source: null, // id fonte o null
   sourceTitle: "",
   tag: null, // id del tag o null
+  country: null, // nazione delle fonti («IT») o null
   q: "",
   showMuted: false,
   items: [],
@@ -76,7 +77,10 @@ export const saved = $state({ items: [], cursor: null, loading: false, error: ""
 
 // ---------- Edizione ----------
 
-export const edition = $state({ data: null, schedule: null, loading: false, loaded: false, error: "" });
+// configs: le Edizioni dell'utente (per il selettore in Oggi); config: quella mostrata (null = l'ultima uscita).
+export const edition = $state({ data: null, schedule: null, configs: [], config: null, loading: false, loaded: false, error: "" });
+// Le Edizioni con regole e pianificazione, per le Impostazioni (#18, #19).
+export const editionConfigs = $state({ list: [], timezone: "", loaded: false });
 
 export function editionOn() {
   return Boolean(session.user?.prefs?.edition);
@@ -370,6 +374,7 @@ export async function loadStream(reset = false) {
           folder: stream.folder,
           source: stream.source,
           tag: stream.tag,
+          country: stream.country,
           q: stream.q,
           show_muted: stream.showMuted,
           cursor: reset ? null : stream.cursor,
@@ -421,9 +426,10 @@ export async function loadEdition() {
   edition.loading = true;
   edition.error = "";
   try {
-    const r = await api("/editions/latest");
+    const r = await api("/editions/latest" + qs({ config: edition.config }));
     edition.data = r.edition ? overlayEdition(r.edition) : null;
     edition.schedule = r.schedule;
+    edition.configs = r.configs || [];
   } catch (err) {
     edition.error = err.message;
   } finally {
@@ -440,15 +446,43 @@ function overlayEdition(ed) {
 export async function composeEdition() {
   edition.loading = true;
   try {
-    const r = await api("/editions", { method: "POST" });
+    const config_id = edition.config ?? edition.data?.config_id ?? null;
+    const r = await api("/editions", { method: "POST", body: { config_id } });
     edition.data = overlayEdition(r.edition);
     edition.schedule = r.schedule;
+    edition.configs = r.configs || [];
+    edition.config = r.edition.config_id;
   } catch (err) {
     toast(err.message);
   } finally {
     edition.loading = false;
     edition.loaded = true;
   }
+}
+
+export function showEdition(configId) {
+  edition.config = configId;
+  loadEdition();
+}
+
+export async function loadEditionConfigs() {
+  try {
+    const r = await api("/edition-configs");
+    editionConfigs.list = r.configs;
+    editionConfigs.timezone = r.timezone;
+    editionConfigs.loaded = true;
+  } catch (err) {
+    toast(err.message);
+  }
+}
+
+/** Applica la risposta delle API delle Edizioni (elenco aggiornato) e ricarica quello che dipende da lì. */
+export async function setEditionConfigs(r) {
+  editionConfigs.list = r.configs;
+  editionConfigs.timezone = r.timezone;
+  const active = r.configs.some((c) => c.active);
+  if (session.user && Boolean(session.user.prefs.edition) !== active) session.user.prefs = { ...session.user.prefs, edition: active };
+  if (active) loadEdition();
 }
 
 let lastQuiet = 0;
@@ -575,7 +609,7 @@ export async function markAllRead() {
   try {
     const r = await api("/articles/mark-read", {
       method: "POST",
-      body: { view: stream.view, folder: stream.folder ?? null, source: stream.source, tag: stream.tag, q: stream.q, before: stream.serverTime },
+      body: { view: stream.view, folder: stream.folder ?? null, source: stream.source, tag: stream.tag, country: stream.country, q: stream.q, before: stream.serverTime },
     });
     toast(r.marked === 1 ? "1 articolo segnato come letto" : `${r.marked} articoli segnati come letti`);
     for (const a of stream.items) a.read = true;
@@ -603,5 +637,5 @@ export function showSource(source) {
   ui.tab = "oggi";
   if (!isWide()) ui.reader = null;
   writeLocation(true);
-  setFilter({ view: "tutti", folder: null, tag: null, source: source.id, sourceTitle: source.title });
+  setFilter({ view: "tutti", folder: null, tag: null, country: null, source: source.id, sourceTitle: source.title });
 }

@@ -4,7 +4,7 @@
   import Card from "../components/Card.svelte";
   import Edition from "../components/Edition.svelte";
   import Icon from "../components/Icon.svelte";
-  import { folderColor } from "../lib/format.js";
+  import { countryName, flag, folderColor } from "../lib/format.js";
   import { data, editionOn, loadStream, markAllRead, openSheet, refreshAll, setFilter, stream, ui } from "../lib/store.svelte.js";
 
   let { active } = $props();
@@ -26,7 +26,7 @@
   ];
 
   const chips = $derived([
-    ...VIEWS.map(([k, label]) => ({ key: "v:" + k, label, n: data.counts[k] ?? 0, on: !stream.folder && !stream.tag && stream.view === k })),
+    ...VIEWS.map(([k, label]) => ({ key: "v:" + k, label, n: data.counts[k] ?? 0, on: !stream.folder && !stream.tag && !stream.country && stream.view === k })),
     // Tag delle fonti (#17): quelli scelti per il Flusso, nell'ordine dei tag.
     ...data.tags.filter((t) => t.in_feed).map((t) => ({
       key: "t:" + t.id,
@@ -36,6 +36,12 @@
       tag: true,
       on: stream.tag === t.id,
     })),
+    // Nazioni delle fonti (#20), solo se le fonti sono di almeno due nazioni.
+    ...(Object.keys(data.counts.countries || {}).length > 1
+      ? Object.entries(data.counts.countries)
+          .sort((a, b) => b[1] - a[1])
+          .map(([code, n]) => ({ key: "c:" + code, label: `${flag(code)} ${countryName(code)}`, n, on: stream.country === code }))
+      : []),
     ...data.folders.map((f) => ({
       key: "f:" + f.id,
       label: f.name,
@@ -47,9 +53,10 @@
 
   function pick(chip) {
     const [kind, value] = chip.key.split(":");
-    const reset = { source: null, sourceTitle: "", folder: null, tag: null };
+    const reset = { source: null, sourceTitle: "", folder: null, tag: null, country: null };
     if (kind === "v") setFilter({ ...reset, view: value });
     else if (kind === "t") setFilter({ ...reset, view: "tutti", tag: chip.on ? null : Number(value) });
+    else if (kind === "c") setFilter({ ...reset, view: "tutti", country: chip.on ? null : value });
     else setFilter({ ...reset, view: "tutti", folder: value });
   }
 
@@ -71,7 +78,7 @@
   const today = new Intl.DateTimeFormat("it-IT", { weekday: "long", day: "numeric", month: "long" }).format(new Date()).replace(/^./, (c) => c.toUpperCase());
   const showEdition = $derived(editionOn() && ui.oggiMode === "edizione");
   const noSources = $derived(data.loaded && data.sources.length === 0);
-  const filtering = $derived(stream.q || stream.view !== "tutti" || stream.folder || stream.source || stream.tag);
+  const filtering = $derived(stream.q || stream.view !== "tutti" || stream.folder || stream.source || stream.tag || stream.country);
 </script>
 
 <section class="view" bind:this={viewEl} class:is-entering={active} hidden={!active} aria-label="Oggi">

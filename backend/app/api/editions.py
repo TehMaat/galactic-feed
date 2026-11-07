@@ -273,6 +273,7 @@ def _schedule_summary(conn: sqlite3.Connection, user: User, ctx: AppContext, con
         "description": schedule.describe(chosen["schedule"]) if chosen else "",
         "next_at": iso(upcoming[0][0]) if upcoming else None,
         "next_time": upcoming[0][1] if upcoming else None,
+        "timezone": tz,
     }
 
 

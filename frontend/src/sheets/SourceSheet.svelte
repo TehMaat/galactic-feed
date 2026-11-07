@@ -4,7 +4,7 @@
   import Sheet from "../components/Sheet.svelte";
   import SourceIcon from "../components/SourceIcon.svelte";
   import { api } from "../lib/api.js";
-  import { KIND_LABEL, folderColor, intervalLabel, shortUrl, since, sourceColor, timeAgoLong } from "../lib/format.js";
+  import { COUNTRIES, KIND_LABEL, countryName, flag, folderColor, intervalLabel, shortUrl, since, sourceColor, timeAgoLong } from "../lib/format.js";
   import { closeSheet, data, foldersById, loadAll, loadCounts, loadSources, patchSourceInLists, showSource, toast, ui } from "../lib/store.svelte.js";
 
   let source = $state(null);
@@ -73,6 +73,17 @@
     } finally {
       tagBusy = false;
     }
+  }
+
+  // ---- Nazione (#20) ----
+  const LANGUAGES = { it: "italiano", en: "inglese", fr: "francese", de: "tedesco", es: "spagnolo", pt: "portoghese", nl: "olandese" };
+  const countryChoices = $derived(source?.country && !COUNTRIES.includes(source.country) ? [source.country, ...COUNTRIES] : COUNTRIES);
+  const countryValue = $derived(source ? (source.country_origin === "user" ? (source.country ?? "") : "__auto") : "__auto");
+
+  function setCountry(value) {
+    const country = value === "__auto" ? null : value;
+    const label = country === null ? "Nazione automatica" : country === "" ? "Nessuna nazione" : `Nazione: ${countryName(country)}`;
+    patch({ country }, label);
   }
 
   // ---- Icona ----
@@ -228,6 +239,16 @@
         </form>
         <p class="hint">{source.tags.some((t) => t.origin === "auto") ? "I tag «auto» li ha proposti l'app: tienili o toglili, non torneranno." : "Una fonte può avere più tag: li usi come filtri nel Flusso e per le Edizioni."}
           <button type="button" class="link-btn" disabled={tagBusy} onclick={suggestTags}>Proponi i tag</button></p>
+      </div>
+
+      <div class="field">
+        <label for="src-country">Nazione</label>
+        <select class="input" id="src-country" value={countryValue} onchange={(e) => setCountry(e.target.value)}>
+          <option value="__auto">{(() => { const auto = source.country_admin ?? source.country_auto; return auto ? `${flag(auto)} ${countryName(auto)} (${source.country_admin != null ? "scelta dall'amministratore" : "proposta"})` : "Automatica: non riconosciuta"; })()}</option>
+          {#each countryChoices as c (c)}<option value={c}>{flag(c)} {countryName(c)}</option>{/each}
+          <option value="">Nessuna nazione</option>
+        </select>
+        <p class="hint">{source.language ? `Lingua: ${LANGUAGES[source.language] || source.language}. ` : ""}Serve per filtrare il Flusso e per le Edizioni (per esempio «Politica · Italia»). La tua scelta vale solo per te.</p>
       </div>
 
       <div class="field">

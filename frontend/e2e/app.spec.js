@@ -248,13 +248,17 @@ test("Edizione: si accende dalle Impostazioni e si compone", async ({ page }) =>
   await page.getByRole("button", { name: "Entra" }).click();
   await expect(page.locator("section[aria-label='Oggi'] .card").first()).toBeVisible();
 
+  // Impostazioni → Edizioni: «Crea la tua Edizione» apre la sua scheda (ogni giorno alle 07:30).
   await page.getByRole("button", { name: "Impostazioni" }).click();
-  await page.getByRole("switch", { name: "Componi l'Edizione" }).click();
-  await expect(page.locator(".sheet.is-open .tag.mono")).toHaveText(["07:30"]);
-  await page.getByLabel("Nuovo orario").fill("21:15");
-  await page.locator(".sheet.is-open").getByRole("button", { name: "Orario" }).click();
-  await expect(page.locator(".sheet.is-open .tag.mono")).toHaveText(["07:30", "21:15"]);
-  await page.locator(".sheet.is-open").getByRole("button", { name: "Chiudi" }).click();
+  await page.locator(".sheet.is-open").getByRole("button", { name: "Crea la tua Edizione" }).click();
+  const edSheet = page.locator(".sheet.is-open");
+  await expect(edSheet.locator("h3")).toHaveText("La mia Edizione");
+  await expect(edSheet.locator(".tag.mono")).toHaveText(["07:30"]);
+  await edSheet.getByLabel("Nuovo orario").fill("21:15");
+  await edSheet.getByRole("button", { name: "Orario", exact: true }).click();
+  await expect(edSheet.locator(".tag.mono")).toHaveText(["07:30", "21:15"]);
+  await expect(edSheet.locator(".preview")).toContainText("con queste regole");
+  await edSheet.getByRole("button", { name: "Chiudi" }).click();
 
   // La prima la compone il server al giro successivo; qui la chiediamo subito.
   const oggi = page.locator("section[aria-label='Oggi']");
@@ -267,6 +271,25 @@ test("Edizione: si accende dalle Impostazioni e si compone", async ({ page }) =>
   await expect(page.locator(".reader.is-open .reader-title")).toHaveText("Perché le prossime missioni lunari puntano tutte al polo sud");
   await page.locator(".reader.is-open").getByRole("button", { name: "Indietro" }).click();
   await expect(oggi.locator(".hero")).toHaveClass(/is-read/);
+
+  // Una seconda Edizione, settimanale, con una regola: compare il selettore in Oggi.
+  await page.getByRole("button", { name: "Impostazioni" }).click();
+  await page.locator(".sheet.is-open").getByRole("button", { name: "Nuova Edizione" }).click();
+  await edSheet.getByLabel("Nome").fill("Spazio del lunedì");
+  await edSheet.getByLabel("Nome").press("Enter");
+  await edSheet.getByLabel("Nome").blur();
+  await expect(page.locator(".toast")).toContainText("Nome aggiornato");
+  await edSheet.getByRole("group", { name: "Ricorrenza" }).getByRole("button", { name: "Ogni settimana" }).click();
+  await expect(edSheet.locator(".hint").first()).toContainText("lunedì alle 07:30");
+  await edSheet.getByRole("group", { name: "Giorni della settimana" }).getByRole("button", { name: "venerdì" }).click();
+  await expect(edSheet.locator(".hint").first()).toContainText("lunedì e venerdì alle 07:30");
+  await edSheet.getByRole("button", { name: "Spazio", exact: true }).click();
+  await expect(edSheet.locator(".preview")).toContainText("con queste regole");
+  await edSheet.getByRole("button", { name: "Componi adesso" }).click();
+  await expect(oggi.getByRole("tablist", { name: "Edizioni" }).getByRole("tab")).toHaveText(["Spazio del lunedì", "La mia Edizione"]);
+  await expect(oggi.locator(".masthead .mast-kicker")).toHaveText("Spazio del lunedì · n. 1");
+  await oggi.getByRole("tablist", { name: "Edizioni" }).getByRole("tab", { name: "La mia Edizione" }).click();
+  await expect(oggi.locator(".masthead .mast-kicker")).toHaveText("La mia Edizione · n. 1");
 
   // Il Flusso resta a un tocco.
   await oggi.getByRole("tab", { name: "Flusso" }).click();

@@ -7,7 +7,7 @@
   import Sheet from "../components/Sheet.svelte";
   import AiSettings from "./AiSettings.svelte";
   import { api } from "../lib/api.js";
-  import { ACCENTS, FONTS, READ_FONTS, SIZES, bytesLabel, durationLabel, initials, timeAgoLong } from "../lib/format.js";
+  import { ACCENTS, COUNTRIES, FONTS, READ_FONTS, SIZES, bytesLabel, countryName, durationLabel, flag, initials, timeAgoLong } from "../lib/format.js";
   import { loadSources, session, toast, ui } from "../lib/store.svelte.js";
 
   // main · users · user · access · sources · presets · ai · defaults · status
@@ -20,6 +20,7 @@
   let defaults = $state(null); // { prefs, chosen } per i nuovi utenti
   let status = $state(null);
   let newTime = $state("19:00");
+  let feeds = $state(null); // feed seguiti, con la nazione (#20)
   let presets = $state(null); // gruppi di parole pronti
   let openPreset = $state(null);
   let presetWord = $state("");
@@ -33,6 +34,7 @@
     access: "Accesso",
     sources: "Fonti e archivio",
     presets: "Gruppi di parole pronti",
+    feeds: "Nazione delle fonti",
     ai: "AI",
     defaults: "Nuovi utenti",
     status: "Stato del sistema",
@@ -58,11 +60,32 @@
     if (["users", "access", "sources", "status"].includes(p)) loadInstance();
     if (p === "defaults") loadDefaults();
     if (p === "presets") loadPresets();
+    if (p === "feeds") loadFeeds();
     if (p === "status") loadStatus();
   }
 
   function back() {
-    go(page === "user" ? "users" : "main");
+    go(page === "user" ? "users" : page === "feeds" ? "sources" : "main");
+  }
+
+  // ---- Nazione delle fonti condivise (#20) ----
+  async function loadFeeds() {
+    try {
+      feeds = (await api("/admin/feeds")).feeds;
+    } catch (err) {
+      toast(err.message);
+    }
+  }
+
+  async function setFeedCountry(f, value) {
+    const country = value === "__auto" ? null : value;
+    try {
+      feeds = (await api(`/admin/feeds/${f.id}`, { method: "PATCH", body: { country } })).feeds;
+      toast(country === null ? `${f.title}: nazione automatica` : country === "" ? `${f.title}: nessuna nazione` : `${f.title}: ${countryName(country)}`);
+      loadSources();
+    } catch (err) {
+      toast(err.message);
+    }
   }
 
   // ---- Impostazioni dell'istanza ----
@@ -409,8 +432,33 @@
         {@render option("default_interval", "Controlla ogni", "Proposto per le fonti aggiunte da ora, anche con l'OPML. Ognuno lo può cambiare per le sue fonti.")}
         <div class="set-label">Rete</div>
         {@render option("block_private_networks", "Vieta le fonti nella rete locale", "Con il sì non si possono seguire indirizzi della rete di casa (192.168.…, 10.…, localhost).")}
+        <div class="set-label">Nazioni</div>
+        <div class="set-group">
+          <button type="button" class="set-row as-button" onclick={() => go("feeds")}><span>Nazione delle fonti condivise</span><Icon name="chevron" /></button>
+        </div>
+        <p class="set-note">L'app la propone dal dominio e dalla lingua del feed; qui la correggi per tutti. Ognuno può comunque sceglierla per sé.</p>
       {:else}
         <p class="loading">Carico le impostazioni…</p>
+      {/if}
+    {:else if page === "feeds"}
+      {#if feeds}
+        {#if feeds.length}
+          <div class="set-group">
+            {#each feeds as f (f.id)}
+              <div class="set-row"><span class="feed-name"><b>{f.title}</b><small>{f.followers === 1 ? "1 utente" : `${f.followers} utenti`}{f.language ? ` · lingua ${f.language}` : ""}</small></span>
+                <select class="input" aria-label="Nazione di {f.title}" value={f.country_admin ?? "__auto"} onchange={(e) => setFeedCountry(f, e.target.value)}>
+                  <option value="__auto">{f.country_auto ? `${flag(f.country_auto)} ${countryName(f.country_auto)} (proposta)` : "Non riconosciuta"}</option>
+                  {#each (f.country_admin && !COUNTRIES.includes(f.country_admin) ? [f.country_admin, ...COUNTRIES] : COUNTRIES) as c (c)}<option value={c}>{flag(c)} {countryName(c)}</option>{/each}
+                  <option value="">Nessuna</option>
+                </select>
+              </div>
+            {/each}
+          </div>
+        {:else}
+          <p class="set-note">Ancora nessuna fonte seguita.</p>
+        {/if}
+      {:else}
+        <p class="loading">Carico le fonti…</p>
       {/if}
     {:else if page === "presets"}
       {#if presets}

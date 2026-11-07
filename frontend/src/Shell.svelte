@@ -8,6 +8,7 @@
   import Icon from "./components/Icon.svelte";
   import Reader from "./components/Reader.svelte";
   import AddSource from "./sheets/AddSource.svelte";
+  import EditionSheet from "./sheets/EditionSheet.svelte";
   import Admin from "./sheets/Admin.svelte";
   import FolderSheet from "./sheets/FolderSheet.svelte";
   import Settings from "./sheets/Settings.svelte";
@@ -91,6 +92,7 @@
   <AddSource />
   <SourceSheet />
   <TagsSheet />
+  <EditionSheet />
   <FolderSheet />
   <Settings />
   <Admin />
