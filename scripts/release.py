@@ -7,7 +7,7 @@ devono restare uguali (lo controllano i test), e prepara le note di una release.
 
     python3 scripts/release.py check              # VERSION, pacchetti e CHANGELOG coincidono?
     python3 scripts/release.py check v0.3.0       # …e coincidono anche con questo tag?
-    python3 scripts/release.py bump 0.4.0         # nuova versione in tutti i file
+    python3 scripts/release.py bump 0.4.0         # nuova versione in tutti i file (e «Da pubblicare» → 0.4.0)
     python3 scripts/release.py notes 0.3.0        # note della versione, prese da CHANGELOG.md
 
 Le versioni seguono semver: MAGGIORE.MINORE.CORRETTIVA (per esempio 0.3.1), con un
@@ -92,8 +92,12 @@ def bump(version: str) -> None:
             re.sub(r"(ghcr\.io/tehmaat/galactic-feed:)[\w.-]+", rf"\g<1>{major}.{minor}", COMPOSE.read_text(encoding="utf-8")),
             encoding="utf-8",
         )
-    if not notes(version):
-        text = CHANGELOG.read_text(encoding="utf-8")
+    text = CHANGELOG.read_text(encoding="utf-8")
+    if not notes(version) and "## [Da pubblicare]" in text:
+        # Le novità raccolte durante lo sviluppo diventano quelle della versione.
+        CHANGELOG.write_text(text.replace("## [Da pubblicare]", f"## [{version}] – {date.today().isoformat()}", 1), encoding="utf-8")
+        print(f"La sezione «Da pubblicare» di CHANGELOG.md ora è la {version}.")
+    elif not notes(version):
         head = f"## [{version}] – {date.today().isoformat()}\n\n- …\n\n"
         first = text.find("\n## [")
         text = text[: first + 1] + head + text[first + 1 :] if first >= 0 else text + "\n" + head

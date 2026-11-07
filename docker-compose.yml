@@ -18,13 +18,13 @@ services:
     environment:
       PUBLIC_URL: "https://notizie.example.org"
       TZ: "Europe/Rome"
-      # Facoltative (vedi il README):
-      # RETENTION_DAYS: "90"
-      # BLOCK_PRIVATE_NETWORKS: "false"
-      # REMEMBER_DAYS: "90"
-      # SESSION_HOURS: "12"
+      # Facoltative, solo all'avvio (vedi il README):
       # FORWARDED_ALLOW_IPS: "*"
       # LOG_LEVEL: "info"
+      # Durata delle sessioni, conservazione degli articoli, rete locale e il resto si
+      # scelgono nell'app, in Amministrazione. Qui eventualmente solo un valore iniziale:
+      # RETENTION_DAYS: "90"
+      # BLOCK_PRIVATE_NETWORKS: "false"
     volumes:
       - galactic-data:/data
 

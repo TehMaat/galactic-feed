@@ -11,6 +11,7 @@ backend/                  Server Python (FastAPI)
     healthcheck.py        controllo di salute usato dal container (python -m app.healthcheck)
     config.py             variabili d'ambiente (PUBLIC_URL, TZ, …) e versione (dal file VERSION)
     instance.py           impostazioni dell'istanza scelte dall'amministratore (GUI → variabile d'ambiente → predefinito)
+    secretbox.py          segreti cifrati nel database (chiave dell'AI) con data/secret.key
     db.py + migrations/   SQLite, schema versionato con file .sql numerati
     security.py           password argon2, sessioni, protezione CSRF
     api/                  un file per area: auth, admin, folders, sources, opml, articles, interests, images
@@ -84,7 +85,7 @@ Regole:
 - **Doppioni**: all'arrivo, un articolo con lo stesso link normalizzato, oppure con un titolo quasi uguale (almeno 4 parole significative e il 75% in comune) in un altro feed nei 3 giorni intorno, entra nello stesso cluster. Prima si applicano i filtri, poi per ogni notizia si mostra l'articolo pubblicato per primo, con "anche su: …". Segnare come letto vale per tutta la notizia. Si può spegnere.
 - **Visibilità**: un utente vede gli articoli dei feed che segue e quelli che ha salvato, anche se ha smesso di seguire la fonte.
 - **Ricerca**: FTS5 su titolo, autore e testo (anche quello estratto), più il nome della fonte. Ogni parola deve comparire, anche come inizio di parola.
-- **Pulizia**: gli articoli più vecchi di `RETENTION_DAYS` (90) vengono cancellati, tranne quelli salvati da qualcuno.
+- **Pulizia**: gli articoli più vecchi del periodo scelto nel pannello (90 giorni, oppure `RETENTION_DAYS`) vengono cancellati, tranne quelli salvati da qualcuno.
 
 ## Endpoint API
 
@@ -95,7 +96,7 @@ Tutti sotto `/api`; salvo `auth`, `invites` e `health` richiedono l'accesso. Gli
 | Accesso | `GET auth/state` · `POST auth/setup` · `POST auth/login` · `POST auth/logout` |
 | Inviti | `GET invites/{token}` · `POST invites/{token}/accept` (anche per il reset della password) |
 | Profilo | `GET`/`PATCH me` · `POST me/password` · `GET me/sessions` · `DELETE me/sessions/{id}` |
-| Admin | `GET admin/users` · `PATCH`/`DELETE admin/users/{id}` · `POST admin/users/{id}/reset` · `GET`/`POST admin/invites` · `DELETE admin/invites/{id}` · `GET admin/status` · `GET`/`PATCH admin/settings` (durata delle sessioni) |
+| Admin | `GET admin/users` · `PATCH`/`DELETE admin/users/{id}` · `POST admin/users/{id}/reset` · `GET`/`POST admin/invites` · `DELETE admin/invites/{id}` · `GET admin/status` · `GET`/`PATCH admin/settings` (impostazioni dell'istanza) · `GET`/`PUT admin/defaults` (preferenze dei nuovi utenti) |
 | Cartelle | `GET`/`POST folders` · `PATCH`/`DELETE folders/{id}` |
 | Fonti | `POST sources/discover` · `GET`/`POST sources` · `PATCH`/`DELETE sources/{id}` · `POST sources/{id}/refresh` · `POST sources/refresh` · `PUT sources/{id}/icon` · `POST sources/{id}/icon/refresh` |
 | OPML | `POST opml/import` · `GET opml/export` |
@@ -126,21 +127,25 @@ Fuori da `/api`: la PWA, `/manifest.webmanifest`, `/sw.js`, `/icons/*`. Devono r
   - Un indice in IndexedDB dice quali articoli sono salvati e quando sono stati letti: oltre i 300 letti si tolgono i più vecchi, con le loro immagini. I salvati fatti su un altro dispositivo vengono scaricati da soli all'apertura dell'app.
   - Letto e salvato fatti senza rete vanno in una coda in IndexedDB, inviata a `POST articles/sync` quando torna la rete, quando si riapre l'app e ogni minuto. Non si usa la sincronizzazione in background dei service worker, che su iPhone non c'è.
   - All'uscita, o se entra un altro account, le copie e la coda si cancellano dal dispositivo.
-- **Edizione**: a ogni orario scelto (nel fuso `TZ`) lo scheduler compone una selezione delle notizie pubblicate dall'edizione precedente: prima quelle «per te» (priorità alta in primo piano), raggruppate per cartella; se sono meno di 3 si aggiungono le ultime di ogni fonte. Se il server era spento all'orario, la compone appena riparte.
+- **Edizione**: a ogni orario scelto (nel fuso dell'istanza, scelto nel pannello o `TZ`) lo scheduler compone una selezione delle notizie pubblicate dall'edizione precedente: prima quelle «per te» (priorità alta in primo piano), raggruppate per cartella; se sono meno di 3 si aggiungono le ultime di ogni fonte. Se il server era spento all'orario, la compone appena riparte.
 - **AI** (facoltativa): la configura l'amministratore, locale (Ollama o un server compatibile con OpenAI) o cloud (Anthropic con l'SDK ufficiale, oppure OpenAI), con un tetto di richieste al giorno. Ogni utente sceglie parole chiave, AI o entrambi e descrive i suoi interessi. Lo scheduler manda al modello gli articoli delle ultime 48 ore a lotti di 20, con risposta in JSON strutturato; dopo un errore si ferma 15 minuti. Con Claude si usa effort basso e, sui modelli che lo permettono, il ripiego lato server se il modello rifiuta una richiesta. I riassunti (tre punti) si scrivono alla prima apertura di un articolo lungo e valgono per tutti.
 - **Notifiche**: Web Push standard. Chiavi VAPID create al primo avvio in `data/vapid.pem`; contenuto cifrato (RFC 8291), così i servizi push dei browser non lo leggono. Si accettano solo gli indirizzi dei servizi push di Google, Mozilla, Apple e Microsoft. Per ogni utente: le notizie «per te» nelle cartelle importanti, non lette e mai notificate, in una notifica sola, al massimo una ogni 10 minuti; più, a scelta, l'Edizione pronta. Il numero di non letti va sull'icona dell'app (Badging API).
-- **Reti locali**: le fonti possono stare sulla rete di casa; `BLOCK_PRIVATE_NETWORKS=true` lo impedisce.
+- **Reti locali**: le fonti possono stare sulla rete di casa; l'amministratore lo può vietare dal pannello (o con `BLOCK_PRIVATE_NETWORKS=true`). Il controllo vale per ogni richiesta, compresi i redirect.
+- **Pannello di amministrazione** (`frontend/src/sheets/Admin.svelte`, API `admin/*`): tutte le impostazioni dell'istanza da GUI. `instance.py` le risolve in quest'ordine: valore salvato in `app_settings` (`instance.*`) → variabile d'ambiente → predefinito; ne tiene una copia in memoria che si rinnova a ogni salvataggio, così valgono subito. Le preferenze per i nuovi utenti (`instance.user_defaults`) si copiano nell'account quando viene creato. I segreti (chiave dell'AI; poi il client secret OIDC) sono cifrati con una chiave ricavata da `data/secret.key` (`secretbox.py`) e le API non li restituiscono mai.
 
 ## Variabili d'ambiente
 
+«Solo all'avvio»: si leggono quando il server parte e non si cambiano dal pannello. Le altre sono il valore iniziale di un'impostazione che l'amministratore può cambiare da GUI.
+
 | Variabile | Predefinito | A cosa serve |
 |---|---|---|
-| `PUBLIC_URL` | `http://localhost:8080` | Indirizzo pubblico dell'app (link d'invito, manifest, user agent) |
-| `TZ` | `Europe/Rome` | Fuso orario del server |
-| `DATA_DIR` | `/data` | Cartella del database |
+| `PUBLIC_URL` | `http://localhost:8080` | Indirizzo pubblico dell'app (link d'invito, manifest, user agent). Solo all'avvio |
+| `DATA_DIR` | `/data` | Cartella del database e di `secret.key`. Solo all'avvio |
+| `LOG_LEVEL` | `info` | Dettaglio del log. Solo all'avvio |
+| `FORWARDED_ALLOW_IPS` | `*` | Da quali indirizzi accettare gli header `X-Forwarded-*`. Solo all'avvio |
+| `TZ` | `Europe/Rome` | Fuso orario del log e valore iniziale del fuso dell'istanza |
 | `RETENTION_DAYS` | `90` | Giorni dopo cui si cancellano gli articoli non salvati |
 | `BLOCK_PRIVATE_NETWORKS` | `false` | Vieta fonti su indirizzi della rete locale |
-| `REMEMBER_DAYS` | `90` | Giorni di una sessione con «Ricordami» (modificabile da GUI) |
-| `SESSION_HOURS` | `12` | Ore senza utilizzo dopo cui chiude una sessione senza «Ricordami» (modificabile da GUI) |
-| `FORWARDED_ALLOW_IPS` | `*` | Da quali indirizzi accettare gli header `X-Forwarded-*` |
-| `LOG_LEVEL` | `info` | Dettaglio del log |
+| `REMEMBER_DAYS` | `90` | Giorni di una sessione con «Ricordami» |
+| `SESSION_HOURS` | `12` | Ore senza utilizzo dopo cui chiude una sessione senza «Ricordami» |
+| `INVITE_HOURS` | `48` | Ore di validità dei link d'invito e di reimpostazione della password |
