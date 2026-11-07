@@ -1,7 +1,7 @@
 <script>
   import Icon from "../components/Icon.svelte";
   import { api } from "../lib/api.js";
-  import { data, loadCounts, loadStream, savePrefs, session, toast } from "../lib/store.svelte.js";
+  import { ask, data, loadCounts, loadStream, savePrefs, session, toast } from "../lib/store.svelte.js";
 
   let { active } = $props();
   let newKeyword = $state("");
@@ -106,7 +106,7 @@
   }
 
   async function deleteGroup(g) {
-    if (!confirm(g.preset_id ? `Togliere «${g.name}»? Tornerà tra i gruppi pronti con le parole originali.` : `Eliminare il gruppo «${g.name}»?`)) return;
+    if (!(await ask(g.preset_id ? `Tornerà tra i gruppi pronti con le parole originali.` : `Le sue parole non varranno più come interessi o per silenziare.`, { title: g.preset_id ? `Togliere «${g.name}»?` : `Eliminare il gruppo «${g.name}»?`, action: g.preset_id ? "Togli" : "Elimina" }))) return;
     try {
       const r = await api(`/groups/${g.id}`, { method: "DELETE" });
       data.interests.groups = r.groups;

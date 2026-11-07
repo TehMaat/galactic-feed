@@ -203,6 +203,38 @@ def test_admins_from_a_provider_group(admin, app, provider):
     assert c.get("/api/me").json()["user"]["is_admin"] is True
 
 
+def test_manual_admin_is_kept_by_the_provider_group(admin, app, provider):
+    """L'utente del provider reso amministratore a mano resta tale anche se non è nel gruppo."""
+    _configure(admin, auto_create=True, admin_claim="groups", admin_value="galactic-admin")
+    provider.claims = {"sub": "u-60", "preferred_username": "marco", "groups": ["utenti"]}
+    c = new_client(app)
+    provider.login(c)
+    users = admin.get("/api/admin/users").json()["users"]
+    marco = next(u for u in users if u["username"] == "marco")
+    assert (marco["is_admin"], marco["has_password"], marco["linked_identities"]) == (False, False, 1)
+    anna = next(u for u in users if u["username"] == "anna")
+    assert (anna["has_password"], anna["linked_identities"]) == (True, 0)
+    admin.patch(f"/api/admin/users/{marco['id']}", json={"is_admin": True})
+    c = new_client(app)
+    provider.login(c)
+    assert c.get("/api/me").json()["user"]["is_admin"] is True
+
+
+def test_local_admin_is_never_linked_automatically(admin, app, provider):
+    """Stesso nome utente o stessa email dell'amministratore locale: si crea un utente a parte."""
+    with app.state.ctx.db.session() as conn, conn:
+        conn.execute("UPDATE users SET email = 'anna@example.org' WHERE username = 'anna'")
+    _configure(admin, auto_create=True, link_username=True, link_email=True)
+    provider.claims = {"sub": "u-61", "preferred_username": "anna", "email": "anna@example.org", "email_verified": True}
+    c = new_client(app)
+    provider.login(c)
+    me = c.get("/api/me").json()["user"]
+    assert me["username"] == "anna2" and me["is_admin"] is False
+    assert admin.get("/api/me/identities").json()["identities"] == []
+    # La password dell'amministratore locale funziona sempre.
+    assert new_client(app).post("/api/auth/login", json={"username": "anna", "password": PASSWORD}).status_code == 200
+
+
 # ---------- Sicurezza ----------
 
 

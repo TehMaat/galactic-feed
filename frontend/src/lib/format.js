@@ -111,6 +111,17 @@ export const ACCENTS = [
   { key: "verde", name: "Verde", light: "#277137", dark: "#86DC95" },
 ];
 
+/** Varianti dei temi: [chiave, nome, sfondo, scheda, testo] per l'anteprima (valori di base.css). */
+export const DARK_STYLES = [
+  ["notte", "Notte", "#0C0F1C", "#151A2D", "#ECEAF3"],
+  ["grigio", "Grigio", "#18181B", "#232327", "#EDEDF0"],
+  ["nero", "Nero", "#000000", "#121214", "#EDEDF0"],
+];
+export const LIGHT_STYLES = [
+  ["neutro", "Neutro", "#F4F5F9", "#FFFFFF", "#13162A"],
+  ["carta", "Carta", "#F8F5EE", "#FBF8F2", "#26211A"],
+];
+
 /** Font dell'interfaccia e del testo degli articoli: [chiave, nome, font per l'anteprima]. */
 export const FONTS = [
   ["galactic", "Galactic", "var(--font-brand)"],

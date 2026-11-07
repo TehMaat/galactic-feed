@@ -132,6 +132,99 @@
 }
 
 
+/* ---------- Varianti dei temi ----------
+   Scuro: «notte» (blu, il predefinito, qui sopra), «grigio» (grafite neutra) e «nero» (nero
+   pieno, per gli schermi OLED). Chiaro: «neutro» (il predefinito) e «carta» (toni caldi).
+   Cambiano solo sfondi, schede e testo: colori principali e contrasti restano AA
+   (verificati da tests/look.test.js). Attributi data-dark e data-light su <html>. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"])[data-dark="grigio"] {
+    --bg: #0E0E10;
+    --app-bg: #18181B;
+    --surface: #232327;
+    --surface-2: #2C2C31;
+    --ink: #EDEDF0;
+    --ink-2: #B4B4BC;
+    --ink-3: #8C8C95;
+    --line: rgba(237, 237, 240, 0.10);
+    --sky-1: #1E1E23;
+    --sky-2: #34343C;
+    --glass: rgba(24, 24, 27, 0.84);
+    --c-grigio: #B4B4BC;
+  }
+  :root:not([data-theme="light"])[data-dark="nero"] {
+    --bg: #000000;
+    --app-bg: #000000;
+    --surface: #121214;
+    --surface-2: #1C1C1F;
+    --ink: #EDEDF0;
+    --ink-2: #B4B4BC;
+    --ink-3: #8C8C95;
+    --line: rgba(237, 237, 240, 0.12);
+    --sky-1: #0B0B0E;
+    --sky-2: #222229;
+    --glass: rgba(0, 0, 0, 0.84);
+    --shadow-card: 0 0 0 1px rgba(237, 237, 240, 0.06) inset;
+    --c-grigio: #B4B4BC;
+  }
+}
+:root[data-theme="dark"][data-dark="grigio"] {
+  --bg: #0E0E10;
+  --app-bg: #18181B;
+  --surface: #232327;
+  --surface-2: #2C2C31;
+  --ink: #EDEDF0;
+  --ink-2: #B4B4BC;
+  --ink-3: #8C8C95;
+  --line: rgba(237, 237, 240, 0.10);
+  --sky-1: #1E1E23;
+  --sky-2: #34343C;
+  --glass: rgba(24, 24, 27, 0.84);
+  --c-grigio: #B4B4BC;
+}
+:root[data-theme="dark"][data-dark="nero"] {
+  --bg: #000000;
+  --app-bg: #000000;
+  --surface: #121214;
+  --surface-2: #1C1C1F;
+  --ink: #EDEDF0;
+  --ink-2: #B4B4BC;
+  --ink-3: #8C8C95;
+  --line: rgba(237, 237, 240, 0.12);
+  --sky-1: #0B0B0E;
+  --sky-2: #222229;
+  --glass: rgba(0, 0, 0, 0.84);
+  --shadow-card: 0 0 0 1px rgba(237, 237, 240, 0.06) inset;
+  --c-grigio: #B4B4BC;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"])[data-light="carta"] {
+    --bg: #E8E1D2;
+    --app-bg: #F8F5EE;
+    --surface: #FBF8F2;
+    --surface-2: #F0EADE;
+    --ink: #26211A;
+    --ink-2: #574E40;
+    --ink-3: #6E6555;
+    --line: rgba(38, 33, 26, 0.11);
+    --glass: rgba(248, 245, 238, 0.86);
+    --shadow-card: 0 1px 2px rgba(38, 33, 26, 0.06), 0 8px 24px -16px rgba(38, 33, 26, 0.25);
+  }
+}
+:root[data-theme="light"][data-light="carta"] {
+  --bg: #E8E1D2;
+  --app-bg: #F8F5EE;
+  --surface: #FBF8F2;
+  --surface-2: #F0EADE;
+  --ink: #26211A;
+  --ink-2: #574E40;
+  --ink-3: #6E6555;
+  --line: rgba(38, 33, 26, 0.11);
+  --glass: rgba(248, 245, 238, 0.86);
+  --shadow-card: 0 1px 2px rgba(38, 33, 26, 0.06), 0 8px 24px -16px rgba(38, 33, 26, 0.25);
+}
+
+
 /* ---------- Colore principale ----------
    Ogni colore ha una variante per il tema chiaro e una per lo scuro, con contrasto AA
    (almeno 4,5:1) come testo su sfondi e schede, sullo sfondo tenue (--accent-soft) e con

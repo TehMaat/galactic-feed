@@ -13,11 +13,13 @@ from ..db import get_setting, iso, now
 from ..deps import AppContext, User, get_ctx, get_db, require_admin
 from .common import Prefs, prefs_with_defaults
 from .invites import create_invite
+from .oidc import UNUSABLE_PASSWORD
 
 router = APIRouter(prefix="/api/admin", tags=["amministrazione"])
 
 
-def _user_row(row: sqlite3.Row) -> dict:
+def _user_row(row: sqlite3.Row, conn: sqlite3.Connection) -> dict:
+    linked = conn.execute("SELECT COUNT(*) FROM user_identities WHERE user_id = ?", (row["id"],)).fetchone()[0]
     return {
         "id": row["id"],
         "username": row["username"],
@@ -26,6 +28,10 @@ def _user_row(row: sqlite3.Row) -> dict:
         "disabled": bool(row["disabled"]),
         "created_at": iso(row["created_at"]),
         "last_seen_at": iso(row["last_seen_at"]),
+        # Come entra: con la password (account locale), con il provider OIDC, o in entrambi i modi.
+        "has_password": row["password_hash"] != UNUSABLE_PASSWORD,
+        "linked_identities": linked,
+        "admin_via_group": bool(row["admin_via_group"]),
     }
 
 
@@ -39,7 +45,7 @@ def _get_user(conn: sqlite3.Connection, user_id: int) -> sqlite3.Row:
 @router.get("/users")
 def list_users(_: User = Depends(require_admin), conn: sqlite3.Connection = Depends(get_db)):
     rows = conn.execute("SELECT * FROM users ORDER BY created_at, id").fetchall()
-    return {"users": [_user_row(r) for r in rows]}
+    return {"users": [_user_row(r, conn) for r in rows]}
 
 
 class UserPatch(BaseModel):
@@ -64,9 +70,12 @@ def update_user(
     disabled = row["disabled"] if body.disabled is None else int(body.disabled)
     with conn:
         conn.execute("UPDATE users SET is_admin = ?, disabled = ? WHERE id = ?", (is_admin, disabled, user_id))
+        if body.is_admin is not None:
+            # Scelta fatta a mano: il gruppo del provider non la annulla più (vedi api/oidc.py).
+            conn.execute("UPDATE users SET admin_via_group = 0 WHERE id = ?", (user_id,))
         if disabled:
             conn.execute("DELETE FROM sessions WHERE user_id = ?", (user_id,))
-    return {"user": _user_row(_get_user(conn, user_id))}
+    return {"user": _user_row(_get_user(conn, user_id), conn)}
 
 
 @router.delete("/users/{user_id}")

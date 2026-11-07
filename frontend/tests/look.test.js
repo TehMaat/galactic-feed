@@ -52,3 +52,45 @@ describe("colori principali", () => {
     });
   }
 });
+
+// Varianti dei temi: scuro grigio e nero, chiaro carta. Ogni colore principale resta AA sugli
+// sfondi della variante, e il testo secondario (--ink-3) si legge sulle schede.
+function palette(selector) {
+  const text = block(selector);
+  return Object.fromEntries([...text.matchAll(/--([\w-]+):\s*(#[0-9A-Fa-f]{6});/g)].map((m) => [m[1], m[2]]));
+}
+
+describe("varianti dei temi", () => {
+  const variants = [
+    ["scuro grigio", ':root[data-theme="dark"][data-dark="grigio"]', "acc-d", 0.14],
+    ["scuro nero", ':root[data-theme="dark"][data-dark="nero"]', "acc-d", 0.14],
+    ["chiaro carta", ':root[data-theme="light"][data-light="carta"]', "acc-l", 0.12],
+  ];
+  for (const [name, selector, key, alpha] of variants) {
+    const p = palette(selector);
+
+    it(`${name}: stessi valori anche con il tema automatico`, () => {
+      const auto = selector.replace(/:root\[data-theme="(dark|light)"\]/, (_, t) => `:root:not([data-theme="${t === "dark" ? "light" : "dark"}"])`);
+      expect(palette(auto)).toEqual(p);
+    });
+
+    it(`${name}: contrasto AA per testo e colori principali`, () => {
+      const backgrounds = [p["app-bg"], p.surface, p["surface-2"]].map(rgb);
+      for (const bg of backgrounds) {
+        expect(contrast(rgb(p.ink), bg)).toBeGreaterThanOrEqual(7);
+        expect(contrast(rgb(p["ink-2"]), bg)).toBeGreaterThanOrEqual(4.5);
+      }
+      expect(contrast(rgb(p["ink-3"]), rgb(p.surface))).toBeGreaterThanOrEqual(4.5);
+      // Come per i temi predefiniti: in chiaro sfondo e schede, in scuro anche --surface-2.
+      const accentBackgrounds = key === "acc-d" ? backgrounds : backgrounds.slice(0, 2);
+      for (const accent of ACCENTS) {
+        const v = vars(accent.key === "galassia" ? block(":root") : block(`:root[data-accent="${accent.key}"]`));
+        const c = rgb(v[key]);
+        for (const bg of accentBackgrounds) {
+          expect(contrast(c, bg), `${accent.name} su ${name}`).toBeGreaterThanOrEqual(4.5);
+          expect(contrast(c, over(c, bg, alpha)), `${accent.name} su sfondo tenue, ${name}`).toBeGreaterThanOrEqual(4.5);
+        }
+      }
+    });
+  }
+});

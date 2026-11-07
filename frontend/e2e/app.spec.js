@@ -11,6 +11,11 @@ test.describe.configure({ mode: "serial" });
 
 let inviteUrl = "";
 
+// Impostazioni e Amministrazione sono pagine: il contenuto sta in .page-main (a sinistra, sul
+// computer, c'è anche l'indice delle sezioni).
+const SETTINGS = "section[aria-label='Impostazioni'] .page-main";
+const ADMIN = "section[aria-label='Amministrazione'] .page-main";
+
 async function sheetClick(page, text) {
   await page.locator(".sheet.is-open").getByRole("button", { name: text, exact: true }).click();
 }
@@ -101,13 +106,19 @@ test("primo avvio, fonti, interessi, lettura e salvati sul telefono", async ({ p
   // Tema scuro e invito.
   await page.locator(".tabbar").getByRole("button", { name: "Oggi" }).click();
   await page.getByRole("button", { name: "Impostazioni" }).click();
-  await page.locator(".sheet.is-open").getByRole("button", { name: "Scuro" }).click();
+  await expect(page).toHaveURL(/\/impostazioni$/);
+  await page.locator(SETTINGS).getByRole("button", { name: "Scuro" }).click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
-  // Utenti e inviti sono nel pannello Amministrazione, che sul telefono si apre dalle Impostazioni.
-  await sheetClick(page, "Amministrazione");
-  await expect(page.locator(".sheet.is-open h3")).toHaveText("Amministrazione");
-  await page.locator(".sheet.is-open").getByRole("button", { name: /^Utenti e inviti/ }).click();
-  await sheetClick(page, "Crea un link d'invito");
+  // Variante del tema scuro: grigio.
+  await page.locator(SETTINGS).getByRole("group", { name: "Variante del tema scuro" }).getByRole("button", { name: "Grigio" }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-dark", "grigio");
+  await expect.poll(() => page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--app-bg").trim().toUpperCase())).toBe("#18181B");
+  // Utenti e inviti sono nell'Amministrazione, che sul telefono si apre dalle Impostazioni.
+  await page.locator(SETTINGS).getByRole("button", { name: "Amministrazione", exact: true }).click();
+  await expect(page).toHaveURL(/\/amministrazione$/);
+  await expect(page.locator(`${ADMIN} h2`)).toHaveText("Amministrazione");
+  await page.locator(ADMIN).getByRole("button", { name: /^Utenti e inviti/ }).click();
+  await page.locator(ADMIN).getByRole("button", { name: "Crea un link d'invito", exact: true }).click();
   inviteUrl = await page.locator(".link-box input").inputValue();
   expect(inviteUrl).toMatch(/\/invito\/[\w-]+$/);
 });
@@ -250,7 +261,7 @@ test("Edizione: si accende dalle Impostazioni e si compone", async ({ page }) =>
 
   // Impostazioni → Edizioni: «Crea la tua Edizione» apre la sua scheda (ogni giorno alle 07:30).
   await page.getByRole("button", { name: "Impostazioni" }).click();
-  await page.locator(".sheet.is-open").getByRole("button", { name: "Crea la tua Edizione" }).click();
+  await page.locator(SETTINGS).getByRole("button", { name: "Crea la tua Edizione" }).click();
   const edSheet = page.locator(".sheet.is-open");
   await expect(edSheet.locator("h3")).toHaveText("La mia Edizione");
   await expect(edSheet.locator(".tag.mono")).toHaveText(["07:30"]);
@@ -259,6 +270,7 @@ test("Edizione: si accende dalle Impostazioni e si compone", async ({ page }) =>
   await expect(edSheet.locator(".tag.mono")).toHaveText(["07:30", "21:15"]);
   await expect(edSheet.locator(".preview")).toContainText("con queste regole");
   await edSheet.getByRole("button", { name: "Chiudi" }).click();
+  await page.locator(".tabbar").getByRole("button", { name: "Oggi" }).click();
 
   // La prima la compone il server al giro successivo; qui la chiediamo subito.
   const oggi = page.locator("section[aria-label='Oggi']");
@@ -274,7 +286,7 @@ test("Edizione: si accende dalle Impostazioni e si compone", async ({ page }) =>
 
   // Una seconda Edizione, settimanale, con una regola: compare il selettore in Oggi.
   await page.getByRole("button", { name: "Impostazioni" }).click();
-  await page.locator(".sheet.is-open").getByRole("button", { name: "Nuova Edizione" }).click();
+  await page.locator(SETTINGS).getByRole("button", { name: "Nuova Edizione" }).click();
   await edSheet.getByLabel("Nome").fill("Spazio del lunedì");
   await edSheet.getByLabel("Nome").press("Enter");
   await edSheet.getByLabel("Nome").blur();
@@ -291,6 +303,26 @@ test("Edizione: si accende dalle Impostazioni e si compone", async ({ page }) =>
   await oggi.getByRole("tablist", { name: "Edizioni" }).getByRole("tab", { name: "La mia Edizione" }).click();
   await expect(oggi.locator(".masthead .mast-kicker")).toHaveText("La mia Edizione · n. 1");
 
+  // Un'uscita si elimina da Oggi, un'Edizione dalle Impostazioni: con la conferma dell'app,
+  // non quella del browser (che alcune app installate non mostrano).
+  await oggi.getByRole("tablist", { name: "Edizioni" }).getByRole("tab", { name: "Spazio del lunedì" }).click();
+  await expect(oggi.locator(".masthead .mast-kicker")).toHaveText("Spazio del lunedì · n. 1");
+  await oggi.getByRole("button", { name: "Elimina questa uscita" }).click();
+  await expect(page.getByRole("alertdialog")).toContainText("Eliminare «Spazio del lunedì» n. 1?");
+  await page.getByRole("alertdialog").getByRole("button", { name: "Elimina" }).click();
+  await expect(page.locator(".toast")).toContainText("Uscita eliminata");
+  await expect(oggi.locator(".masthead")).toHaveCount(0);
+  await page.getByRole("button", { name: "Impostazioni" }).click();
+  await page.locator(SETTINGS).getByRole("button", { name: "Elimina l'Edizione Spazio del lunedì" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Annulla" }).click();
+  await expect(page.locator(SETTINGS).locator(".preset-name b")).toHaveText(["La mia Edizione", "Spazio del lunedì"]);
+  await page.locator(SETTINGS).getByRole("button", { name: "Elimina l'Edizione Spazio del lunedì" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Elimina" }).click();
+  await expect(page.locator(".toast")).toContainText("«Spazio del lunedì» eliminata");
+  await expect(page.locator(SETTINGS).locator(".preset-name b")).toHaveText(["La mia Edizione"]);
+  await page.locator(".tabbar").getByRole("button", { name: "Oggi" }).click();
+  await expect(oggi.locator(".masthead .mast-kicker")).toContainText("n. 1");
+
   // Il Flusso resta a un tocco.
   await oggi.getByRole("tab", { name: "Flusso" }).click();
   await expect(oggi.locator(".card").first()).toBeVisible();
@@ -306,15 +338,14 @@ test("AI: l'amministratore la configura, sceglie le notizie e scrive i riassunti
 
   // Impostazioni → AI → Fornitore apre l'AI del pannello Amministrazione: Ollama (qui un finto servizio sul sito di prova).
   await page.getByRole("button", { name: "Impostazioni" }).click();
-  const sheet = page.locator(".sheet.is-open");
-  await sheet.getByRole("button", { name: /Fornitore/ }).click();
-  await expect(page.locator(".sheet.is-open h3")).toHaveText("AI");
+  await page.locator(SETTINGS).getByRole("button", { name: /Fornitore/ }).click();
+  const sheet = page.locator(ADMIN);
+  await expect(sheet.locator("h2")).toHaveText("AI");
   await sheet.getByRole("button", { name: "Locale" }).click();
   await sheet.getByLabel("Indirizzo").fill("http://127.0.0.1:8098/v1");
   await sheet.getByLabel("Modello").fill("finto");
   await sheet.getByRole("button", { name: "Prova il collegamento" }).click();
   await expect(sheet.locator(".form-ok")).toContainText("Il modello finto risponde");
-  await sheet.getByRole("button", { name: "Chiudi" }).click();
 
   // Interessi: scelta con l'AI e descrizione.
   await page.locator(".tabbar").getByRole("button", { name: "Interessi" }).click();
@@ -353,7 +384,7 @@ test("notifiche: il service worker riceve il messaggio push", async ({ page, con
   // Le impostazioni delle notifiche ci sono; l'iscrizione vera richiede il servizio push di Google.
   await page.getByRole("button", { name: "Impostazioni" }).click();
   await expect(page.getByRole("switch", { name: "Notifiche su questo dispositivo" })).toBeVisible();
-  await page.locator(".sheet.is-open").getByRole("button", { name: "Chiudi" }).click();
+  await page.locator(".tabbar").getByRole("button", { name: "Oggi" }).click();
 
   // Un messaggio push consegnato al service worker come farebbe il browser.
   const cdp = await context.newCDPSession(page);
@@ -418,11 +449,11 @@ test("icone delle fonti, logo, «Ricordami» e aspetto", async ({ browser }) => 
   await page.getByRole("button", { name: "Impostazioni" }).click();
   // In fondo alle Impostazioni c'è la versione in uso (dal file VERSION).
   const version = fs.readFileSync(path.join(path.dirname(new URL(import.meta.url).pathname), "..", "..", "VERSION"), "utf8").trim();
-  await expect(page.locator(".sheet.is-open .app-version")).toHaveText(`Galactic Feed versione ${version}`);
+  await expect(page.locator(`${SETTINGS} .app-version`)).toHaveText(`Galactic Feed versione ${version}`);
   // Si aspetta che ogni scelta arrivi al server prima di ricaricare la pagina.
   const saved = () => page.waitForResponse((r) => r.url().endsWith("/api/me") && r.request().method() === "PATCH");
   let save = saved();
-  await sheetClick(page, "Viola");
+  await page.locator(SETTINGS).getByRole("button", { name: "Viola", exact: true }).click();
   await save;
   save = saved();
   await page.getByRole("group", { name: "Font", exact: true }).getByRole("button", { name: "Sistema" }).click();
@@ -453,7 +484,12 @@ test("pannello di amministrazione: impostazioni dell'istanza e predefiniti", asy
   const adminBox = await nav.getByRole("button", { name: "Amministrazione" }).boundingBox();
   expect(adminBox.y).toBeGreaterThan(settingsBox.y);
   await nav.getByRole("button", { name: "Amministrazione" }).click();
-  const sheet = page.locator(".sheet.is-open");
+  // Sul computer è una pagina larga, con l'indice delle sezioni a sinistra e senza il lettore.
+  await expect(page.locator(".reader")).toBeHidden();
+  const admin = page.locator("section[aria-label='Amministrazione']");
+  expect((await admin.boundingBox()).width).toBeGreaterThan(1000);
+  await expect(admin.locator(".page-nav")).toBeVisible();
+  const sheet = page.locator(ADMIN);
 
   // Fonti e archivio: il valore cambia subito e si può riportare al predefinito.
   await sheet.getByRole("button", { name: /^Fonti e archivio/ }).click();
@@ -555,8 +591,10 @@ test("accesso con un provider OIDC configurato dal pannello", async ({ page, bro
   await page.getByLabel("Password").fill(PASSWORD);
   await page.getByRole("button", { name: "Entra" }).click();
   await page.locator(".tabbar").getByRole("button", { name: "Amministrazione" }).click();
-  const sheet = page.locator(".sheet.is-open");
-  await sheet.getByRole("button", { name: /^Accesso/ }).click();
+  // L'accesso con OIDC ha la sua voce, raggiungibile anche dall'indice a sinistra.
+  await page.locator("section[aria-label='Amministrazione'] .page-nav").getByRole("button", { name: "Accesso con OIDC" }).click();
+  const sheet = page.locator(ADMIN);
+  await expect(sheet.locator(".oidc-intro")).toContainText("Non sostituisce gli account locali");
   await sheet.getByRole("switch", { name: "Accesso con il provider" }).click();
   await sheet.getByLabel("Issuer").fill("http://127.0.0.1:8098/oidc");
   await sheet.getByLabel("Client ID").fill("galactic-e2e");
@@ -577,6 +615,6 @@ test("accesso con un provider OIDC configurato dal pannello", async ({ page, bro
   await expect(other.locator(".appbar")).toBeVisible();
   await expect(other).toHaveURL(/127\.0\.0\.1:8097\/$/);
   await other.getByRole("button", { name: "Impostazioni" }).click();
-  await expect(other.locator(".sheet.is-open .who")).toContainText("Olivia Bianchi");
+  await expect(other.locator(`${SETTINGS} .who`)).toContainText("Olivia Bianchi");
   await ctx.close();
 });

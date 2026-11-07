@@ -4,6 +4,23 @@ Tutte le versioni di Galactic Feed, dalla più recente. I numeri seguono [semver
 
 Per aggiornare basta scaricare la nuova immagine: le modifiche al database si applicano da sole all'avvio. Prima di saltare a una nuova versione minore conviene fare una copia del volume `/data` (vedi il README, «Versioni e aggiornamenti»).
 
+## [0.7.0] – 2026-11-07
+
+### Novità
+- **Impostazioni e Amministrazione sono pagine** (`/impostazioni`, `/amministrazione`) invece di finestre: sul computer occupano tutta la larghezza, con l'indice delle sezioni a sinistra; sul telefono si aprono come le altre sezioni.
+- **Varianti del tema**: lo scuro può essere Notte (blu, come prima), Grigio o Nero (per gli schermi OLED); il chiaro Neutro o Carta (toni caldi). Si scelgono in Impostazioni → Aspetto e tra i predefiniti per i nuovi utenti.
+- **Accesso con OIDC ha la sua voce** in Amministrazione (prima era in fondo a «Accesso», insieme alla durata delle sessioni), con lo stato a colpo d'occhio. Nell'elenco degli utenti si vede chi entra con la password, chi con il provider e chi con entrambi.
+- Un'uscita di un'Edizione (per esempio una composta per prova) si elimina da Oggi, con «Elimina questa uscita»; da lì si apre anche la scheda dell'Edizione. Nelle Impostazioni ogni Edizione ha il suo pulsante per eliminarla.
+
+### Correzioni
+- Eliminare un'Edizione (e una cartella, un tag, una fonte, un gruppo, un utente) a volte non faceva niente: la conferma era quella del browser, che alcune app installate e alcuni browser non mostrano. Ora la conferma è una finestra dell'app.
+- L'accesso con OIDC affianca gli account locali e non li sostituisce: il collegamento automatico (stessa email o stesso nome utente) non tocca mai un amministratore, così l'amministratore locale resta un account a parte con la sua password.
+- Un utente del provider reso amministratore a mano resta amministratore: il gruppo del provider toglie solo i permessi che ha dato lui.
+
+### Da sapere per aggiornare
+- Migrazione automatica `012`.
+- Il `docker-compose.yml` d'esempio ora usa `:0.7`: chi ha ancora `:0.5` o `:0.6` deve cambiare il numero per ricevere le novità.
+
 ## [0.6.0] – 2026-11-07
 
 ### Novità

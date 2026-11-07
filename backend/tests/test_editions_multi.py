@@ -181,6 +181,24 @@ def test_manage_configs(admin, app):
     assert bruno.patch(f"/api/edition-configs/{r[0]['id']}", json={"active": True}).status_code == 404
 
 
+def test_delete_a_single_issue(admin, app):
+    _news(app, admin)
+    cid = admin.post("/api/edition-configs", json={"name": "Prova"}).json()["configs"][0]["id"]
+    first = admin.post("/api/editions", json={"config_id": cid}).json()["edition"]
+    with app.state.ctx.db.session() as conn, conn:
+        conn.execute("UPDATE editions SET created_at = created_at - 120 WHERE id = ?", (first["id"],))
+    second = admin.post("/api/editions", json={"config_id": cid}).json()["edition"]
+    r = admin.delete(f"/api/editions/{second['id']}")
+    assert r.status_code == 200 and r.json()["edition"]["id"] == first["id"]
+    assert admin.get(f"/api/editions/{second['id']}").status_code == 404
+    assert admin.delete(f"/api/editions/{first['id']}").json()["edition"] is None
+    # L'Edizione resta, senza uscite.
+    assert [c["name"] for c in admin.get("/api/edition-configs").json()["configs"]] == ["Prova"]
+    bruno = invite_user(admin, app, "bruno")
+    third = admin.post("/api/editions", json={"config_id": cid}).json()["edition"]
+    assert bruno.delete(f"/api/editions/{third['id']}").status_code == 404
+
+
 def test_weekly_edition_is_composed_by_the_scheduler_on_its_day(admin, app):
     _news(app, admin)
     admin.post("/api/edition-configs", json={"name": "Lunedì", "schedule": {"kind": "weekly", "days": [0], "times": ["07:30"]}})

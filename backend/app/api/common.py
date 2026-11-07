@@ -75,6 +75,9 @@ class Prefs(BaseModel):
     """Preferenze personali: aspetto, doppioni, Edizione, AI e notifiche."""
 
     theme: Literal["auto", "light", "dark"] = "auto"
+    # Varianti dei due temi: scuro blu notte, grigio o nero (schermi OLED); chiaro neutro o carta.
+    dark_style: Literal["notte", "grigio", "nero"] = "notte"
+    light_style: Literal["neutro", "carta"] = "neutro"
     accent: Literal[ACCENTS] = "galassia"
     # Font dell'interfaccia (galactic: titoli in Unbounded; sistema: quello del dispositivo;
     # inter e leggibile: inclusi nell'app) e del testo degli articoli.

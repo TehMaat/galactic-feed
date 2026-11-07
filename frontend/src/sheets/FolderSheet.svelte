@@ -4,7 +4,7 @@
   import Sheet from "../components/Sheet.svelte";
   import { api } from "../lib/api.js";
   import { folderColor } from "../lib/format.js";
-  import { closeSheet, data, loadAll, loadSources, toast, ui } from "../lib/store.svelte.js";
+  import { ask, closeSheet, data, loadAll, loadSources, toast, ui } from "../lib/store.svelte.js";
 
   const COLOR_NAMES = { indaco: "Indaco", blu: "Blu", verde: "Verde", viola: "Viola", rosa: "Rosa", ambra: "Ambra", azzurro: "Azzurro", grigio: "Grigio" };
   let folder = $state(null);
@@ -37,7 +37,7 @@
   }
 
   async function remove() {
-    if (!confirm(`Eliminare la cartella «${folder.name}»? Le sue fonti restano, senza cartella.`)) return;
+    if (!(await ask("Le sue fonti restano, senza cartella.", { title: `Eliminare la cartella «${folder.name}»?` }))) return;
     try {
       await api(`/folders/${folder.id}`, { method: "DELETE" });
       toast("Cartella eliminata");

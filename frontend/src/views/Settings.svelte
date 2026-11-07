@@ -1,23 +1,46 @@
 <script>
   // Impostazioni personali, con le stesse sezioni del mockup. Quelle di tutta l'istanza
   // (utenti, accesso, AI, archivio…) sono nel pannello Amministrazione (Admin.svelte).
+  import { tick } from "svelte";
   import Icon from "../components/Icon.svelte";
-  import Sheet from "../components/Sheet.svelte";
+  import Page from "../components/Page.svelte";
   import { folderColor } from "../lib/format.js";
   import { currentSubscription, disablePush, enablePush, isIos, isStandalone } from "../lib/push.js";
   import { api } from "../lib/api.js";
-  import { ACCENTS, FONTS, READ_FONTS, SIZES, countryName, initials, timeAgoLong } from "../lib/format.js";
-  import { data, editionConfigs, loadEditionConfigs, logout, openSheet, savePrefs, session, setEditionConfigs, toast, ui } from "../lib/store.svelte.js";
+  import { ACCENTS, DARK_STYLES, LIGHT_STYLES, FONTS, READ_FONTS, SIZES, countryName, initials, timeAgoLong } from "../lib/format.js";
+  import { ask, data, editionConfigs, loadEditionConfigs, logout, openPage, openSheet, savePrefs, session, setEditionConfigs, toast, ui } from "../lib/store.svelte.js";
 
+  let { active } = $props();
   let page = $state("main"); // main · password · sessions · identities
   let identities = $state(null); // account del provider collegati (#22)
   let sessions = $state([]);
   let pw = $state({ current: "", next: "", repeat: "" });
   let pwError = $state("");
 
+  // A ogni apertura si riparte dalla prima schermata.
   $effect(() => {
-    if (ui.sheet === "settings") page = "main";
+    ui.pageTick;
+    if (active) page = "main";
   });
+
+  // Indice delle sezioni, a sinistra sul computer.
+  const NAV = [
+    ["account", "user", "Account"],
+    ["edizioni", "edition", "Edizioni"],
+    ["notifiche", "bell", "Notifiche"],
+    ["ai", "spark", "AI"],
+    ["aspetto", "sliders", "Aspetto"],
+    ["server", "devices", "Server e dati"],
+  ];
+  let section = $state("account");
+  async function jump(key) {
+    if (page !== "main") {
+      page = "main";
+      await tick();
+    }
+    section = key;
+    document.getElementById(`set-${key}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
 
   const me = $derived(session.user);
 
@@ -42,7 +65,7 @@
   );
 
   $effect(() => {
-    if (ui.sheet === "settings") currentSubscription().then((s) => (pushOn = !!s));
+    if (active) currentSubscription().then((s) => (pushOn = !!s));
   });
 
   async function togglePush() {
@@ -83,7 +106,7 @@
 
   // ---- Edizioni (#18, #19) ----
   $effect(() => {
-    if (ui.sheet === "settings") loadEditionConfigs();
+    if (active) loadEditionConfigs();
   });
 
   function ruleSummary(c) {
@@ -100,6 +123,16 @@
     try {
       await setEditionConfigs(await api(`/edition-configs/${c.id}`, { method: "PATCH", body: { active: !c.active } }));
       toast(c.active ? `«${c.name}» spenta` : `«${c.name}» accesa`);
+    } catch (err) {
+      toast(err.message);
+    }
+  }
+
+  async function removeConfig(c) {
+    if (!(await ask("Si cancellano anche tutte le sue uscite. Per fermarla e basta, spegnila.", { title: `Eliminare «${c.name}»?` }))) return;
+    try {
+      await setEditionConfigs(await api(`/edition-configs/${c.id}`, { method: "DELETE" }));
+      toast(`«${c.name}» eliminata`);
     } catch (err) {
       toast(err.message);
     }
@@ -171,7 +204,7 @@
   }
 
   async function unlinkIdentity(i) {
-    if (!confirm("Scollegare questo account del provider? Non potrai più entrare con quello finché non lo ricolleghi.")) return;
+    if (!(await ask("Non potrai più entrare con quello finché non lo ricolleghi.", { title: "Scollegare questo account del provider?", action: "Scollega" }))) return;
     try {
       identities = await api(`/me/identities/${i.id}`, { method: "DELETE" });
       toast("Account scollegato");
@@ -207,16 +240,26 @@
 
 </script>
 
-<Sheet name="settings" title={TITLES[page]} back={page === "main" ? null : () => go("main")}>
+{#snippet styleChoice(list, value, label, onpick)}
+  <div class="theme-styles" role="group" aria-label={label}>
+    {#each list as [k, name, bg, card, ink] (k)}
+      <button type="button" class="theme-style" aria-pressed={value === k} onclick={() => onpick(k)} style="--ts-bg:{bg};--ts-card:{card};--ts-ink:{ink}">
+        <span class="theme-preview" aria-hidden="true"><i></i><i></i></span>{name}
+      </button>
+    {/each}
+  </div>
+{/snippet}
+
+<Page label="Impostazioni" title={TITLES[page]} {active} back={page === "main" ? null : () => go("main")} nav={NAV} current={page === "main" ? section : "account"} onnav={jump} scrollKey={page}>
   {#if me}
     {#if page === "main"}
-      <div class="set-label">Account</div>
+      <div class="set-label" id="set-account">Account</div>
       <div class="set-group">
         <div class="set-row">
           <span class="who"><span class="user-av">{initials(me.display_name)}</span><span><b>{me.display_name}</b><br /><small>{me.is_admin ? "amministratore" : "utente"} · @{me.username}</small></span></span>
         </div>
         {#if me.is_admin}
-          <button type="button" class="link-row" onclick={() => openSheet("admin")}><Icon name="shield" />Amministrazione</button>
+          <button type="button" class="link-row" onclick={() => openPage("amministrazione")}><Icon name="shield" />Amministrazione</button>
         {/if}
         <button type="button" class="link-row" onclick={() => go("password")}><Icon name="key" />Cambia password</button>
         {#if session.oidc?.enabled}
@@ -227,14 +270,17 @@
       </div>
       <p class="set-note">Ogni utente ha fonti, interessi, letti e salvati propri. I feed in comune vengono scaricati una volta sola.</p>
 
-      <div class="set-label">Edizioni</div>
+      <div class="set-label" id="set-edizioni">Edizioni</div>
       <div class="set-group">
         {#each editionConfigs.list as c (c.id)}
           <div class="set-row">
             <button type="button" class="preset-name" onclick={() => openSheet("edition-config", c)}>
               <b>{c.name}</b><small>{c.description} · {ruleSummary(c)}</small>
             </button>
-            <button type="button" class="switch" role="switch" aria-checked={c.active} aria-label="Edizione {c.name} attiva" onclick={() => toggleConfig(c)}></button>
+            <span class="row-actions">
+              <button type="button" class="icon-btn" aria-label="Elimina l'Edizione {c.name}" title="Elimina" onclick={() => removeConfig(c)}><Icon name="trash" /></button>
+              <button type="button" class="switch" role="switch" aria-checked={c.active} aria-label="Edizione {c.name} attiva" onclick={() => toggleConfig(c)}></button>
+            </span>
           </div>
         {/each}
         <button type="button" class="link-row" onclick={newConfig}><Icon name="plus" />{editionConfigs.list.length ? "Nuova Edizione" : "Crea la tua Edizione"}</button>
@@ -247,7 +293,7 @@
       </div>
       <p class="set-note">{editionConfigs.list.length ? "Ogni Edizione è una selezione delle notizie con nome, regole (tag, cartelle, nazioni, gruppi di parole) e uscite proprie: ogni giorno, in alcuni giorni della settimana o una volta al mese. Si leggono in Oggi." : "Una selezione delle notizie per te, agli orari che scegli, da leggere nell'app (niente email). Senza Edizioni, Oggi mostra solo il Flusso."}</p>
 
-      <div class="set-label">Notifiche</div>
+      <div class="set-label" id="set-notifiche">Notifiche</div>
       <div class="set-group">
         <div class="set-row"><span>Notifiche su questo dispositivo</span>
           <button type="button" class="switch" role="switch" aria-checked={pushOn} aria-label="Notifiche su questo dispositivo" disabled={pushBusy} onclick={togglePush}></button>
@@ -273,17 +319,17 @@
       </div>
       <p class="set-note">{pushNote}</p>
 
-      <div class="set-label">AI</div>
+      <div class="set-label" id="set-ai">AI</div>
       <div class="set-group">
         {#if me.is_admin}
-          <button type="button" class="set-row as-button" onclick={() => openSheet("admin", "ai")}><span>Fornitore</span><span class="val">{aiLabel}</span></button>
+          <button type="button" class="set-row as-button" onclick={() => openPage("amministrazione", "ai")}><span>Fornitore</span><span class="val">{aiLabel}</span></button>
         {:else}
           <div class="set-row"><span>Fornitore</span><span class="val">{aiLabel}</span></div>
         {/if}
       </div>
       <p class="set-note">{ai?.enabled ? "Filtri e riassunti si scelgono negli Interessi." : me.is_admin ? "Filtri e riassunti con un modello locale (Ollama) o con un servizio cloud: si configura in Amministrazione." : "L'AI la configura l'amministratore."}</p>
 
-      <div class="set-label">Aspetto</div>
+      <div class="set-label" id="set-aspetto">Aspetto</div>
       <div class="set-group">
         <div class="set-row"><span>Tema</span>
           <div class="segmented" style="--cols:3" role="group" aria-label="Tema">
@@ -291,6 +337,14 @@
               <button type="button" aria-pressed={theme === k} onclick={() => savePrefs({ theme: k })}>{l}</button>
             {/each}
           </div>
+        </div>
+        <div class="set-block">
+          <span class="label" id="dark-label">Scuro</span>
+          {@render styleChoice(DARK_STYLES, me.prefs.dark_style || "notte", "Variante del tema scuro", (k) => savePrefs({ dark_style: k }))}
+        </div>
+        <div class="set-block">
+          <span class="label" id="light-label">Chiaro</span>
+          {@render styleChoice(LIGHT_STYLES, me.prefs.light_style || "neutro", "Variante del tema chiaro", (k) => savePrefs({ light_style: k }))}
         </div>
         <div class="set-block">
           <span class="label" id="accent-label">Colore</span>
@@ -330,10 +384,10 @@
           ? systemAccent
             ? "Colore del sistema: lo prende dalle impostazioni del dispositivo."
             : "Questo browser non fa conoscere il colore del sistema (succede su iPhone, iPad e Android): resta il colore Galassia."
-          : "Tema, colore, font e dimensione del testo valgono su tutti i tuoi dispositivi. «Galactic» usa Unbounded per i titoli; «Sistema» il font del dispositivo."}
+          : "Tema, colore, font e dimensione del testo valgono su tutti i tuoi dispositivi. La variante «Scuro» vale con il tema Scuro e con Auto quando il dispositivo è in modo scuro; «Nero» spegne i pixel degli schermi OLED. «Galactic» usa Unbounded per i titoli; «Sistema» il font del dispositivo."}
       </p>
 
-      <div class="set-label">Server</div>
+      <div class="set-label" id="set-server">Server</div>
       <div class="set-group">
         <div class="set-row"><span>Indirizzo</span><span class="val">{location.host}</span></div>
         <div class="set-row"><span>Controllo delle fonti</span><span class="val">da 15 min a 24 h</span></div>
@@ -388,4 +442,4 @@
       <p class="set-note">Se perdi un telefono, scollegalo da qui: dovrà rientrare con la password. Ogni utilizzo sposta in avanti la scadenza.</p>
     {/if}
   {/if}
-</Sheet>
+</Page>

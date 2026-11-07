@@ -103,36 +103,50 @@ def _username_from(claims: dict, conn: sqlite3.Connection) -> str:
 
 
 def _sync_admin(conn: sqlite3.Connection, cfg: oidc.OIDCConfig, user_id: int, claims: dict) -> None:
-    """Amministratore secondo il gruppo del provider, senza mai lasciare l'istanza senza amministratori."""
+    """Amministratore secondo il gruppo del provider.
+
+    Il gruppo dà i permessi e toglie solo quelli che ha dato lui: chi è stato reso amministratore
+    da un altro amministratore nell'app (o è l'amministratore locale del primo avvio) lo resta.
+    Mai lasciare l'istanza senza amministratori.
+    """
     if not cfg.admin_claim or not cfg.admin_value:
         return
     should = cfg.admin_value in oidc.claim_values(claims, cfg.admin_claim)
-    row = conn.execute("SELECT is_admin FROM users WHERE id = ?", (user_id,)).fetchone()
-    if bool(row["is_admin"]) == should:
+    row = conn.execute("SELECT is_admin, admin_via_group FROM users WHERE id = ?", (user_id,)).fetchone()
+    if should:
+        if not row["is_admin"]:
+            with conn:
+                conn.execute("UPDATE users SET is_admin = 1, admin_via_group = 1 WHERE id = ?", (user_id,))
         return
-    if not should:
-        others = conn.execute(
-            "SELECT COUNT(*) FROM users WHERE is_admin = 1 AND disabled = 0 AND id != ?", (user_id,)
-        ).fetchone()[0]
-        if others == 0:
-            log.warning("L'utente %s non è più nel gruppo degli amministratori, ma è l'unico: resta amministratore.", user_id)
-            return
+    if not row["is_admin"] or not row["admin_via_group"]:
+        return
+    others = conn.execute(
+        "SELECT COUNT(*) FROM users WHERE is_admin = 1 AND disabled = 0 AND id != ?", (user_id,)
+    ).fetchone()[0]
+    if others == 0:
+        log.warning("L'utente %s non è più nel gruppo degli amministratori, ma è l'unico: resta amministratore.", user_id)
+        return
     with conn:
-        conn.execute("UPDATE users SET is_admin = ? WHERE id = ?", (int(should), user_id))
+        conn.execute("UPDATE users SET is_admin = 0, admin_via_group = 0 WHERE id = ?", (user_id,))
 
 
 def _find_user(conn: sqlite3.Connection, cfg: oidc.OIDCConfig, ctx: AppContext, issuer: str, claims: dict) -> int:
     sub = str(claims["sub"])
+    # Il collegamento automatico (stessa email o stesso nome utente) non tocca mai gli amministratori:
+    # l'amministratore locale resta un account a parte, che entra con la sua password. Chi vuole
+    # usare il provider anche per quell'account lo collega a mano dalle Impostazioni.
     row = conn.execute("SELECT user_id FROM user_identities WHERE issuer = ? AND subject = ?", (issuer, sub)).fetchone()
     if row:
         return row["user_id"]
     email = (claims.get("email") or "").strip().lower()
     user_id = None
     if cfg.link_email and email and oidc.is_verified(claims):
-        found = conn.execute("SELECT id FROM users WHERE lower(email) = ?", (email,)).fetchone()
+        found = conn.execute("SELECT id FROM users WHERE lower(email) = ? AND is_admin = 0", (email,)).fetchone()
         user_id = found["id"] if found else None
     if user_id is None and cfg.link_username and claims.get("preferred_username"):
-        found = conn.execute("SELECT id FROM users WHERE username = ?", (str(claims["preferred_username"]),)).fetchone()
+        found = conn.execute(
+            "SELECT id FROM users WHERE username = ? AND is_admin = 0", (str(claims["preferred_username"]),)
+        ).fetchone()
         user_id = found["id"] if found else None
     if user_id is None:
         if not cfg.auto_create:
