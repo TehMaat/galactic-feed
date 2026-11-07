@@ -60,7 +60,7 @@ async def summarize(ctx, article_id: int) -> list[str]:
             points = cached(conn, article_id)
             if points:
                 return points
-            cfg = config.load(conn)
+            cfg = config.load(conn, ctx.secret)
             if not cfg.enabled:
                 raise AIError("L'AI non è configurata.")
             if not config.under_limit(conn, cfg):

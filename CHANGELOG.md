@@ -4,6 +4,25 @@ Tutte le versioni di Galactic Feed, dalla più recente. I numeri seguono [semver
 
 Per aggiornare basta scaricare la nuova immagine: le modifiche al database si applicano da sole all'avvio. Prima di saltare a una nuova versione minore conviene fare una copia del volume `/data` (vedi il README, «Versioni e aggiornamenti»).
 
+## [Da pubblicare]
+
+### Novità
+- **Pannello di amministrazione**: nella barra laterale sotto Impostazioni (sul telefono dentro le Impostazioni), solo per gli amministratori. Ci sono utenti e inviti, accesso, fonti e archivio, AI, predefiniti per i nuovi utenti e stato del sistema. Ogni impostazione dell'istanza si cambia dall'app senza riavviare; mostra se il valore è scelto lì, viene da una variabile d'ambiente o è il predefinito (#21).
+- Nuove impostazioni da GUI: per quanto tenere gli articoli, intervallo proposto per le fonti nuove, fonti della rete locale sì/no, validità dei link d'invito, fuso orario dell'istanza.
+- **Predefiniti per i nuovi utenti**: tema, colore, font, dimensione del testo, doppioni, riassunti, Edizione e orari.
+- **Stato del sistema**: versione, spazio del database, ultimo controllo dei feed, feed con errori, ultimo errore dell'AI, variabili che valgono solo all'avvio.
+
+### Sicurezza
+- La chiave dell'AI è salvata cifrata con `data/secret.key`; quella già salvata in chiaro si cifra da sola all'avvio.
+
+### Correzioni
+- Sul computer, nelle schede delle Impostazioni, il pulsante «Indietro» era invisibile.
+
+### Da sapere per aggiornare
+- Utenti, inviti e AI non sono più nelle Impostazioni personali ma in Amministrazione.
+- Nuova variabile d'ambiente facoltativa `INVITE_HOURS`.
+- **Copia di `data/secret.key`**: d'ora in poi serve anche per leggere la chiave dell'AI; se va persa, la chiave va reinserita.
+
 ## [0.3.0] – 2026-11-06
 
 Prima versione pubblicata con un numero: immagini `ghcr.io/tehmaat/galactic-feed:0.3.0` e `:0.3`.

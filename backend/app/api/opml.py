@@ -14,7 +14,7 @@ from ..deps import AppContext, User, current_user, get_ctx, get_db
 from ..feeds.net import FetchError, normalize_input_url
 from ..feeds.sanitize import normalize_feed_url
 from .folders import get_or_create_folder
-from .sources import DEFAULT_INTERVAL, ensure_feed, subscribe
+from .sources import default_interval, ensure_feed, subscribe
 
 router = APIRouter(prefix="/api/opml", tags=["opml"])
 
@@ -64,6 +64,7 @@ async def import_opml(
 
     added = existing = invalid = folders_created = 0
     failed: list[str] = []
+    interval = default_interval(ctx)
     with conn:
         for raw_url, title, folder_name in entries:
             try:
@@ -77,7 +78,7 @@ async def import_opml(
                 folder_id, created = get_or_create_folder(conn, user.id, " ".join(folder_name.split())[:40])
                 folders_created += created
             feed_id, _ = ensure_feed(conn, url, title[:120])
-            if subscribe(conn, user.id, feed_id, folder_id, "", DEFAULT_INTERVAL):
+            if subscribe(conn, user.id, feed_id, folder_id, "", interval):
                 added += 1
             else:
                 existing += 1

@@ -160,7 +160,8 @@ select.input { appearance: none; background-image: linear-gradient(45deg, transp
 .check { display: flex; align-items: flex-start; gap: 10px; font-size: 15px; font-weight: 600; cursor: pointer; }
 .check input { width: 20px; height: 20px; margin: 1px 0 0; flex: none; accent-color: var(--accent); }
 .check small { display: block; margin-top: 2px; font-size: 13px; font-weight: 400; color: var(--ink-3); }
-.set-row select.input { width: auto; flex: none; min-width: 0; padding-block: 6px; }
+.set-row select.input { width: auto; flex: 0 1 auto; min-width: 0; max-width: 60%; padding-block: 6px; text-overflow: ellipsis; }
+.set-row > label { flex: 1 1 auto; min-width: 0; }
 
 /* ---------- Impostazioni → Aspetto ---------- */
 .swatches { display: flex; flex-wrap: wrap; gap: 10px; }
@@ -203,3 +204,12 @@ img.src-av.is-icon { padding: 3px; }
 /* Versione in fondo alle Impostazioni: piccola ma leggibile (--ink-2 ha contrasto AA). */
 .app-version { margin: 24px 0 4px; text-align: center; font-size: 13px; color: var(--ink-2); }
 .app-version span { display: block; margin-top: 2px; font-family: var(--font-mono); font-size: 12px; }
+
+/* ---------- Pannello di amministrazione ---------- */
+.admin-entry { display: flex; align-items: center; gap: 12px; min-width: 0; text-align: left; }
+.admin-entry > .ico { color: var(--accent); }
+.admin-entry b { display: block; font-weight: 600; }
+.admin-entry small { display: block; margin-top: 1px; font-size: 13px; color: var(--ink-3); }
+.set-note.top { margin: 0 4px 12px; }
+.set-group.mt { margin-top: 16px; }
+.mono.small { font-family: var(--font-mono); font-size: 13px; }

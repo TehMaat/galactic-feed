@@ -535,7 +535,7 @@ a.wordmark:active { opacity: 0.7; }
 .tabbar button { position: relative; display: grid; justify-items: center; gap: 3px; padding: 3px 0; font-size: 10.5px; font-weight: 600; color: var(--ink-3); }
 .tabbar .ico { width: 25px; height: 25px; }
 /* Nome dell'app e Impostazioni compaiono nella barra solo quando è laterale. */
-.tabbar .nav-brand, .tabbar .nav-settings { display: none; }
+.tabbar .nav-brand, .tabbar .nav-settings, .tabbar .nav-admin { display: none; }
 .tabbar button[aria-current="page"] { color: var(--accent); }
 .tab-badge {
   position: absolute;
@@ -793,7 +793,8 @@ a.wordmark:active { opacity: 0.7; }
   .tabbar .nav-brand .ico { width: 28px; height: 28px; color: var(--accent); }
   /* Impostazioni in fondo alla barra, in basso a sinistra. */
   .tabbar .nav-settings { display: grid; margin-top: auto; }
-  .tabbar .nav-settings[aria-pressed="true"] { color: var(--accent); }
+  .tabbar .nav-admin { display: grid; }
+  .tabbar .nav-settings[aria-pressed="true"], .tabbar .nav-admin[aria-pressed="true"] { color: var(--accent); }
   .views, .reader { left: 96px; }
   .view { padding-top: var(--top-inset); padding-left: 32px; padding-right: 32px; padding-bottom: 40px; }
   .view > * { max-width: 760px; margin-inline: auto; }
@@ -847,7 +848,7 @@ a.wordmark:active { opacity: 0.7; }
   .hero .thumb { height: auto; aspect-ratio: 16 / 9; }
   .reader { left: 640px; transform: none; visibility: visible; transition: none; }
   .reader.is-empty .reader-bar { display: none; }
-  .back-btn { visibility: hidden; }
+  .reader-bar .back-btn { visibility: hidden; }
   .app[data-tab="fonti"] .views, .app[data-tab="interessi"] .views { right: 0; width: auto; border-right: 0; }
   .app[data-tab="fonti"] .reader, .app[data-tab="interessi"] .reader { display: none; }
   .app[data-tab="fonti"] .view, .app[data-tab="interessi"] .view { padding-left: 40px; padding-right: 40px; }

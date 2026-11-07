@@ -1,30 +1,21 @@
 <script>
-  // Impostazioni, con le stesse sezioni del mockup. Edizione, notifiche e AI arrivano con la
-  // seconda versione: le sezioni si vedono già, spente.
+  // Impostazioni personali, con le stesse sezioni del mockup. Quelle di tutta l'istanza
+  // (utenti, accesso, AI, archivio…) sono nel pannello Amministrazione (Admin.svelte).
   import Icon from "../components/Icon.svelte";
   import Sheet from "../components/Sheet.svelte";
-  import AiSettings from "./AiSettings.svelte";
   import { folderColor } from "../lib/format.js";
   import { currentSubscription, disablePush, enablePush, isIos, isStandalone } from "../lib/push.js";
   import { api } from "../lib/api.js";
-  import { ACCENTS, initials, timeAgoLong } from "../lib/format.js";
-  import { data, logout, savePrefs, session, toast, ui } from "../lib/store.svelte.js";
+  import { ACCENTS, FONTS, READ_FONTS, SIZES, initials, timeAgoLong } from "../lib/format.js";
+  import { data, logout, openSheet, savePrefs, session, toast, ui } from "../lib/store.svelte.js";
 
-  let page = $state("main"); // main · users · user · access · ai · password · sessions
-  let users = $state([]);
-  let invites = $state([]);
-  let newLink = $state(null);
-  let current = $state(null); // utente scelto nella pagina «user»
+  let page = $state("main"); // main · password · sessions
   let sessions = $state([]);
   let pw = $state({ current: "", next: "", repeat: "" });
   let pwError = $state("");
-  let instance = $state(null); // impostazioni dell'istanza (solo amministratore)
 
   $effect(() => {
-    if (ui.sheet === "settings") {
-      page = "main";
-      newLink = null;
-    }
+    if (ui.sheet === "settings") page = "main";
   });
 
   const me = $derived(session.user);
@@ -104,116 +95,22 @@
   const theme = $derived(me?.prefs?.theme || "auto");
   const accent = $derived(me?.prefs?.accent || "galassia");
   const systemAccent = typeof CSS !== "undefined" && CSS.supports?.("color", "AccentColor");
+  // Ogni scelta di font è scritta nel suo font, così si vede subito com'è (FONTS in format.js).
   const font = $derived(me?.prefs?.font || "galactic");
   const fontRead = $derived(me?.prefs?.font_read || "serif");
-  // Ogni scelta è scritta nel suo font, così si vede subito com'è.
-  const FONTS = [
-    ["galactic", "Galactic", "var(--font-brand)"],
-    ["sistema", "Sistema", "var(--font-system)"],
-    ["inter", "Inter", '"Inter Variable", var(--font-system)'],
-    ["leggibile", "Alta leggibilità", '"Atkinson Hyperlegible", var(--font-system)'],
-  ];
-  const READ_FONTS = [
-    ["serif", "Serif", '"Newsreader", Georgia, serif'],
-    ["sans", "Come l'interfaccia", "var(--font-ui)"],
-    ["sistema", "Sistema", "var(--font-system)"],
-  ];
-  const SIZES = [[0.92, "Piccolo"], [1, "Normale"], [1.12, "Grande"]];
   const lastCheck = $derived(
     data.sources.map((s) => s.last_fetch_at).filter(Boolean).sort().at(-1) || null,
   );
   const ai = $derived(data.interests.ai);
   const aiLabel = $derived(ai?.enabled ? `${ai.kind === "locale" ? "Locale" : "Cloud"} · ${ai.label}` : "Spenta");
-  const TITLES = { ai: "AI", access: "Accesso", main: "Impostazioni", users: "Utenti e inviti", user: "Utente", password: "Cambia password", sessions: "Dispositivi collegati" };
+  const TITLES = { main: "Impostazioni", password: "Cambia password", sessions: "Dispositivi collegati" };
 
   function go(p) {
     page = p;
-    if (p === "users") loadUsers();
     if (p === "sessions") loadSessions();
-    if (p === "access") loadInstance();
     if (p === "password") {
       pw = { current: "", next: "", repeat: "" };
       pwError = "";
-    }
-  }
-
-  async function loadUsers() {
-    try {
-      const [u, i] = await Promise.all([api("/admin/users"), api("/admin/invites")]);
-      users = u.users;
-      invites = i.invites.filter((x) => x.status === "valido");
-    } catch (err) {
-      toast(err.message);
-    }
-  }
-
-  async function invite() {
-    try {
-      const r = await api("/admin/invites", { method: "POST", body: {} });
-      newLink = r.invite;
-      await loadUsers();
-    } catch (err) {
-      toast(err.message);
-    }
-  }
-
-  async function copy(text) {
-    try {
-      await navigator.clipboard.writeText(text);
-      toast("Link copiato");
-    } catch {
-      toast("Copia non riuscita: tieni premuto sul link per copiarlo");
-    }
-  }
-
-  async function share(link) {
-    try {
-      await navigator.share({ title: "Galactic Feed", text: "Ti invito su Galactic Feed", url: link });
-    } catch {
-      /* condivisione annullata */
-    }
-  }
-
-  async function revoke(inv) {
-    await api(`/admin/invites/${inv.id}`, { method: "DELETE" });
-    toast("Invito annullato");
-    loadUsers();
-  }
-
-  function openUser(u) {
-    current = u;
-    newLink = null;
-    page = "user";
-  }
-
-  async function updateUser(changes, message) {
-    try {
-      const r = await api(`/admin/users/${current.id}`, { method: "PATCH", body: changes });
-      current = r.user;
-      toast(message);
-      loadUsers();
-    } catch (err) {
-      toast(err.message);
-    }
-  }
-
-  async function resetLink() {
-    try {
-      const r = await api(`/admin/users/${current.id}/reset`, { method: "POST" });
-      newLink = r.invite;
-    } catch (err) {
-      toast(err.message);
-    }
-  }
-
-  async function removeUser() {
-    if (!confirm(`Eliminare l'account di ${current.display_name}? Fonti, interessi e salvati di questo utente spariscono.`)) return;
-    try {
-      await api(`/admin/users/${current.id}`, { method: "DELETE" });
-      toast("Utente eliminato");
-      go("users");
-    } catch (err) {
-      toast(err.message);
     }
   }
 
@@ -231,41 +128,6 @@
     } catch (err) {
       pwError = err.message;
     }
-  }
-
-  // ---- Accesso (amministratore): durata delle sessioni ----
-  async function loadInstance() {
-    try {
-      instance = (await api("/admin/settings")).settings;
-    } catch (err) {
-      toast(err.message);
-    }
-  }
-
-  async function saveInstance(key, value, message) {
-    try {
-      instance = (await api("/admin/settings", { method: "PATCH", body: { [key]: value } })).settings;
-      toast(message);
-    } catch (err) {
-      toast(err.message);
-    }
-  }
-
-  function durationLabel(n, unit) {
-    if (unit === "ore") return n === 1 ? "1 ora" : `${n} ore`;
-    if (n === 7) return "1 settimana";
-    if (n === 365) return "1 anno";
-    return n === 1 ? "1 giorno" : `${n} giorni`;
-  }
-
-  function originNote(opt) {
-    if (opt.origin === "gui") return `Scelto qui. Predefinito: ${durationLabel(opt.env_value ?? opt.default, opt.unit)}.`;
-    if (opt.origin === "env") return `Dalla variabile d'ambiente ${opt.env}.`;
-    return "Valore predefinito.";
-  }
-
-  function choicesOf(opt) {
-    return opt.choices.includes(opt.value) ? opt.choices : [...opt.choices, opt.value].sort((a, b) => a - b);
   }
 
   async function loadSessions() {
@@ -295,18 +157,7 @@
 
 </script>
 
-{#snippet linkBox(link)}
-  <div class="link-box">
-    <input class="input mono" readonly value={link.url} aria-label="Link" onfocus={(e) => e.target.select()} />
-    <div class="link-actions">
-      <button type="button" class="btn-secondary" onclick={() => copy(link.url)}><Icon name="copy" />Copia</button>
-      {#if navigator.share}<button type="button" class="btn-secondary" onclick={() => share(link.url)}><Icon name="upload" />Condividi</button>{/if}
-    </div>
-    <p class="set-note">Valido fino a {new Date(link.expires_at).toLocaleString("it-IT", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" })} e utilizzabile una volta sola. Mandalo solo alla persona interessata.</p>
-  </div>
-{/snippet}
-
-<Sheet name="settings" title={TITLES[page]} back={page === "main" ? null : () => go(page === "user" ? "users" : "main")}>
+<Sheet name="settings" title={TITLES[page]} back={page === "main" ? null : () => go("main")}>
   {#if me}
     {#if page === "main"}
       <div class="set-label">Account</div>
@@ -315,8 +166,7 @@
           <span class="who"><span class="user-av">{initials(me.display_name)}</span><span><b>{me.display_name}</b><br /><small>{me.is_admin ? "amministratore" : "utente"} · @{me.username}</small></span></span>
         </div>
         {#if me.is_admin}
-          <button type="button" class="link-row" onclick={() => go("users")}><Icon name="plus" />Utenti e inviti</button>
-          <button type="button" class="link-row" onclick={() => go("access")}><Icon name="key" />Accesso e durata delle sessioni</button>
+          <button type="button" class="link-row" onclick={() => openSheet("admin")}><Icon name="shield" />Amministrazione</button>
         {/if}
         <button type="button" class="link-row" onclick={() => go("password")}><Icon name="key" />Cambia password</button>
         <button type="button" class="link-row" onclick={() => go("sessions")}><Icon name="devices" />Dispositivi collegati</button>
@@ -377,12 +227,12 @@
       <div class="set-label">AI</div>
       <div class="set-group">
         {#if me.is_admin}
-          <button type="button" class="set-row as-button" onclick={() => go("ai")}><span>Fornitore</span><span class="val">{aiLabel}</span></button>
+          <button type="button" class="set-row as-button" onclick={() => openSheet("admin", "ai")}><span>Fornitore</span><span class="val">{aiLabel}</span></button>
         {:else}
           <div class="set-row"><span>Fornitore</span><span class="val">{aiLabel}</span></div>
         {/if}
       </div>
-      <p class="set-note">{ai?.enabled ? "Filtri e riassunti si scelgono negli Interessi." : me.is_admin ? "Filtri e riassunti con un modello locale (Ollama) o con un servizio cloud, a scelta." : "L'AI la configura l'amministratore."}</p>
+      <p class="set-note">{ai?.enabled ? "Filtri e riassunti si scelgono negli Interessi." : me.is_admin ? "Filtri e riassunti con un modello locale (Ollama) o con un servizio cloud: si configura in Amministrazione." : "L'AI la configura l'amministratore."}</p>
 
       <div class="set-label">Aspetto</div>
       <div class="set-group">
@@ -445,80 +295,6 @@
       <div class="set-group"><a class="link-row" href="/api/opml/export" download><Icon name="download" />Esporta le fonti (OPML)</a></div>
       <p class="set-note">Sola lettura: niente commenti né voti, solo il link all'articolo originale.</p>
       {#if session.version}<p class="app-version">Galactic Feed <span>versione {session.version}</span></p>{/if}
-    {:else if page === "users"}
-      <div class="set-label">Invita</div>
-      <div class="set-group">
-        <button type="button" class="link-row" onclick={invite}><Icon name="plus" />Crea un link d'invito</button>
-      </div>
-      {#if newLink}{@render linkBox(newLink)}{/if}
-      {#if invites.length}
-        <div class="set-label">Inviti in attesa</div>
-        <div class="set-group">
-          {#each invites as inv (inv.id)}
-            <div class="set-row"><span>{inv.kind === "reset" ? `Nuova password per ${inv.target_user}` : "Invito"}<br /><small class="muted">scade {new Date(inv.expires_at).toLocaleString("it-IT", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</small></span>
-              <button type="button" class="icon-btn" aria-label="Annulla l'invito" onclick={() => revoke(inv)}><Icon name="close" /></button></div>
-          {/each}
-        </div>
-      {/if}
-      <div class="set-label">Utenti</div>
-      <div class="set-group">
-        {#each users as u (u.id)}
-          <button type="button" class="set-row as-button" onclick={() => openUser(u)}>
-            <span class="who"><span class="user-av">{initials(u.display_name)}</span><span><b>{u.display_name}</b><br /><small>{u.is_admin ? "amministratore" : "utente"}{u.disabled ? " · disattivato" : ""} · {u.last_seen_at ? "ultimo accesso " + timeAgoLong(u.last_seen_at) : "mai entrato"}</small></span></span>
-            <Icon name="chevron" />
-          </button>
-        {/each}
-      </div>
-    {:else if page === "user" && current}
-      <div class="set-group">
-        <div class="set-row"><span class="who"><span class="user-av">{initials(current.display_name)}</span><span><b>{current.display_name}</b><br /><small>@{current.username} · {current.is_admin ? "amministratore" : "utente"}{current.disabled ? " · disattivato" : ""}</small></span></span></div>
-      </div>
-      {#if current.id === me.id}
-        <p class="set-note">Questo sei tu. Un altro amministratore può cambiare i tuoi permessi.</p>
-      {:else}
-        <div class="set-label">Azioni</div>
-        <div class="set-group">
-          <button type="button" class="link-row" onclick={resetLink}><Icon name="key" />Link per una nuova password</button>
-          <button type="button" class="link-row" onclick={() => updateUser({ is_admin: !current.is_admin }, current.is_admin ? "Non è più amministratore" : "Ora è amministratore")}><Icon name="user" />{current.is_admin ? "Togli i permessi di amministratore" : "Rendi amministratore"}</button>
-          <button type="button" class="link-row" onclick={() => updateUser({ disabled: !current.disabled }, current.disabled ? "Account riattivato" : "Account disattivato")}><Icon name="eye-off" />{current.disabled ? "Riattiva l'account" : "Disattiva l'account"}</button>
-          <button type="button" class="link-row danger" onclick={removeUser}><Icon name="trash" />Elimina l'account</button>
-        </div>
-        {#if newLink}{@render linkBox(newLink)}{/if}
-      {/if}
-    {:else if page === "access"}
-      {#if instance}
-        {@const rem = instance.remember_days}
-        {@const ses = instance.session_hours}
-        <div class="set-label">Con «Ricordami»</div>
-        <div class="set-group">
-          <div class="set-row"><label for="remember-days">La sessione dura</label>
-            <select class="input" id="remember-days" value={rem.value} onchange={(e) => saveInstance("remember_days", Number(e.target.value), "Durata di «Ricordami» aggiornata")}>
-              {#each choicesOf(rem) as n}<option value={n}>{durationLabel(n, rem.unit)}</option>{/each}
-            </select>
-          </div>
-          {#if rem.origin === "gui"}
-            <button type="button" class="set-row as-button" onclick={() => saveInstance("remember_days", null, "Durata predefinita")}><span>Torna al valore predefinito</span><Icon name="refresh" /></button>
-          {/if}
-        </div>
-        <p class="set-note">Dall'ultima volta che si usa l'app su quel dispositivo. {originNote(rem)}</p>
-
-        <div class="set-label">Senza «Ricordami»</div>
-        <div class="set-group">
-          <div class="set-row"><label for="session-hours">Esce dopo</label>
-            <select class="input" id="session-hours" value={ses.value} onchange={(e) => saveInstance("session_hours", Number(e.target.value), "Durata delle sessioni aggiornata")}>
-              {#each choicesOf(ses) as n}<option value={n}>{durationLabel(n, ses.unit)} senza usarla</option>{/each}
-            </select>
-          </div>
-          {#if ses.origin === "gui"}
-            <button type="button" class="set-row as-button" onclick={() => saveInstance("session_hours", null, "Durata predefinita")}><span>Torna al valore predefinito</span><Icon name="refresh" /></button>
-          {/if}
-        </div>
-        <p class="set-note">La sessione finisce anche chiudendo il browser. {originNote(ses)} Le nuove durate valgono subito; le sessioni già aperte si adeguano al prossimo utilizzo.</p>
-      {:else}
-        <p class="loading">Carico le impostazioni…</p>
-      {/if}
-    {:else if page === "ai"}
-      <AiSettings />
     {:else if page === "password"}
       <form class="form-stack" onsubmit={changePassword}>
         <div class="field"><label for="pw-cur">Password attuale</label><input class="input" id="pw-cur" type="password" autocomplete="current-password" bind:value={pw.current} /></div>

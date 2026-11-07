@@ -8,6 +8,7 @@
   import Icon from "./components/Icon.svelte";
   import Reader from "./components/Reader.svelte";
   import AddSource from "./sheets/AddSource.svelte";
+  import Admin from "./sheets/Admin.svelte";
   import FolderSheet from "./sheets/FolderSheet.svelte";
   import Settings from "./sheets/Settings.svelte";
   import SourceSheet from "./sheets/SourceSheet.svelte";
@@ -74,6 +75,12 @@
     <button type="button" class="nav-settings" aria-pressed={ui.sheet === "settings"} onclick={() => openSheet("settings")}>
       <Icon name="sliders" /><span>Impostazioni</span>
     </button>
+    {#if session.user?.is_admin}
+      <!-- Solo per gli amministratori; sul telefono si apre dalle Impostazioni. -->
+      <button type="button" class="nav-admin" aria-pressed={ui.sheet === "admin"} onclick={() => openSheet("admin")}>
+        <Icon name="shield" /><span>Amministrazione</span>
+      </button>
+    {/if}
   </nav>
 
   <Reader />
@@ -84,6 +91,7 @@
   <SourceSheet />
   <FolderSheet />
   <Settings />
+  <Admin />
 
   <div class="toast" class:is-on={ui.toastOn} role="status" aria-live="polite">{ui.toast}</div>
 </div>

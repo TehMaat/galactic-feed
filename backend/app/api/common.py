@@ -82,7 +82,7 @@ class Prefs(BaseModel):
     font_read: Literal["serif", "sans", "sistema"] = "serif"
     text_size: float = Field(default=1.0, ge=0.85, le=1.3)
     dedupe: bool = True
-    # Edizione: accesa o spenta e orari (nel fuso del server, TZ).
+    # Edizione: accesa o spenta e orari (nel fuso dell'istanza).
     edition: bool = False
     edition_times: list[str] = Field(default_factory=lambda: ["07:30"])
     # AI: come scegliere le notizie «per te», descrizione per il modello, riassunti.
@@ -134,7 +134,7 @@ def start_session(
     request: Request, response: Response, conn, ctx: AppContext, user_id: int, remember: bool = True
 ) -> None:
     """Crea la sessione e manda il cookie. Senza «Ricordami» il cookie sparisce chiudendo il browser."""
-    seconds = instance.session_seconds(conn, ctx.settings, remember)
+    seconds = instance.session_seconds(ctx, remember, conn)
     token = create_session(conn, user_id, user_agent(request), seconds, remember)
     set_session_cookie(request, response, token, seconds if remember else None)
 

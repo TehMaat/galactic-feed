@@ -157,7 +157,7 @@ def article(
     points = summary.cached(conn, article_id)
     payload["summary"] = points
     payload["summary_available"] = bool(points) or (
-        prefs_with_defaults(user.prefs)["summaries"] and summary.eligible(row) and ai_config.load(conn).enabled
+        prefs_with_defaults(user.prefs)["summaries"] and summary.eligible(row) and ai_config.load(conn, ctx.secret).enabled
     )
     return {"article": payload}
 

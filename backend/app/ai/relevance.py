@@ -140,7 +140,7 @@ class RelevanceWorker:
             return 0
         db = self.ctx.db
         with db.session() as conn:
-            cfg = config.load(conn)
+            cfg = config.load(conn, self.ctx.secret)
             users = users_to_check(conn) if cfg.enabled else []
         sent = 0
         for user_id, mode, text in users:

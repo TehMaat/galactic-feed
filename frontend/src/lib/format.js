@@ -110,3 +110,38 @@ export const ACCENTS = [
   { key: "ambra", name: "Ambra", light: "#8A5600", dark: "#F2B35B" },
   { key: "verde", name: "Verde", light: "#277137", dark: "#86DC95" },
 ];
+
+/** Font dell'interfaccia e del testo degli articoli: [chiave, nome, font per l'anteprima]. */
+export const FONTS = [
+  ["galactic", "Galactic", "var(--font-brand)"],
+  ["sistema", "Sistema", "var(--font-system)"],
+  ["inter", "Inter", '"Inter Variable", var(--font-system)'],
+  ["leggibile", "Alta leggibilità", '"Atkinson Hyperlegible", var(--font-system)'],
+];
+export const READ_FONTS = [
+  ["serif", "Serif", '"Newsreader", Georgia, serif'],
+  ["sans", "Come l'interfaccia", "var(--font-ui)"],
+  ["sistema", "Sistema", "var(--font-system)"],
+];
+export const SIZES = [[0.92, "Piccolo"], [1, "Normale"], [1.12, "Grande"]];
+
+/** Una durata in parole: (90, "giorni") → «90 giorni», (168, "ore") → «1 settimana», (60, "minuti") → «1 ora». */
+export function durationLabel(n, unit) {
+  if (unit === "minuti") return n < 60 ? `${n} min` : n === 60 ? "1 ora" : `${n / 60} ore`;
+  if (unit === "ore") {
+    if (n === 168) return "1 settimana";
+    return n === 1 ? "1 ora" : `${n} ore`;
+  }
+  if (n === 7) return "1 settimana";
+  if (n === 365) return "1 anno";
+  if (n === 730) return "2 anni";
+  return n === 1 ? "1 giorno" : `${n} giorni`;
+}
+
+/** Dimensione di un file: «512 KB», «3,4 MB». */
+export function bytesLabel(n) {
+  if (n == null) return "—";
+  if (n < 1024 * 1024) return `${Math.max(1, Math.round(n / 1024))} KB`;
+  if (n < 1024 ** 3) return `${(n / 1024 ** 2).toFixed(1).replace(".", ",")} MB`;
+  return `${(n / 1024 ** 3).toFixed(2).replace(".", ",")} GB`;
+}

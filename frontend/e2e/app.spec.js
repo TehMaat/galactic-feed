@@ -103,7 +103,10 @@ test("primo avvio, fonti, interessi, lettura e salvati sul telefono", async ({ p
   await page.getByRole("button", { name: "Impostazioni" }).click();
   await page.locator(".sheet.is-open").getByRole("button", { name: "Scuro" }).click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
-  await sheetClick(page, "Utenti e inviti");
+  // Utenti e inviti sono nel pannello Amministrazione, che sul telefono si apre dalle Impostazioni.
+  await sheetClick(page, "Amministrazione");
+  await expect(page.locator(".sheet.is-open h3")).toHaveText("Amministrazione");
+  await page.locator(".sheet.is-open").getByRole("button", { name: /^Utenti e inviti/ }).click();
   await sheetClick(page, "Crea un link d'invito");
   inviteUrl = await page.locator(".link-box input").inputValue();
   expect(inviteUrl).toMatch(/\/invito\/[\w-]+$/);
@@ -278,10 +281,11 @@ test("AI: l'amministratore la configura, sceglie le notizie e scrive i riassunti
   await page.getByRole("button", { name: "Entra" }).click();
   await expect(page.locator(".tabbar")).toBeVisible();
 
-  // Impostazioni → AI: Ollama (qui un finto servizio sul sito di prova).
+  // Impostazioni → AI → Fornitore apre l'AI del pannello Amministrazione: Ollama (qui un finto servizio sul sito di prova).
   await page.getByRole("button", { name: "Impostazioni" }).click();
   const sheet = page.locator(".sheet.is-open");
   await sheet.getByRole("button", { name: /Fornitore/ }).click();
+  await expect(page.locator(".sheet.is-open h3")).toHaveText("AI");
   await sheet.getByRole("button", { name: "Locale" }).click();
   await sheet.getByLabel("Indirizzo").fill("http://127.0.0.1:8098/v1");
   await sheet.getByLabel("Modello").fill("finto");
@@ -404,5 +408,52 @@ test("icone delle fonti, logo, «Ricordami» e aspetto", async ({ browser }) => 
   await expect.poll(look).toEqual({ accent: "viola", font: "sistema", ok: true });
   await page.reload();
   expect(await look()).toEqual({ accent: "viola", font: "sistema", ok: true });
+  await ctx.close();
+});
+
+test("pannello di amministrazione: impostazioni dell'istanza e predefiniti", async ({ page, browser }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+  await page.getByLabel("Nome utente").fill("anna");
+  await page.getByLabel("Password").fill(PASSWORD);
+  await page.getByRole("button", { name: "Entra" }).click();
+
+  // Sul computer la voce è nella barra laterale, sotto Impostazioni.
+  const nav = page.locator(".tabbar");
+  const settingsBox = await nav.getByRole("button", { name: "Impostazioni" }).boundingBox();
+  const adminBox = await nav.getByRole("button", { name: "Amministrazione" }).boundingBox();
+  expect(adminBox.y).toBeGreaterThan(settingsBox.y);
+  await nav.getByRole("button", { name: "Amministrazione" }).click();
+  const sheet = page.locator(".sheet.is-open");
+
+  // Fonti e archivio: il valore cambia subito e si può riportare al predefinito.
+  await sheet.getByRole("button", { name: /^Fonti e archivio/ }).click();
+  await sheet.getByLabel("Conserva gli articoli").selectOption("30");
+  await expect(page.locator(".toast")).toContainText("Conserva gli articoli: 30 giorni");
+  await expect(sheet.getByText("Scelto qui.")).toBeVisible();
+  await sheet.getByRole("button", { name: "Torna al valore predefinito" }).click();
+  await expect(sheet.getByLabel("Conserva gli articoli")).toHaveValue("90");
+
+  // Predefiniti per i nuovi utenti: tema scuro.
+  await sheet.getByRole("button", { name: "Indietro" }).click();
+  await sheet.getByRole("button", { name: /^Predefiniti per i nuovi utenti/ }).click();
+  await sheet.getByRole("group", { name: "Tema predefinito" }).getByRole("button", { name: "Scuro" }).click();
+  await expect(page.locator(".toast")).toContainText("vale per i nuovi utenti");
+
+  // Stato del sistema: versione e variabili che restano solo all'avvio.
+  await sheet.getByRole("button", { name: "Indietro" }).click();
+  await sheet.getByRole("button", { name: /^Stato del sistema/ }).click();
+  await expect(sheet.getByText("PUBLIC_URL")).toBeVisible();
+  await expect(sheet.getByText("FORWARDED_ALLOW_IPS")).toBeVisible();
+
+  // Chi non è amministratore non vede la voce.
+  const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: "it-IT" });
+  const other = await ctx.newPage();
+  await other.goto("/");
+  await other.getByLabel("Nome utente").fill("bruno");
+  await other.getByLabel("Password").fill(PASSWORD);
+  await other.getByRole("button", { name: "Entra" }).click();
+  await expect(other.locator(".tabbar").getByRole("button", { name: "Impostazioni" })).toBeVisible();
+  await expect(other.locator(".tabbar").getByRole("button", { name: "Amministrazione" })).toHaveCount(0);
   await ctx.close();
 });

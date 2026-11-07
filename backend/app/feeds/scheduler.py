@@ -100,7 +100,7 @@ SAVED = "EXISTS (SELECT 1 FROM user_articles ua WHERE ua.article_id = articles.i
 
 def cleanup(ctx) -> None:
     """Toglie gli articoli troppo vecchi, i feed che nessuno segue più e le sessioni scadute. I salvati restano sempre."""
-    limit = now() - ctx.settings.retention_days * 86400
+    limit = now() - ctx.instance.get("retention_days") * 86400
     with ctx.db.session() as conn, conn:
         conn.execute(f"DELETE FROM articles WHERE published_at < ? AND fetched_at < ? AND NOT {SAVED}", (limit, limit))
         orphan = "NOT EXISTS (SELECT 1 FROM subscriptions s WHERE s.feed_id = articles.feed_id)"

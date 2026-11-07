@@ -10,6 +10,7 @@ import asyncio
 import ipaddress
 import socket
 from dataclasses import dataclass, field
+from typing import Callable
 from email.utils import parsedate_to_datetime
 from urllib.parse import urlsplit, urlunsplit
 
@@ -119,9 +120,9 @@ def _is_private(ip: str) -> bool:
     return not addr.is_global
 
 
-async def check_destination(url: str, settings: Settings) -> None:
-    """Con BLOCK_PRIVATE_NETWORKS=true rifiuta gli indirizzi della rete locale."""
-    if not settings.block_private_networks:
+async def check_destination(url: str, block_private: bool) -> None:
+    """Se la rete locale è vietata (pannello di amministrazione o BLOCK_PRIVATE_NETWORKS), rifiuta i suoi indirizzi."""
+    if not block_private:
         return
     host = urlsplit(url).hostname or ""
     try:
@@ -134,13 +135,15 @@ async def check_destination(url: str, settings: Settings) -> None:
             raise FetchError("Impossibile raggiungere il sito: l'indirizzo non esiste.")
         addresses = [info[4][0] for info in infos]
     if any(_is_private(a) for a in addresses):
-        raise FetchError("Su questo server le fonti nella rete locale sono disattivate (BLOCK_PRIVATE_NETWORKS).")
+        raise FetchError("Su questo server le fonti nella rete locale sono disattivate dall'amministratore.")
 
 
-def make_client(settings: Settings) -> httpx.AsyncClient:
+def make_client(settings: Settings, block_private: Callable[[], bool] = lambda: False) -> httpx.AsyncClient:
+    """Client HTTP condiviso. block_private dice, a ogni richiesta, se la rete locale è vietata."""
+
     async def guard(request: httpx.Request) -> None:
         # Vale anche per ogni redirect, non solo per il primo indirizzo.
-        await check_destination(str(request.url), settings)
+        await check_destination(str(request.url), block_private())
 
     return httpx.AsyncClient(
         timeout=httpx.Timeout(TIMEOUT_SECONDS),

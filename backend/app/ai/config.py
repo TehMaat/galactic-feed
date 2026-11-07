@@ -5,7 +5,8 @@ Fornitori:
 - «openai»: OpenAI o un servizio cloud compatibile, con la sua chiave;
 - «anthropic»: Claude di Anthropic, con la sua chiave.
 
-La chiave API resta nel database del server e non torna mai indietro dalle API.
+La chiave API resta nel database del server, cifrata con data/secret.key (secretbox.py),
+e non torna mai indietro dalle API.
 """
 
 from __future__ import annotations
@@ -14,6 +15,7 @@ import sqlite3
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
+from .. import secretbox
 from ..db import get_setting, set_setting  # noqa: F401 (usate anche da api/ai.py)
 
 PROVIDERS = {
@@ -51,7 +53,7 @@ class AIConfig:
         return PROVIDERS[self.provider]["label"] if self.provider in PROVIDERS else ""
 
 
-def load(conn: sqlite3.Connection) -> AIConfig:
+def load(conn: sqlite3.Connection, secret: bytes) -> AIConfig:
     try:
         limit = int(get_setting(conn, PREFIX + "daily_limit", str(DEFAULT_DAILY_LIMIT)))
     except ValueError:
@@ -60,18 +62,28 @@ def load(conn: sqlite3.Connection) -> AIConfig:
         provider=get_setting(conn, PREFIX + "provider"),
         base_url=get_setting(conn, PREFIX + "base_url"),
         model=get_setting(conn, PREFIX + "model"),
-        api_key=get_setting(conn, PREFIX + "api_key"),
+        api_key=secretbox.decrypt(secret, get_setting(conn, PREFIX + "api_key")),
         daily_limit=limit,
     )
 
 
-def save(conn: sqlite3.Connection, cfg: AIConfig) -> None:
+def save(conn: sqlite3.Connection, cfg: AIConfig, secret: bytes) -> None:
     with conn:
         set_setting(conn, PREFIX + "provider", cfg.provider)
         set_setting(conn, PREFIX + "base_url", cfg.base_url)
         set_setting(conn, PREFIX + "model", cfg.model)
-        set_setting(conn, PREFIX + "api_key", cfg.api_key)
+        set_setting(conn, PREFIX + "api_key", secretbox.encrypt(secret, cfg.api_key))
         set_setting(conn, PREFIX + "daily_limit", str(cfg.daily_limit))
+
+
+def encrypt_stored_key(conn: sqlite3.Connection, secret: bytes) -> bool:
+    """All'avvio: cifra la chiave salvata in chiaro dalle versioni precedenti. Vero se l'ha fatto."""
+    stored = get_setting(conn, PREFIX + "api_key")
+    if not stored or secretbox.is_encrypted(stored):
+        return False
+    with conn:
+        set_setting(conn, PREFIX + "api_key", secretbox.encrypt(secret, stored))
+    return True
 
 
 def today() -> str:

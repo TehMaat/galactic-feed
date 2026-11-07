@@ -109,21 +109,34 @@ Se i permessi non vanno bene, il log lo dice con un messaggio chiaro e il comand
 
 ## Impostazioni
 
-Si impostano con le variabili d'ambiente nel `docker-compose.yml`.
+Quasi tutto si configura dall'app: **Amministrazione** (solo per gli amministratori) è nella barra laterale sotto Impostazioni, oppure, sul telefono, in Impostazioni → Amministrazione. Le modifiche valgono subito, senza riavviare.
+
+- **Utenti e inviti**: inviti, nuove password, permessi, validità dei link.
+- **Accesso**: durata delle sessioni con e senza «Ricordami».
+- **Fonti e archivio**: per quanti giorni tenere gli articoli, ogni quanto controllare le fonti nuove, fonti della rete di casa sì o no.
+- **AI**: fornitore, modello, chiave (salvata cifrata) e limite giornaliero.
+- **Predefiniti per i nuovi utenti**: tema, colore, font, Edizione e orari con cui parte chi si iscrive.
+- **Stato del sistema**: versione, spazio occupato, ultimo controllo dei feed, errori recenti, fuso orario.
+
+Ogni impostazione mostra da dove arriva il valore: scelto nell'app, dalla variabile d'ambiente o predefinito. Il valore scelto nell'app vale più della variabile d'ambiente, e si può riportare al predefinito.
+
+### Variabili d'ambiente
+
+Si scrivono nel `docker-compose.yml`. Le prime quattro servono prima dell'avvio e si cambiano **solo** qui (poi `docker compose up -d`); le altre sono un valore iniziale, che il pannello può cambiare.
 
 | Variabile | Predefinito | A cosa serve |
 |---|---|---|
-| `PUBLIC_URL` | `http://localhost:8080` | Indirizzo pubblico dell'app |
-| `TZ` | `Europe/Rome` | Fuso orario del server e del log |
+| `PUBLIC_URL` | `http://localhost:8080` | Indirizzo pubblico dell'app (solo all'avvio) |
+| `DATA_DIR` | `/data` | Cartella del database (solo all'avvio) |
+| `FORWARDED_ALLOW_IPS` | `*` | Da quali indirizzi accettare gli header `X-Forwarded-*`, vedi sotto (solo all'avvio) |
+| `LOG_LEVEL` | `info` | Dettaglio del log: `debug`, `info`, `warning` (solo all'avvio) |
+| `PORT` | `8080` | Porta interna del container (solo all'avvio) |
+| `TZ` | `Europe/Rome` | Fuso orario del log; per l'Edizione vale quello scelto nel pannello |
 | `RETENTION_DAYS` | `90` | Dopo quanti giorni si cancellano gli articoli non salvati |
 | `BLOCK_PRIVATE_NETWORKS` | `false` | Con `true` non si possono aggiungere fonti della rete di casa |
 | `REMEMBER_DAYS` | `90` | Durata di un accesso con «Ricordami», in giorni dall'ultimo utilizzo |
 | `SESSION_HOURS` | `12` | Senza «Ricordami»: dopo quante ore senza usare l'app bisogna rientrare |
-| `FORWARDED_ALLOW_IPS` | `*` | Da quali indirizzi accettare gli header `X-Forwarded-*` (vedi sotto) |
-| `LOG_LEVEL` | `info` | Dettaglio del log (`debug`, `info`, `warning`) |
-| `PORT` | `8080` | Porta interna del container |
-
-La durata delle sessioni si cambia anche dall'app, senza riavviare: **Impostazioni → Accesso e durata delle sessioni** (solo l'amministratore). Il valore scelto lì vale più della variabile d'ambiente.
+| `INVITE_HOURS` | `48` | Per quante ore valgono i link d'invito e quelli per una nuova password |
 
 ## Aspetto
 

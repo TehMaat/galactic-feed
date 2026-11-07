@@ -21,12 +21,12 @@ def status_payload(cfg: config.AIConfig) -> dict:
 
 
 @router.get("/ai/status")
-def ai_status(_: User = Depends(current_user), conn: sqlite3.Connection = Depends(get_db)):
-    return status_payload(config.load(conn))
+def ai_status(_: User = Depends(current_user), conn: sqlite3.Connection = Depends(get_db), ctx: AppContext = Depends(get_ctx)):
+    return status_payload(config.load(conn, ctx.secret))
 
 
-def admin_payload(conn: sqlite3.Connection) -> dict:
-    cfg = config.load(conn)
+def admin_payload(conn: sqlite3.Connection, secret: bytes) -> dict:
+    cfg = config.load(conn, secret)
     last_error = config.get_setting(conn, config.PREFIX + "last_error") or None
     return {
         "provider": cfg.provider,
@@ -45,8 +45,8 @@ def admin_payload(conn: sqlite3.Connection) -> dict:
 
 
 @router.get("/admin/ai")
-def get_ai_config(_: User = Depends(require_admin), conn: sqlite3.Connection = Depends(get_db)):
-    return admin_payload(conn)
+def get_ai_config(_: User = Depends(require_admin), conn: sqlite3.Connection = Depends(get_db), ctx: AppContext = Depends(get_ctx)):
+    return admin_payload(conn, ctx.secret)
 
 
 class AIConfigBody(BaseModel):
@@ -80,7 +80,7 @@ def put_ai_config(
     conn: sqlite3.Connection = Depends(get_db),
     ctx: AppContext = Depends(get_ctx),
 ):
-    current = config.load(conn)
+    current = config.load(conn, ctx.secret)
     defaults = config.PROVIDERS.get(body.provider, {})
     cfg = config.AIConfig(
         provider=body.provider,
@@ -91,19 +91,19 @@ def put_ai_config(
     )
     if body.provider == "ollama" and body.api_key is None:
         cfg.api_key = ""
-    config.save(conn, cfg)
+    config.save(conn, cfg, ctx.secret)
     config.set_error(conn, None)
     if ctx.relevance:
         ctx.relevance.paused_until = 0
     if ctx.scheduler:
         ctx.scheduler.wake()
-    return admin_payload(conn)
+    return admin_payload(conn, ctx.secret)
 
 
 @router.post("/admin/ai/test")
 async def test_ai(_: User = Depends(require_admin), ctx: AppContext = Depends(get_ctx)):
     with ctx.db.session() as conn:
-        cfg = config.load(conn)
+        cfg = config.load(conn, ctx.secret)
     if not cfg.enabled:
         raise HTTPException(status_code=422, detail="Completa la configurazione: fornitore, modello e chiave se serve.")
     schema = {
