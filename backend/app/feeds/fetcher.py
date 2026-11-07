@@ -18,6 +18,7 @@ from ..db import now
 from ..reading.dedupe import find_cluster
 from ..reading.matching import apply_new_articles
 from ..reading.text import title_key
+from . import geo
 from .extract import initial_full_status
 from .net import FetchError, fetch
 from .parser import Entry, NotAFeed, parse_feed
@@ -165,6 +166,15 @@ class Fetcher:
                     parsed.kind if parsed else None, feed["id"],
                 ),
             )
+            if parsed:
+                # Lingua e nazione proposte (#20): la correzione dell'amministratore resta a parte.
+                language, country = geo.detect(
+                    [parsed.site_url, feed["url"]], parsed.language, [e.title for e in parsed.entries[:40]]
+                )
+                conn.execute(
+                    "UPDATE feeds SET language = ?, country = ?, geo_checked_at = ? WHERE id = ?",
+                    (language, country, ts, feed["id"]),
+                )
             if got.permanent_redirect:
                 new_url = normalize_feed_url(got.permanent_redirect)
                 taken = conn.execute("SELECT 1 FROM feeds WHERE url = ? AND id != ?", (new_url, feed["id"])).fetchone()

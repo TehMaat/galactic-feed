@@ -47,6 +47,7 @@ class ParsedFeed:
     site_url: str
     kind: str
     entries: list[Entry] = field(default_factory=list)
+    language: str = ""  # come la dichiara il feed: «it», «en-US»…
 
 
 class NotAFeed(Exception):
@@ -134,7 +135,8 @@ def parse_feed(content: bytes, url: str, content_type: str = "") -> ParsedFeed:
                 text_length=len(text),
             )
         )
-    return ParsedFeed(title=feed_title, site_url=site_url, kind=kind, entries=entries)
+    language = (meta.get("language") or data.get("feed", {}).get("xml_lang") or "").strip()[:20]
+    return ParsedFeed(title=feed_title, site_url=site_url, kind=kind, entries=entries, language=language)
 
 
 def estimate_per_week(entries: list[Entry]) -> float | None:

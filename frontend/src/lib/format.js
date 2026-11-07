@@ -145,3 +145,45 @@ export function bytesLabel(n) {
   if (n < 1024 ** 3) return `${(n / 1024 ** 2).toFixed(1).replace(".", ",")} MB`;
   return `${(n / 1024 ** 3).toFixed(2).replace(".", ",")} GB`;
 }
+
+/** Il testo della corrispondenza: «Motori · Ferrari» per un gruppo di parole, altrimenti la parola trovata. */
+export function matchLabel(match) {
+  if (!match) return "";
+  return match.group && match.group !== match.keyword ? `${match.group} · ${match.keyword}` : match.keyword;
+}
+
+// ---------- Nazioni (#20) ----------
+
+/** Le nazioni proposte nelle scelte (le altre si possono comunque avere dalle fonti). */
+export const COUNTRIES = ["IT", "US", "GB", "FR", "DE", "ES", "CH", "AT", "BE", "NL", "PT", "IE", "SE", "NO", "DK", "FI", "PL", "GR",
+  "UA", "RU", "TR", "IL", "CA", "MX", "BR", "AR", "AU", "NZ", "JP", "CN", "KR", "IN", "ZA", "SM", "VA"];
+
+let regionNames;
+/** «IT» → «Italia». */
+export function countryName(code) {
+  if (!code) return "";
+  try {
+    regionNames ??= new Intl.DisplayNames(["it"], { type: "region" });
+    return regionNames.of(code) || code;
+  } catch {
+    return code;
+  }
+}
+
+/** «IT» → la bandierina (emoji). */
+export function flag(code) {
+  if (!code || !/^[A-Z]{2}$/.test(code)) return "";
+  return String.fromCodePoint(...[...code].map((c) => 127397 + c.charCodeAt(0)));
+}
+
+/** Data di una prossima uscita, nel fuso dell'Edizione: «oggi alle 07:30», «lunedì 9 novembre alle 07:30». */
+export function nextRun(iso, timeZone, now = Date.now()) {
+  if (!iso) return "";
+  const opts = timeZone ? { timeZone } : {};
+  const d = new Date(iso);
+  const dayOf = (t) => new Date(t).toLocaleDateString("en-CA", opts);
+  const time = d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit", ...opts });
+  if (dayOf(d) === dayOf(now)) return `oggi alle ${time}`;
+  if (dayOf(d) === dayOf(now + 86400000)) return `domani alle ${time}`;
+  return `${d.toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long", ...opts })} alle ${time}`;
+}

@@ -6,8 +6,8 @@
   import { folderColor } from "../lib/format.js";
   import { currentSubscription, disablePush, enablePush, isIos, isStandalone } from "../lib/push.js";
   import { api } from "../lib/api.js";
-  import { ACCENTS, FONTS, READ_FONTS, SIZES, initials, timeAgoLong } from "../lib/format.js";
-  import { data, logout, openSheet, savePrefs, session, toast, ui } from "../lib/store.svelte.js";
+  import { ACCENTS, FONTS, READ_FONTS, SIZES, countryName, initials, timeAgoLong } from "../lib/format.js";
+  import { data, editionConfigs, loadEditionConfigs, logout, openSheet, savePrefs, session, setEditionConfigs, toast, ui } from "../lib/store.svelte.js";
 
   let page = $state("main"); // main · password · sessions
   let sessions = $state([]);
@@ -79,19 +79,48 @@
     }
   }
   const edOn = $derived(Boolean(me?.prefs?.edition));
-  const times = $derived(me?.prefs?.edition_times || ["07:30"]);
-  let newTime = $state("19:00");
 
-  async function addTime() {
-    if (!newTime) return;
-    if (times.includes(newTime)) return toast(`L'edizione delle ${newTime} c'è già`);
-    if (await savePrefs({ edition_times: [...times, newTime] })) toast(`Nuova edizione alle ${newTime}`);
+  // ---- Edizioni (#18, #19) ----
+  $effect(() => {
+    if (ui.sheet === "settings") loadEditionConfigs();
+  });
+
+  function ruleSummary(c) {
+    const parts = [];
+    const tagNames = c.rules.tags.map((id) => data.tags.find((t) => t.id === id)?.name).filter(Boolean).map((n) => "#" + n);
+    parts.push(...tagNames);
+    parts.push(...c.rules.countries.map((code) => countryName(code)));
+    parts.push(...c.rules.folders.map((f) => (f === "none" ? "Senza cartella" : data.folders.find((x) => String(x.id) === f)?.name)).filter(Boolean));
+    parts.push(...c.rules.groups.map((id) => data.interests.groups?.find((g) => g.id === id)?.name).filter(Boolean));
+    return parts.length ? parts.join(", ") : "tutte le notizie";
   }
 
-  async function removeTime(t) {
-    if (times.length === 1) return toast("Serve almeno un orario, oppure spegni l'Edizione");
-    if (await savePrefs({ edition_times: times.filter((x) => x !== t) })) toast(`Edizione delle ${t} tolta`);
+  async function toggleConfig(c) {
+    try {
+      await setEditionConfigs(await api(`/edition-configs/${c.id}`, { method: "PATCH", body: { active: !c.active } }));
+      toast(c.active ? `«${c.name}» spenta` : `«${c.name}» accesa`);
+    } catch (err) {
+      toast(err.message);
+    }
   }
+
+  async function newConfig() {
+    try {
+      const r = await api("/edition-configs", { method: "POST", body: {} });
+      await setEditionConfigs(r);
+      openSheet("edition-config", r.configs.at(-1));
+    } catch (err) {
+      toast(err.message);
+    }
+  }
+
+  const ZONES = (() => {
+    try {
+      return Intl.supportedValuesOf("timeZone");
+    } catch {
+      return ["Europe/Rome", "Europe/London", "Europe/Paris", "America/New_York", "America/Los_Angeles", "Asia/Tokyo", "UTC"];
+    }
+  })();
   const theme = $derived(me?.prefs?.theme || "auto");
   const accent = $derived(me?.prefs?.accent || "galassia");
   const systemAccent = typeof CSS !== "undefined" && CSS.supports?.("color", "AccentColor");
@@ -174,29 +203,25 @@
       </div>
       <p class="set-note">Ogni utente ha fonti, interessi, letti e salvati propri. I feed in comune vengono scaricati una volta sola.</p>
 
-      <div class="set-label">Edizione</div>
+      <div class="set-label">Edizioni</div>
       <div class="set-group">
-        <div class="set-row"><span>Componi l'Edizione</span>
-          <button type="button" class="switch" role="switch" aria-checked={edOn} aria-label="Componi l'Edizione" onclick={() => savePrefs({ edition: !edOn })}></button>
-        </div>
-        {#if edOn}
-          <div class="set-block">
-            <span class="label">Orari</span>
-            <div class="tags">
-              {#each times as t (t)}
-                <button type="button" class="tag mono" aria-label="Togli l'edizione delle {t}" onclick={() => removeTime(t)}>{t}<Icon name="close" /></button>
-              {/each}
-              {#if times.length < 6}
-                <span class="time-add">
-                  <input type="time" class="input time-input" aria-label="Nuovo orario" bind:value={newTime} />
-                  <button type="button" class="tag" onclick={addTime}><Icon name="plus" />Orario</button>
-                </span>
-              {/if}
-            </div>
+        {#each editionConfigs.list as c (c.id)}
+          <div class="set-row">
+            <button type="button" class="preset-name" onclick={() => openSheet("edition-config", c)}>
+              <b>{c.name}</b><small>{c.description} · {ruleSummary(c)}</small>
+            </button>
+            <button type="button" class="switch" role="switch" aria-checked={c.active} aria-label="Edizione {c.name} attiva" onclick={() => toggleConfig(c)}></button>
           </div>
-        {/if}
+        {/each}
+        <button type="button" class="link-row" onclick={newConfig}><Icon name="plus" />{editionConfigs.list.length ? "Nuova Edizione" : "Crea la tua Edizione"}</button>
+        <div class="set-row"><label for="user-tz">Fuso orario</label>
+          <select class="input" id="user-tz" value={me.prefs.timezone || ""} onchange={(e) => savePrefs({ timezone: e.target.value }).then(loadEditionConfigs)}>
+            <option value="">Come il server</option>
+            {#each ZONES as z}<option value={z}>{z}</option>{/each}
+          </select>
+        </div>
       </div>
-      <p class="set-note">{edOn ? "Una selezione delle notizie per te a ogni orario, da leggere nell'app (niente email)." : "Senza Edizione la schermata Oggi mostra solo il Flusso."}</p>
+      <p class="set-note">{editionConfigs.list.length ? "Ogni Edizione è una selezione delle notizie con nome, regole (tag, cartelle, nazioni, gruppi di parole) e uscite proprie: ogni giorno, in alcuni giorni della settimana o una volta al mese. Si leggono in Oggi." : "Una selezione delle notizie per te, agli orari che scegli, da leggere nell'app (niente email). Senza Edizioni, Oggi mostra solo il Flusso."}</p>
 
       <div class="set-label">Notifiche</div>
       <div class="set-group">

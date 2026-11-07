@@ -15,8 +15,8 @@ backend/                  Server Python (FastAPI)
     db.py + migrations/   SQLite, schema versionato con file .sql numerati
     security.py           password argon2, sessioni, protezione CSRF
     api/                  un file per area: auth, admin, folders, sources, opml, articles, interests, images
-    feeds/                discovery, fetcher, parser, youtube, extract (testo completo), icons, sanitize, scheduler
-    reading/              matching (interessi e silenziati), dedupe (doppioni), query, edition (Edizione)
+    feeds/                discovery, fetcher, parser, youtube, extract (testo completo), icons, geo (nazione e lingua), sanitize, scheduler
+    reading/              matching (interessi e silenziati), presets (gruppi pronti), tagging (tag proposti), dedupe (doppioni), query, edition e schedule (Edizioni)
     ai/                   configurazione, fornitori (Ollama/OpenAI, Anthropic), filtro AI, riassunti
     push/                 Web Push (VAPID, cifratura) e regole delle notifiche
     hooks.py              agganci tra le parti: nuovi articoli, Edizione pronta
@@ -69,10 +69,15 @@ I contenuti dei feed sono **condivisi**: un feed seguito da tre utenti si scaric
 **Interessi**
 - `interests` (per utente): parola chiave, priorità (alta / media / spento)
 - `muted_words` (per utente): parola
-- `user_matches` (per utente): esito delle regole su ogni articolo (interesse o tema dell'AI e priorità, oppure silenziato; `source` dice se viene dalle parole o dall'AI). Calcolato all'arrivo degli articoli, quando l'utente cambia le regole e quando l'AI valuta nuovi articoli, così filtri e contatori sono semplici query
+- `preset_groups` (condivisa): gruppi di parole pronti, forniti con l'app (`builtin`, si nascondono soltanto) o aggiunti dall'amministratore
+- `word_groups` e `word_group_words` (per utente): gruppi di parole propri o copiati da un gruppo pronto, spenti, accesi come interesse (con priorità) o come silenziatore
+- `tags` (per utente): nome, colore, posizione, chip nel Flusso sì/no
+- `source_tags` (per utente, tramite la fonte): tag della fonte con `origin` = `auto` (proposto), `user` (scelto) o `rejected` (proposto e tolto: non torna)
+- `user_matches` (per utente): esito delle regole su ogni articolo (interesse o tema dell'AI e priorità, oppure silenziato; `source` dice se viene dalle parole o dall'AI; `group_id` il gruppo di parole che ha trovato l'articolo). Calcolato all'arrivo degli articoli, quando l'utente cambia le regole e quando l'AI valuta nuovi articoli, così filtri e contatori sono semplici query
 
 **Seconda versione**
-- `editions` ed `edition_items` (per utente): numero, orario, notizie e sezioni di ogni Edizione (si tengono le ultime 60)
+- `edition_configs` (per utente): le Edizioni, con nome, attiva sì/no, regole (tag, cartelle, nazioni, gruppi di parole), pianificazione (giornaliera, settimanale, mensile), numero massimo di notizie, periodo coperto, notifica
+- `editions` ed `edition_items` (per utente): le uscite, con l'Edizione (`config_id`) e il numero dentro di lei, orario, notizie e sezioni (si tengono le ultime 60 di ogni Edizione)
 - `app_settings`: configurazione dell'AI (fornitore, indirizzo, modello, chiave, tetto giornaliero, ultimo errore)
 - `ai_usage`: richieste e token al giorno
 - `ai_matches` (per utente): esito dell'AI per articolo, anche «non pertinente», così ogni articolo si valuta una volta sola
@@ -101,8 +106,10 @@ Tutti sotto `/api`; salvo `auth`, `invites` e `health` richiedono l'accesso. Gli
 | Fonti | `POST sources/discover` · `GET`/`POST sources` · `PATCH`/`DELETE sources/{id}` · `POST sources/{id}/refresh` · `POST sources/refresh` · `PUT sources/{id}/icon` · `POST sources/{id}/icon/refresh` |
 | OPML | `POST opml/import` · `GET opml/export` |
 | Articoli | `GET articles` (filtri `tutti`, `perte`, `nonletti`, `video`, `salvati`, cartella, fonte, ricerca, cursore) · `GET articles/counts` · `GET articles/{id}` · `PUT`/`DELETE articles/{id}/read` · `PUT`/`DELETE articles/{id}/saved` · `POST articles/mark-read` · `POST articles/sync` |
-| Interessi | `GET interests` · `POST`/`PATCH`/`DELETE interests/keywords[/{id}]` · `POST`/`DELETE interests/muted[/{id}]` · `GET interests/preview` |
-| Edizione | `GET editions/latest` · `GET editions/{id}` · `POST editions` (componi adesso) |
+| Interessi | `GET interests` (con gruppi e gruppi pronti) · `POST`/`PATCH`/`DELETE interests/keywords[/{id}]` · `POST`/`DELETE interests/muted[/{id}]` · `GET interests/preview` · `POST groups` · `PATCH`/`DELETE groups/{id}` |
+| Tag | `GET`/`POST tags` · `PATCH`/`DELETE tags/{id}` · `PUT tags/order` · `POST tags/{id}/merge` · `PUT sources/{id}/tags` · `POST sources/{id}/tags/suggest` |
+| Edizioni | `GET`/`POST edition-configs` · `PATCH`/`DELETE edition-configs/{id}` · `POST edition-configs/{id}/duplicate` · `PUT edition-configs/order` · `POST edition-configs/preview` · `GET editions/latest[?config=]` · `GET editions/{id}` · `POST editions` (componi adesso) |
+| Admin (2) | `GET`/`POST admin/presets` · `PATCH`/`DELETE admin/presets/{id}` (gruppi pronti) · `GET admin/feeds` · `PATCH admin/feeds/{id}` (nazione dei feed) |
 | AI | `GET ai/status` · `GET`/`PUT admin/ai` · `POST admin/ai/test` · `POST articles/{id}/summary` |
 | Notifiche | `GET push/key` · `GET`/`POST`/`DELETE push/subscriptions` · `POST push/test` |
 | Immagini | `GET img?u=…&s=…` (proxy firmato) |
@@ -127,7 +134,10 @@ Fuori da `/api`: la PWA, `/manifest.webmanifest`, `/sw.js`, `/icons/*`. Devono r
   - Un indice in IndexedDB dice quali articoli sono salvati e quando sono stati letti: oltre i 300 letti si tolgono i più vecchi, con le loro immagini. I salvati fatti su un altro dispositivo vengono scaricati da soli all'apertura dell'app.
   - Letto e salvato fatti senza rete vanno in una coda in IndexedDB, inviata a `POST articles/sync` quando torna la rete, quando si riapre l'app e ogni minuto. Non si usa la sincronizzazione in background dei service worker, che su iPhone non c'è.
   - All'uscita, o se entra un altro account, le copie e la coda si cancellano dal dispositivo.
-- **Edizione**: a ogni orario scelto (nel fuso dell'istanza, scelto nel pannello o `TZ`) lo scheduler compone una selezione delle notizie pubblicate dall'edizione precedente: prima quelle «per te» (priorità alta in primo piano), raggruppate per cartella; se sono meno di 3 si aggiungono le ultime di ogni fonte. Se il server era spento all'orario, la compone appena riparte.
+- **Edizioni** (`reading/edition.py`, `reading/schedule.py`): ogni utente ne può avere più d'una. A ogni uscita (nel fuso dell'utente, o in quello dell'istanza) lo scheduler compone una selezione delle notizie pubblicate dall'uscita precedente della stessa Edizione, con un limite che dipende dalla pianificazione (2, 8 o 32 giorni). Senza regole entrano prima quelle «per te» (priorità alta in primo piano), raggruppate per cartella, e se sono meno di 3 le ultime di ogni fonte; con le regole entrano quelle che le rispettano (E tra tipi diversi, O dentro lo stesso tipo), prima quelle per te. Le date tengono conto dell'ora legale e dei mesi brevi (il 31 diventa l'ultimo giorno). Se il server era spento all'orario, l'uscita si compone appena riparte. L'Edizione delle versioni precedenti diventa «La mia Edizione» al primo uso.
+- **Gruppi di parole** (`api/groups.py`, `reading/presets.py`): le parole dei gruppi accesi valgono come interessi o parole silenziate in `matching.py`; i gruppi pronti si aggiungono all'avvio solo se mancano, così le modifiche dell'amministratore restano.
+- **Tag delle fonti** (`reading/tagging.py`): proposti all'aggiunta della fonte, o dallo scheduler per quelle importate con l'OPML, dai gruppi pronti che ricorrono nei titoli recenti e dalle categorie frequenti del feed.
+- **Nazione e lingua** (`feeds/geo.py`): lingua dichiarata dal feed o dedotta dalle parole dei titoli; nazione dal dominio nazionale, dalla regione della lingua o dalla lingua. Vale, in quest'ordine: la scelta dell'utente (`subscriptions.country`), la correzione dell'amministratore (`feeds.country_admin`), la proposta (`feeds.country`).
 - **AI** (facoltativa): la configura l'amministratore, locale (Ollama o un server compatibile con OpenAI) o cloud (Anthropic con l'SDK ufficiale, oppure OpenAI), con un tetto di richieste al giorno. Ogni utente sceglie parole chiave, AI o entrambi e descrive i suoi interessi. Lo scheduler manda al modello gli articoli delle ultime 48 ore a lotti di 20, con risposta in JSON strutturato; dopo un errore si ferma 15 minuti. Con Claude si usa effort basso e, sui modelli che lo permettono, il ripiego lato server se il modello rifiuta una richiesta. I riassunti (tre punti) si scrivono alla prima apertura di un articolo lungo e valgono per tutti.
 - **Notifiche**: Web Push standard. Chiavi VAPID create al primo avvio in `data/vapid.pem`; contenuto cifrato (RFC 8291), così i servizi push dei browser non lo leggono. Si accettano solo gli indirizzi dei servizi push di Google, Mozilla, Apple e Microsoft. Per ogni utente: le notizie «per te» nelle cartelle importanti, non lette e mai notificate, in una notifica sola, al massimo una ogni 10 minuti; più, a scelta, l'Edizione pronta. Il numero di non letti va sull'icona dell'app (Badging API).
 - **Reti locali**: le fonti possono stare sulla rete di casa; l'amministratore lo può vietare dal pannello (o con `BLOCK_PRIVATE_NETWORKS=true`). Il controllo vale per ogni richiesta, compresi i redirect.

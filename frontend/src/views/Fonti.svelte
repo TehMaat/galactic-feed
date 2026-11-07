@@ -2,16 +2,26 @@
   import Icon from "../components/Icon.svelte";
   import { api } from "../lib/api.js";
   import SourceIcon from "../components/SourceIcon.svelte";
-  import { KIND_LABEL, intervalLabel, since, sourceColor } from "../lib/format.js";
+  import { KIND_LABEL, countryName, flag, folderColor, intervalLabel, since, sourceColor } from "../lib/format.js";
   import { data, foldersById, loadAll, openSheet, toast } from "../lib/store.svelte.js";
 
   let { active } = $props();
   let fileInput = $state();
   let importing = $state(false);
 
+  // Filtro per nazione (#20), quando le fonti sono di più nazioni.
+  let country = $state(null);
+  const countries = $derived.by(() => {
+    const n = {};
+    for (const s of data.sources) if (s.country) n[s.country] = (n[s.country] || 0) + 1;
+    return Object.entries(n).sort((a, b) => b[1] - a[1]);
+  });
+  const shown = $derived(country ? data.sources.filter((s) => s.country === country) : data.sources);
+
   const groups = $derived.by(() => {
-    const out = data.folders.map((f) => ({ folder: f, sources: data.sources.filter((s) => s.folder_id === f.id) }));
-    const loose = data.sources.filter((s) => s.folder_id === null || !foldersById()[s.folder_id]);
+    const out = data.folders.map((f) => ({ folder: f, sources: shown.filter((s) => s.folder_id === f.id) }));
+    if (country) for (let i = out.length - 1; i >= 0; i--) if (!out[i].sources.length) out.splice(i, 1);
+    const loose = shown.filter((s) => s.folder_id === null || !foldersById()[s.folder_id]);
     if (loose.length) out.push({ folder: null, sources: loose });
     return out;
   });
@@ -20,7 +30,7 @@
   function subtitle(s) {
     if (s.status === "pending") return "In attesa del primo controllo";
     if (s.error) return `${s.error.replace(/\.$/, "")} · ${since(s.error_since)}`;
-    return `${KIND_LABEL[s.kind]} · ogni ${intervalLabel(s.interval_min)}`;
+    return `${s.country ? flag(s.country) + " " : ""}${KIND_LABEL[s.kind]} · ogni ${intervalLabel(s.interval_min)}`;
   }
 
   function dot(s) {
@@ -74,6 +84,15 @@
     </div>
   {/if}
 
+  {#if countries.length > 1}
+    <div class="chips" role="toolbar" aria-label="Nazioni delle fonti">
+      <button type="button" class="chip" aria-pressed={country === null} onclick={() => (country = null)}>Tutte<span class="n">{data.sources.length}</span></button>
+      {#each countries as [code, n] (code)}
+        <button type="button" class="chip" aria-pressed={country === code} onclick={() => (country = country === code ? null : code)}>{flag(code)} {countryName(code)}<span class="n">{n}</span></button>
+      {/each}
+    </div>
+  {/if}
+
   {#if data.loaded && data.sources.length === 0}
     <div class="empty">
       <Icon name="rss" />
@@ -101,6 +120,9 @@
             <span class="src-text">
               <span class="src-name">{s.title}</span>
               <span class="src-sub"><span class="status-dot {dot(s)}"></span>{subtitle(s)}</span>
+              {#if s.tags?.length}
+                <span class="src-tags">{#each s.tags as t (t.id)}<span class="src-tag" style="--topic-c:{folderColor(t.color)}">{t.name}</span>{/each}</span>
+              {/if}
             </span>
             <span class="unread">{s.unread}</span>
           </div>
@@ -119,6 +141,7 @@
       <a class="link-row" href="/api/opml/export" download><Icon name="download" />Esporta le fonti (OPML)</a>
     {/if}
     <button type="button" class="link-row" onclick={() => openSheet("folder", null)}><Icon name="folder" />Nuova cartella</button>
+    <button type="button" class="link-row" onclick={() => openSheet("tags")}><span class="link-hash">#</span>Tag delle fonti{#if data.tags.length}<span class="val">{data.tags.length}</span>{/if}</button>
   </div>
   <input bind:this={fileInput} type="file" accept=".opml,.xml,text/xml,text/x-opml,application/xml" hidden onchange={importOpml} />
 </section>

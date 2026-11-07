@@ -8,7 +8,7 @@ import sqlite3
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
 
 from ..db import iso, now
 from ..deps import AppContext, User, current_user, get_ctx, get_db
@@ -16,9 +16,11 @@ from ..feeds.discovery import NothingFound, discover
 from ..feeds.icons import check_image
 from ..feeds.net import FetchError, normalize_input_url
 from ..feeds.sanitize import normalize_feed_url
+from ..reading import tagging
 from ..reading.matching import recompute_feed_for_user
 from .folders import check_folder
 from .images import proxied_icon, source_icon
+from .tags import set_source_tags, tags_by_source
 
 router = APIRouter(prefix="/api/sources", tags=["fonti"])
 
@@ -109,6 +111,7 @@ def source_status(row: sqlite3.Row) -> str:
 SOURCE_SELECT = (
     "SELECT s.id, s.feed_id, s.folder_id, s.title AS custom_title, s.interval_min, s.created_at,"
     " s.icon_mode, s.icon_custom, f.icon_url, f.icon_checked_at,"
+    " f.language, f.country AS country_auto, f.country_admin, s.country AS country_user,"
     " f.url, f.kind, f.title AS feed_title, f.site_url, f.last_fetch_at, f.last_success_at, f.next_fetch_at,"
     " f.error_message, f.error_since, f.error_count, f.last_status,"
     " (SELECT COUNT(*) FROM articles a WHERE a.feed_id = f.id) AS articles,"
@@ -120,7 +123,7 @@ SOURCE_SELECT = (
 )
 
 
-def source_payload(row: sqlite3.Row, secret: bytes) -> dict:
+def source_payload(row: sqlite3.Row, secret: bytes, tags: list[dict] | None = None) -> dict:
     return {
         "id": row["id"],
         "feed_id": row["feed_id"],
@@ -148,6 +151,26 @@ def source_payload(row: sqlite3.Row, secret: bytes) -> dict:
         "icon_custom": row["icon_custom"] or None,
         "icon_auto": proxied_icon(secret, row["icon_url"]),
         "icon_checked_at": iso(row["icon_checked_at"]),
+        # Tag dell'utente su questa fonte; origin «auto» per quelli proposti dall'app.
+        "tags": tags or [],
+        # Nazione (#20): quella che vale per l'utente e da dove arriva (user, admin, auto).
+        **country_info(row),
+        "language": row["language"] or None,
+    }
+
+
+def country_info(row: sqlite3.Row) -> dict:
+    if row["country_user"] is not None:
+        country, origin = row["country_user"], "user"
+    elif row["country_admin"] is not None:
+        country, origin = row["country_admin"], "admin"
+    else:
+        country, origin = row["country_auto"], "auto"
+    return {
+        "country": country or None,
+        "country_origin": origin,
+        "country_auto": row["country_auto"] or None,
+        "country_admin": row["country_admin"],
     }
 
 
@@ -163,7 +186,13 @@ def list_sources(conn: sqlite3.Connection, user_id: int, secret: bytes) -> list[
         SOURCE_SELECT + " WHERE s.user_id = ? ORDER BY COALESCE(NULLIF(s.title, ''), NULLIF(f.title, ''), f.url) COLLATE NOCASE",
         (user_id,),
     ).fetchall()
-    return [source_payload(r, secret) for r in rows]
+    tags = tags_by_source(conn, user_id)
+    return [source_payload(r, secret, tags.get(r["id"])) for r in rows]
+
+
+def one_source(conn: sqlite3.Connection, user_id: int, source_id: int, secret: bytes) -> dict:
+    row = get_source(conn, user_id, source_id)
+    return source_payload(row, secret, tags_by_source(conn, user_id, [source_id]).get(source_id))
 
 
 # ---------- Endpoint ----------
@@ -245,15 +274,34 @@ async def add_source(
         source_id = subscribe(conn, user.id, feed_id, body.folder_id, title, interval)
     if source_id is None:
         raise HTTPException(status_code=409, detail="Segui già questa fonte.")
+    # Tag proposti subito, dagli articoli appena scaricati (se l'utente li vuole).
+    if tagging.wants_auto_tags(conn, user.id):
+        tagging.apply_suggestions(conn, source_id)
     # Lo scheduler cerca subito anche l'icona del sito.
     ctx.scheduler.wake()
-    return {"source": source_payload(get_source(conn, user.id, source_id), ctx.secret)}
+    return {"source": one_source(conn, user.id, source_id, ctx.secret)}
 
 
 class SourcePatch(BaseModel):
     title: str | None = None
     folder_id: int | None = None
     interval_min: int | None = None
+    # Nazione scelta dall'utente per sé: «IT», "" (nessuna) oppure null (torna a quella automatica).
+    country: str | None = None
+
+    @field_validator("country")
+    @classmethod
+    def _country(cls, v: str | None) -> str | None:
+        return check_country(v)
+
+
+def check_country(v: str | None) -> str | None:
+    if v is None:
+        return None
+    v = v.strip().upper()
+    if v and not (len(v) == 2 and v.isalpha()):
+        raise ValueError("Nazione non valida: usa il codice di due lettere, per esempio IT.")
+    return v
 
 
 @router.patch("/{source_id}")
@@ -269,13 +317,14 @@ def update_source(
         check_folder(conn, user.id, body.folder_id)
         folder_id = body.folder_id
     interval = row["interval_min"] if body.interval_min is None else check_interval(body.interval_min)
+    country = body.country if "country" in fields else row["country_user"]
     with conn:
         conn.execute(
-            "UPDATE subscriptions SET title = ?, folder_id = ?, interval_min = ? WHERE id = ?",
-            (title, folder_id, interval, source_id),
+            "UPDATE subscriptions SET title = ?, folder_id = ?, interval_min = ?, country = ? WHERE id = ?",
+            (title, folder_id, interval, country, source_id),
         )
         recompute_interval(conn, row["feed_id"])
-    return {"source": source_payload(get_source(conn, user.id, source_id), ctx.secret)}
+    return {"source": one_source(conn, user.id, source_id, ctx.secret)}
 
 
 @router.delete("/{source_id}")
@@ -297,7 +346,7 @@ async def refresh_source(
     row = get_source(conn, user.id, source_id)
     outcome = await ctx.fetcher.fetch_feed(row["feed_id"])
     ctx.scheduler.wake()
-    return {"source": source_payload(get_source(conn, user.id, source_id), ctx.secret), "new_articles": outcome.new}
+    return {"source": one_source(conn, user.id, source_id, ctx.secret), "new_articles": outcome.new}
 
 
 # ---------- Icona ----------
@@ -333,7 +382,7 @@ async def set_icon(
             " WHERE id = ?",
             (body.mode, body.mode, custom, source_id),
         )
-    return {"source": source_payload(get_source(conn, user.id, source_id), ctx.secret)}
+    return {"source": one_source(conn, user.id, source_id, ctx.secret)}
 
 
 @router.post("/{source_id}/icon/refresh")
@@ -344,7 +393,7 @@ async def refresh_icon(
     """Ripete subito la ricerca automatica dell'icona del sito (vale per chi segue lo stesso feed)."""
     row = get_source(conn, user.id, source_id)
     found = await ctx.icons.refresh(row["feed_id"])
-    return {"source": source_payload(get_source(conn, user.id, source_id), ctx.secret), "found": bool(found)}
+    return {"source": one_source(conn, user.id, source_id, ctx.secret), "found": bool(found)}
 
 
 @router.post("/refresh")
@@ -373,3 +422,36 @@ async def refresh_all(
         "new_articles": sum(o.new for o in outcomes),
         "errors": sum(1 for o in outcomes if not o.ok),
     }
+
+
+# ---------- Tag ----------
+
+
+class SourceTags(BaseModel):
+    tags: list[str] = Field(default_factory=list, max_length=30)
+
+
+@router.put("/{source_id}/tags")
+def put_source_tags(
+    source_id: int, body: SourceTags, user: User = Depends(current_user), conn: sqlite3.Connection = Depends(get_db),
+    ctx: AppContext = Depends(get_ctx),
+):
+    """I tag della fonte scelti dall'utente (per nome; quelli nuovi si creano)."""
+    get_source(conn, user.id, source_id)
+    try:
+        with conn:
+            set_source_tags(conn, user.id, source_id, body.tags)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    return {"source": one_source(conn, user.id, source_id, ctx.secret)}
+
+
+@router.post("/{source_id}/tags/suggest")
+def suggest_source_tags(
+    source_id: int, user: User = Depends(current_user), conn: sqlite3.Connection = Depends(get_db),
+    ctx: AppContext = Depends(get_ctx),
+):
+    """Ripete la proposta automatica dei tag (senza rimettere quelli tolti dall'utente)."""
+    get_source(conn, user.id, source_id)
+    added = tagging.apply_suggestions(conn, source_id)
+    return {"source": one_source(conn, user.id, source_id, ctx.secret), "added": added}

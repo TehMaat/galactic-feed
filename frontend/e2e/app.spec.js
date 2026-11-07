@@ -248,13 +248,17 @@ test("Edizione: si accende dalle Impostazioni e si compone", async ({ page }) =>
   await page.getByRole("button", { name: "Entra" }).click();
   await expect(page.locator("section[aria-label='Oggi'] .card").first()).toBeVisible();
 
+  // Impostazioni → Edizioni: «Crea la tua Edizione» apre la sua scheda (ogni giorno alle 07:30).
   await page.getByRole("button", { name: "Impostazioni" }).click();
-  await page.getByRole("switch", { name: "Componi l'Edizione" }).click();
-  await expect(page.locator(".sheet.is-open .tag.mono")).toHaveText(["07:30"]);
-  await page.getByLabel("Nuovo orario").fill("21:15");
-  await page.locator(".sheet.is-open").getByRole("button", { name: "Orario" }).click();
-  await expect(page.locator(".sheet.is-open .tag.mono")).toHaveText(["07:30", "21:15"]);
-  await page.locator(".sheet.is-open").getByRole("button", { name: "Chiudi" }).click();
+  await page.locator(".sheet.is-open").getByRole("button", { name: "Crea la tua Edizione" }).click();
+  const edSheet = page.locator(".sheet.is-open");
+  await expect(edSheet.locator("h3")).toHaveText("La mia Edizione");
+  await expect(edSheet.locator(".tag.mono")).toHaveText(["07:30"]);
+  await edSheet.getByLabel("Nuovo orario").fill("21:15");
+  await edSheet.getByRole("button", { name: "Orario", exact: true }).click();
+  await expect(edSheet.locator(".tag.mono")).toHaveText(["07:30", "21:15"]);
+  await expect(edSheet.locator(".preview")).toContainText("con queste regole");
+  await edSheet.getByRole("button", { name: "Chiudi" }).click();
 
   // La prima la compone il server al giro successivo; qui la chiediamo subito.
   const oggi = page.locator("section[aria-label='Oggi']");
@@ -267,6 +271,25 @@ test("Edizione: si accende dalle Impostazioni e si compone", async ({ page }) =>
   await expect(page.locator(".reader.is-open .reader-title")).toHaveText("Perché le prossime missioni lunari puntano tutte al polo sud");
   await page.locator(".reader.is-open").getByRole("button", { name: "Indietro" }).click();
   await expect(oggi.locator(".hero")).toHaveClass(/is-read/);
+
+  // Una seconda Edizione, settimanale, con una regola: compare il selettore in Oggi.
+  await page.getByRole("button", { name: "Impostazioni" }).click();
+  await page.locator(".sheet.is-open").getByRole("button", { name: "Nuova Edizione" }).click();
+  await edSheet.getByLabel("Nome").fill("Spazio del lunedì");
+  await edSheet.getByLabel("Nome").press("Enter");
+  await edSheet.getByLabel("Nome").blur();
+  await expect(page.locator(".toast")).toContainText("Nome aggiornato");
+  await edSheet.getByRole("group", { name: "Ricorrenza" }).getByRole("button", { name: "Ogni settimana" }).click();
+  await expect(edSheet.locator(".hint").first()).toContainText("lunedì alle 07:30");
+  await edSheet.getByRole("group", { name: "Giorni della settimana" }).getByRole("button", { name: "venerdì" }).click();
+  await expect(edSheet.locator(".hint").first()).toContainText("lunedì e venerdì alle 07:30");
+  await edSheet.getByRole("button", { name: "Spazio", exact: true }).click();
+  await expect(edSheet.locator(".preview")).toContainText("con queste regole");
+  await edSheet.getByRole("button", { name: "Componi adesso" }).click();
+  await expect(oggi.getByRole("tablist", { name: "Edizioni" }).getByRole("tab")).toHaveText(["Spazio del lunedì", "La mia Edizione"]);
+  await expect(oggi.locator(".masthead .mast-kicker")).toHaveText("Spazio del lunedì · n. 1");
+  await oggi.getByRole("tablist", { name: "Edizioni" }).getByRole("tab", { name: "La mia Edizione" }).click();
+  await expect(oggi.locator(".masthead .mast-kicker")).toHaveText("La mia Edizione · n. 1");
 
   // Il Flusso resta a un tocco.
   await oggi.getByRole("tab", { name: "Flusso" }).click();
@@ -396,8 +419,14 @@ test("icone delle fonti, logo, «Ricordami» e aspetto", async ({ browser }) => 
   // In fondo alle Impostazioni c'è la versione in uso (dal file VERSION).
   const version = fs.readFileSync(path.join(path.dirname(new URL(import.meta.url).pathname), "..", "..", "VERSION"), "utf8").trim();
   await expect(page.locator(".sheet.is-open .app-version")).toHaveText(`Galactic Feed versione ${version}`);
+  // Si aspetta che ogni scelta arrivi al server prima di ricaricare la pagina.
+  const saved = () => page.waitForResponse((r) => r.url().endsWith("/api/me") && r.request().method() === "PATCH");
+  let save = saved();
   await sheetClick(page, "Viola");
+  await save;
+  save = saved();
   await page.getByRole("group", { name: "Font", exact: true }).getByRole("button", { name: "Sistema" }).click();
+  await save;
   // Il colore vero dipende dal tema in uso: variante chiara o scura del viola.
   const look = () => page.evaluate(() => {
     const root = document.documentElement;
@@ -456,4 +485,65 @@ test("pannello di amministrazione: impostazioni dell'istanza e predefiniti", asy
   await expect(other.locator(".tabbar").getByRole("button", { name: "Impostazioni" })).toBeVisible();
   await expect(other.locator(".tabbar").getByRole("button", { name: "Amministrazione" })).toHaveCount(0);
   await ctx.close();
+});
+
+test("gruppi di parole: un gruppo pronto acceso come interesse con un tocco", async ({ page }) => {
+  await page.setViewportSize(PHONE);
+  await page.goto("/");
+  await page.getByLabel("Nome utente").fill("anna");
+  await page.getByLabel("Password").fill(PASSWORD);
+  await page.getByRole("button", { name: "Entra" }).click();
+  await page.locator(".tabbar").getByRole("button", { name: "Interessi" }).click();
+  const interessi = page.locator("section[aria-label='Interessi']");
+  // Un test precedente ha scelto l'AI: qui servono le parole chiave.
+  await interessi.getByRole("group", { name: "Metodo di selezione" }).getByRole("button", { name: "Parole chiave" }).click();
+  // Il gruppo pronto «Scienza» acceso come interesse, con una parola in più.
+  await interessi.getByRole("group", { name: "Gruppo Scienza" }).getByRole("button", { name: "Interesse" }).click();
+  await expect(page.locator(".toast")).toContainText("Scienza: acceso come interesse");
+  await interessi.getByRole("button", { name: /^Scienza/ }).click();
+  await expect(interessi.getByRole("button", { name: "Togli astronomia da Scienza" })).toBeVisible();
+  await interessi.getByLabel("Nuova parola per Scienza").fill("galassia");
+  await interessi.getByLabel("Nuova parola per Scienza").press("Enter");
+  await expect(page.locator(".toast")).toContainText("«galassia» aggiunta a Scienza");
+  // Nel Flusso «Per te» l'articolo mostra il gruppo e la parola trovata.
+  await page.locator(".tabbar").getByRole("button", { name: "Oggi" }).click();
+  const oggi = page.locator("section[aria-label='Oggi']");
+  if (await oggi.getByRole("tab", { name: "Flusso" }).count()) await oggi.getByRole("tab", { name: "Flusso" }).click();
+  await oggi.getByRole("button", { name: /^Per te/ }).click();
+  await expect(oggi.locator(".card").filter({ hasText: "galassia lontana" }).locator(".match")).toContainText("Scienza · galassia");
+  // Spento di nuovo, per non cambiare gli altri test.
+  await page.locator(".tabbar").getByRole("button", { name: "Interessi" }).click();
+  await interessi.getByRole("group", { name: "Gruppo Scienza" }).getByRole("button", { name: "Spento" }).click();
+  await expect(page.locator(".toast")).toContainText("Scienza: spento");
+});
+
+test("tag delle fonti: assegnati dalla scheda e usati come filtro nel Flusso", async ({ page }) => {
+  await page.setViewportSize(PHONE);
+  await page.goto("/");
+  await page.getByLabel("Nome utente").fill("anna");
+  await page.getByLabel("Password").fill(PASSWORD);
+  await page.getByRole("button", { name: "Entra" }).click();
+  await page.locator(".tabbar").getByRole("button", { name: "Fonti" }).click();
+  await page.getByRole("button", { name: "Fonte Orbita" }).click();
+  const sheet = page.locator(".sheet.is-open");
+  await sheet.getByLabel("Nuovo tag per questa fonte").fill("Astronomia");
+  await sheet.getByLabel("Nuovo tag per questa fonte").press("Enter");
+  await expect(page.locator(".toast")).toContainText("Tag #Astronomia aggiunto");
+  await expect(sheet.getByRole("button", { name: "Togli il tag Astronomia" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.locator(".src-row").filter({ hasText: "Orbita" }).locator(".src-tag")).toHaveText(["Astronomia"]);
+
+  // Nel Flusso c'è la chip del tag: mostra solo gli articoli delle sue fonti.
+  await page.locator(".tabbar").getByRole("button", { name: "Oggi" }).click();
+  const oggi = page.locator("section[aria-label='Oggi']");
+  if (await oggi.getByRole("tab", { name: "Flusso" }).count()) await oggi.getByRole("tab", { name: "Flusso" }).click();
+  await oggi.getByRole("button", { name: /Astronomia/ }).click();
+  await expect(oggi.locator(".card").first()).toBeVisible();
+  for (const src of await oggi.locator(".card .meta .src").allTextContents()) expect(src).toBe("Orbita");
+
+  // Gestione dei tag: la chip si può togliere dal Flusso.
+  await page.locator(".tabbar").getByRole("button", { name: "Fonti" }).click();
+  await page.getByRole("button", { name: /Tag delle fonti/ }).click();
+  await page.locator(".sheet.is-open").getByRole("switch", { name: "Mostra #Astronomia nel Flusso" }).click();
+  await expect(page.locator(".toast")).toContainText("#Astronomia non è più nel Flusso");
 });

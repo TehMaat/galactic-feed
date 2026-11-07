@@ -1,5 +1,8 @@
 """Interessi e parole silenziate: quali articoli sono «per te» e quali vanno nascosti.
 
+Le parole possono stare anche in gruppi (word_groups, per esempio «Motori»), accesi come
+interessi o come parole silenziate: valgono come quelle singole, e il gruppo resta nell'esito.
+
 Il confronto avviene su titolo, estratto e categorie del feed, per parole intere e
 senza badare a maiuscole e accenti. Per l'italiano riconosce anche singolare e
 plurale: «razzo» trova «razzi», «galassia» trova «galassie», «amica» trova «amiche».
@@ -48,7 +51,8 @@ MODES = ("parole", "ai", "entrambi")
 
 @dataclass
 class Rules:
-    interests: list[tuple[str, str, re.Pattern]] = field(default_factory=list)  # (parola, livello, regex)
+    # (parola, livello, regex, gruppo): gruppo è l'id del gruppo di parole, None per gli interessi singoli.
+    interests: list[tuple[str, str, re.Pattern, int | None]] = field(default_factory=list)
     muted: list[re.Pattern] = field(default_factory=list)
     mode: str = "parole"
 
@@ -62,6 +66,7 @@ class Match:
     keyword: str | None
     level: str | None
     muted: bool
+    group_id: int | None = None
 
 
 def user_mode(conn: sqlite3.Connection, user_id: int) -> str:
@@ -74,17 +79,30 @@ def user_mode(conn: sqlite3.Connection, user_id: int) -> str:
 
 
 def load_rules(conn: sqlite3.Connection, user_id: int) -> Rules:
+    """Interessi e parole silenziate dell'utente, compresi i gruppi di parole accesi."""
     rules = Rules(mode=user_mode(conn, user_id))
-    rows = conn.execute(
-        "SELECT keyword, level FROM interests WHERE user_id = ? AND level != 'spento' ORDER BY created_at, id",
+    rows = [
+        (r["keyword"], r["level"], None)
+        for r in conn.execute(
+            "SELECT keyword, level FROM interests WHERE user_id = ? AND level != 'spento' ORDER BY created_at, id",
+            (user_id,),
+        )
+    ]
+    groups = conn.execute(
+        "SELECT g.id, g.mode, g.level, w.word FROM word_groups g JOIN word_group_words w ON w.group_id = g.id"
+        " WHERE g.user_id = ? AND g.mode != 'off' ORDER BY g.created_at, g.id, w.word",
         (user_id,),
     ).fetchall()
-    for r in sorted(rows, key=lambda r: LEVEL_ORDER[r["level"]]):
-        pattern = word_pattern(r["keyword"])
+    rows += [(r["word"], r["level"], r["id"]) for r in groups if r["mode"] == "interest"]
+    # Prima la priorità alta; a pari priorità gli interessi singoli, poi i gruppi.
+    for keyword, level, group_id in sorted(rows, key=lambda r: LEVEL_ORDER[r[1]]):
+        pattern = word_pattern(keyword)
         if pattern:
-            rules.interests.append((r["keyword"], r["level"], pattern))
-    for r in conn.execute("SELECT word FROM muted_words WHERE user_id = ?", (user_id,)):
-        pattern = word_pattern(r["word"])
+            rules.interests.append((keyword, level, pattern, group_id))
+    muted = [r["word"] for r in conn.execute("SELECT word FROM muted_words WHERE user_id = ?", (user_id,))]
+    muted += [r["word"] for r in groups if r["mode"] == "mute"]
+    for word in muted:
+        pattern = word_pattern(word)
         if pattern:
             rules.muted.append(pattern)
     return rules
@@ -102,9 +120,9 @@ def haystack(title: str, excerpt: str, categories: str | list[str]) -> str:
 def evaluate(rules: Rules, text: str) -> Match | None:
     """Esito delle regole su un testo già normalizzato con haystack()."""
     muted = any(p.search(text) for p in rules.muted)
-    for keyword, level, pattern in rules.interests:
+    for keyword, level, pattern, group_id in rules.interests:
         if pattern.search(text):
-            return Match(keyword, level, muted)
+            return Match(keyword, level, muted, group_id)
     return Match(None, None, True) if muted else None
 
 
@@ -126,16 +144,17 @@ def _store(conn: sqlite3.Connection, user_id: int, rows, rules: Rules) -> int:
     values = []
     for r in rows:
         m = evaluate(rules, haystack(r["title"], r["excerpt"], r["categories"]))
-        keyword, level, muted = (m.keyword, m.level, m.muted) if m else (None, None, False)
+        keyword, level, muted, group_id = (m.keyword, m.level, m.muted, m.group_id) if m else (None, None, False, None)
         source = "parole"
         if rules.mode == "ai":
-            keyword = level = None
+            keyword = level = group_id = None
         if level is None and r["id"] in ai:
             keyword, level, source = ai[r["id"]]["label"] or "AI", ai[r["id"]]["level"], "ai"
         if level or muted:
-            values.append((user_id, r["id"], keyword, level, int(muted), source))
+            values.append((user_id, r["id"], keyword, level, int(muted), source, group_id))
     conn.executemany(
-        "INSERT OR REPLACE INTO user_matches (user_id, article_id, keyword, level, muted, source) VALUES (?, ?, ?, ?, ?, ?)",
+        "INSERT OR REPLACE INTO user_matches (user_id, article_id, keyword, level, muted, source, group_id)"
+        " VALUES (?, ?, ?, ?, ?, ?, ?)",
         values,
     )
     return len(values)

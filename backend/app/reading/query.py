@@ -22,6 +22,8 @@ class ArticleFilter:
     folder: int | None = None
     no_folder: bool = False
     source: int | None = None
+    tag: int | None = None
+    country: str | None = None
     q: str = ""
     show_muted: bool = False
     dedupe: bool = True
@@ -61,6 +63,13 @@ def visible_cte(user_id: int, f: ArticleFilter, muted: bool | None = False) -> t
     if f.source is not None:
         where.append("s.id = ?")
         params.append(f.source)
+    if f.country is not None:
+        # La nazione che vale per l'utente: la sua scelta, quella dell'amministratore o quella automatica.
+        where.append("COALESCE(s.country, f.country_admin, f.country) = ?")
+        params.append(f.country)
+    if f.tag is not None:
+        where.append("s.id IN (SELECT subscription_id FROM source_tags WHERE tag_id = ? AND origin != 'rejected')")
+        params.append(f.tag)
     if f.q.strip():
         like = "%" + f.q.strip().replace("%", "").replace("_", "") + "%"
         match = fts_query(f.q)
@@ -83,7 +92,7 @@ def visible_cte(user_id: int, f: ArticleFilter, muted: bool | None = False) -> t
 
     sql = (
         "vis AS (SELECT a.id, a.cluster_id, a.published_at, a.video_id, ua.saved_at, ua.read_at,"
-        " m.level, s.folder_id"
+        " m.level, s.folder_id, s.id AS sub_id, COALESCE(s.country, f.country_admin, f.country) AS country"
         " FROM articles a JOIN feeds f ON f.id = a.feed_id"
         " LEFT JOIN subscriptions s ON s.feed_id = a.feed_id AND s.user_id = ?"
         " LEFT JOIN user_articles ua ON ua.article_id = a.id AND ua.user_id = ?"
@@ -142,6 +151,16 @@ def counts(conn: sqlite3.Connection, user_id: int, f: ArticleFilter) -> dict:
         f"WITH {cte}, {ranked_sql(base)} SELECT folder_id, COUNT(*) AS n FROM ranked WHERE rn = 1 GROUP BY folder_id",
         params,
     ).fetchall()
+    tags = conn.execute(
+        f"WITH {cte}, {ranked_sql(base)} SELECT st.tag_id, COUNT(*) AS n FROM ranked"
+        " JOIN source_tags st ON st.subscription_id = ranked.sub_id AND st.origin != 'rejected'"
+        " WHERE rn = 1 GROUP BY st.tag_id",
+        params,
+    ).fetchall()
+    countries = conn.execute(
+        f"WITH {cte}, {ranked_sql(base)} SELECT country, COUNT(*) AS n FROM ranked WHERE rn = 1 AND country != '' GROUP BY country",
+        params,
+    ).fetchall()
     saved = count(conn, user_id, ArticleFilter(view="salvati", q=f.q))
     return {
         "tutti": row["tutti"],
@@ -151,6 +170,8 @@ def counts(conn: sqlite3.Connection, user_id: int, f: ArticleFilter) -> dict:
         "salvati": saved,
         "folders": {str(r["folder_id"]): r["n"] for r in folders if r["folder_id"] is not None},
         "no_folder": next((r["n"] for r in folders if r["folder_id"] is None), 0),
+        "tags": {str(r["tag_id"]): r["n"] for r in tags},
+        "countries": {r["country"]: r["n"] for r in countries},
         "hidden": count(conn, user_id, base, muted=True) if not f.show_muted else 0,
     }
 
@@ -177,11 +198,12 @@ def article_rows(conn: sqlite3.Connection, user_id: int, ids: list[int], full: b
         "SELECT a.id, a.cluster_id, a.url, a.title, a.author, a.excerpt, a.image_url, a.video_id, a.word_count,"
         " a.published_at, f.kind, f.title AS feed_title, f.site_url, f.icon_url, s.id AS sub_id, s.title AS sub_title,"
         " s.folder_id, s.icon_mode, s.icon_custom,"
-        f" ua.read_at, ua.saved_at, m.keyword, m.level, COALESCE(m.muted, 0) AS muted{content}"
+        f" ua.read_at, ua.saved_at, m.keyword, m.level, COALESCE(m.muted, 0) AS muted, g.name AS group_name{content}"
         " FROM articles a JOIN feeds f ON f.id = a.feed_id"
         " LEFT JOIN subscriptions s ON s.feed_id = a.feed_id AND s.user_id = ?"
         " LEFT JOIN user_articles ua ON ua.article_id = a.id AND ua.user_id = ?"
         " LEFT JOIN user_matches m ON m.article_id = a.id AND m.user_id = ?"
+        " LEFT JOIN word_groups g ON g.id = m.group_id"
         f" WHERE a.id IN ({marks})",
         [user_id, user_id, user_id, *ids],
     ).fetchall()

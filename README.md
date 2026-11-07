@@ -41,7 +41,7 @@ Il codice cambia a ogni riavvio finché non esiste un account. Serve solo a evit
 
 ### Aggiornare
 
-Le correzioni della versione che usi (per esempio da 0.3.0 a 0.3.1) arrivano con:
+Le correzioni della versione che usi (per esempio da 0.5.0 a 0.5.1) arrivano con:
 
 ```bash
 docker compose pull
@@ -51,7 +51,7 @@ docker compose pull
 docker compose up -d
 ```
 
-Per passare a una versione nuova (per esempio da 0.3 a 0.4) leggi cosa cambia in [CHANGELOG.md](CHANGELOG.md), fai una copia dei dati (vedi sotto), poi cambia il numero nel `docker-compose.yml` (`galactic-feed:0.4`) e ripeti i due comandi. Il database si aggiorna da solo all'avvio. La versione in uso è scritta in fondo alle Impostazioni.
+Per passare a una versione nuova (per esempio da 0.5 a 0.6) leggi cosa cambia in [CHANGELOG.md](CHANGELOG.md), fai una copia dei dati (vedi sotto), poi cambia il numero nel `docker-compose.yml` (`galactic-feed:0.6`) e ripeti i due comandi. Il database si aggiorna da solo all'avvio. La versione in uso è scritta in fondo alle Impostazioni.
 
 ## Versioni e aggiornamenti
 
@@ -59,8 +59,8 @@ Le versioni sono numerate `MAGGIORE.MINORE.CORRETTIVA` ([semver](https://semver.
 
 | Etichetta dell'immagine | Cosa ricevi |
 |---|---|
-| `0.3` (consigliata) | La versione 0.3 con tutte le sue correzioni |
-| `0.3.0` | Esattamente quella versione, senza aggiornamenti |
+| `0.5` (consigliata) | La versione 0.5 con tutte le sue correzioni |
+| `0.5.0` | Esattamente quella versione, senza aggiornamenti |
 | `latest` | L'ultima modifica del ramo principale, anche prima di una release |
 
 **Copia dei dati.** Gli aggiornamenti del database vanno solo in avanti: per tornare a una versione precedente serve la copia fatta prima. Con il volume del `docker-compose.yml`:
@@ -147,11 +147,20 @@ In Impostazioni → Aspetto ognuno sceglie tema (automatico, chiaro, scuro), col
 
 Accanto a ogni fonte compare l'icona del sito o l'avatar del canale YouTube, trovata in automatico. Dalla scheda della fonte la puoi aggiornare, sostituire con un'altra immagine o togliere per tornare alle iniziali.
 
-## Edizione, AI e notifiche
+## Interessi, tag e nazioni
+
+- **Gruppi di parole**: negli Interessi trovi gruppi pronti (Motori, Politica, Economia, Tecnologia, Videogiochi, Sport, Calcio, Scienza, Salute, Spettacolo, Cronaca). Con un tocco li accendi come interesse o per silenziare i loro articoli; puoi cambiarne le parole o creare i tuoi. L'amministratore gestisce i gruppi pronti in Amministrazione.
+- **Tag delle fonti**: quando aggiungi una fonte l'app propone fino a tre tag (per esempio #Tecnologia) guardando titoli e categorie degli articoli. Li tieni, li togli o ne aggiungi altri dalla scheda della fonte; quelli che togli non tornano. Nel Flusso ogni tag ha la sua chip; in Fonti → Tag delle fonti li rinomini, colori, ordini e unisci.
+- **Nazione delle fonti**: proposta dal dominio (.it, .co.uk…) e dalla lingua del feed. La cambi per te dalla scheda della fonte; l'amministratore la corregge per tutti in Amministrazione → Fonti e archivio. Con fonti di più nazioni compaiono le chip delle nazioni nel Flusso e il filtro nelle Fonti.
+
+## Edizioni, AI e notifiche
 
 Sono tutte facoltative e si accendono dalle Impostazioni.
 
-- **Edizione**: in Impostazioni → Edizione scegli uno o più orari. A ogni orario il server prepara una selezione delle notizie per te, divisa per cartelle, che trovi in Oggi → Edizione. Il Flusso resta a un tocco.
+- **Edizioni**: in Impostazioni → Edizioni crei una o più Edizioni, ognuna con nome, regole e uscite proprie. Le trovi in Oggi → Edizione, con un selettore se sono più di una; il Flusso resta a un tocco.
+  - **Quando**: ogni giorno, in alcuni giorni della settimana (per esempio il lunedì) o una volta al mese (il giorno 1, l'ultimo giorno, il primo lunedì…), a uno o più orari, nel tuo fuso orario.
+  - **Cosa**: senza regole, le notizie per te. Con le regole (tag delle fonti, cartelle, nazioni, gruppi di parole) solo quelle che le rispettano: per esempio «Politica · Italia» con #Politica e Italia, o «Videogiochi» del venerdì con il gruppo Videogiochi.
+  - L'anteprima dice quante notizie avrebbe adesso; il numero massimo e il periodo coperto si scelgono per ogni Edizione.
 - **AI**: la configura l'amministratore in Impostazioni → AI.
   - **Locale**: [Ollama](https://ollama.com) su un computer della tua rete. Scrivi l'indirizzo con `/v1` in fondo (per esempio `http://192.168.1.20:11434/v1`) e il nome del modello (quello che vedi con `ollama list`). I testi non escono da casa; su un Raspberry Pi è molto lento, meglio un PC.
   - **Cloud**: Anthropic (Claude) oppure OpenAI, con la chiave API del servizio. Il modello predefinito per Claude è `claude-opus-5-5`; per scegliere e riassumere notizie basta `claude-haiku-5-5`, che costa molto meno. Si paga a consumo e titoli e testi degli articoli vengono inviati al servizio.
@@ -198,7 +207,7 @@ Su iPhone l'app non si aggiorna in background: le notizie le scarica sempre il s
 
 Le immagini sono su GitHub Container Registry: `ghcr.io/tehmaat/galactic-feed`.
 
-- `0.3` e `0.3.0`: le versioni pubblicate (vedi «Versioni e aggiornamenti»);
+- `0.5` e `0.5.0`: le versioni pubblicate (vedi «Versioni e aggiornamenti»);
 - `latest`: l'ultima versione del ramo principale;
 - `sha-xxxxxxx`: un commit preciso.
 
@@ -232,20 +241,16 @@ cd frontend && npm run build && npx playwright test
 
 ### Pubblicare una versione
 
-Il numero di versione sta solo nel file [`VERSION`](VERSION); lo script lo copia nei pacchetti e i test controllano che coincidano.
+Il numero di versione sta solo nel file [`VERSION`](VERSION); lo script lo copia nei pacchetti e i test controllano che coincidano. Le novità si scrivono via via nella sezione «Da pubblicare» di `CHANGELOG.md`.
 
-1. Prepara la versione e scrivi le novità nella sua sezione di `CHANGELOG.md`:
-
-   ```bash
-   python3 scripts/release.py bump 0.4.0
-   ```
-
-2. Fai il merge su `main`, poi crea il tag sul commit di `main` e mandalo a GitHub:
+1. Nella PR che chiude il lavoro, prepara la versione: la sezione «Da pubblicare» prende il numero nuovo.
 
    ```bash
-   git tag -a v0.4.0 -m "Galactic Feed 0.4.0" && git push origin v0.4.0
+   python3 scripts/release.py bump 0.6.0
    ```
 
-Il workflow controlla che il tag corrisponda a `VERSION`, pubblica le immagini `:0.4.0` e `:0.4` e crea la release con le note del `CHANGELOG.md`. Un tag come `v0.4.0-rc.1` diventa una versione di prova: solo `:0.4.0-rc.1`, segnata come pre-release.
+2. Fai il merge della PR su `main`. Il workflow vede che `v0.6.0` non esiste ancora: pubblica le immagini `:0.6.0` e `:0.6`, poi crea il tag e la release con le note del `CHANGELOG.md`. Nessun tag a mano.
+
+Una versione come `0.6.0-rc.1` diventa una versione di prova: solo `:0.6.0-rc.1`, segnata come pre-release.
 
 Per lavorare sull'interfaccia, avvia il server con `cd backend && DATA_DIR=../data python -m app`, poi `cd frontend && npm run dev`. Vite manda le chiamate `/api` al server sulla porta 8080.

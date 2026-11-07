@@ -1,6 +1,6 @@
 <script>
   // Articolo nel Flusso e nei Salvati: stessa struttura della «card» del mockup.
-  import { readingInfo } from "../lib/format.js";
+  import { matchLabel, readingInfo } from "../lib/format.js";
   import { foldersById, openArticle, setSaved, ui } from "../lib/store.svelte.js";
   import Icon from "./Icon.svelte";
   import SourceMeta from "./SourceMeta.svelte";
@@ -54,7 +54,7 @@
     </div>
     <div class="foot-r">
       {#if article.match}
-        <span class="match"><Icon name="spark" />{article.match.keyword}</span>
+        <span class="match"><Icon name="spark" />{matchLabel(article.match)}</span>
       {:else if article.muted}
         <span class="match">Silenziato</span>
       {/if}

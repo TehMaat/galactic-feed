@@ -12,7 +12,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from pydantic import ValidationError
 
-from .api import account, admin, ai, articles, auth, editions, push, folders, images, interests, invites, opml, sources
+from .api import account, admin, ai, articles, auth, editions, folders, groups, images, interests, invites, opml, push, sources, tags
 from .config import VERSION, Settings
 from .deps import AppContext
 from .feeds.extract import Extractor
@@ -23,6 +23,7 @@ from .ai import config as ai_config
 from .ai.relevance import RelevanceWorker
 from .feeds.scheduler import Scheduler
 from .push.notifier import Notifier
+from .reading import presets
 from .security import same_origin_request
 
 log = logging.getLogger("galactic_feed")
@@ -85,6 +86,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         ctx.load_secret()
         with ctx.db.session() as conn:
             no_users = conn.execute("SELECT 1 FROM users LIMIT 1").fetchone() is None
+            # Gruppi di parole pronti forniti con l'app (solo quelli che mancano).
+            presets.seed(conn)
             # La chiave dell'AI salvata in chiaro dalle versioni precedenti viene cifrata.
             if ai_config.encrypt_stored_key(conn, ctx.secret):
                 log.info("Chiave dell'AI cifrata con secret.key")
@@ -149,7 +152,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             conn.execute("SELECT 1").fetchone()
         return {"status": "ok", "version": VERSION}
 
-    for module in (auth, invites, account, admin, folders, sources, opml, ai, articles, editions, interests, images, push):
+    for module in (auth, invites, account, admin, folders, sources, opml, ai, articles, editions, interests, groups, tags, images, push):
         app.include_router(module.router)
 
     @app.api_route("/api/{rest:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"], include_in_schema=False)
