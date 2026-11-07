@@ -396,8 +396,14 @@ test("icone delle fonti, logo, «Ricordami» e aspetto", async ({ browser }) => 
   // In fondo alle Impostazioni c'è la versione in uso (dal file VERSION).
   const version = fs.readFileSync(path.join(path.dirname(new URL(import.meta.url).pathname), "..", "..", "VERSION"), "utf8").trim();
   await expect(page.locator(".sheet.is-open .app-version")).toHaveText(`Galactic Feed versione ${version}`);
+  // Si aspetta che ogni scelta arrivi al server prima di ricaricare la pagina.
+  const saved = () => page.waitForResponse((r) => r.url().endsWith("/api/me") && r.request().method() === "PATCH");
+  let save = saved();
   await sheetClick(page, "Viola");
+  await save;
+  save = saved();
   await page.getByRole("group", { name: "Font", exact: true }).getByRole("button", { name: "Sistema" }).click();
+  await save;
   // Il colore vero dipende dal tema in uso: variante chiara o scura del viola.
   const look = () => page.evaluate(() => {
     const root = document.documentElement;
