@@ -41,7 +41,7 @@ Il codice cambia a ogni riavvio finché non esiste un account. Serve solo a evit
 
 ### Aggiornare
 
-Le correzioni della versione che usi (per esempio da 0.3.0 a 0.3.1) arrivano con:
+Le correzioni della versione che usi (per esempio da 0.4.0 a 0.4.1) arrivano con:
 
 ```bash
 docker compose pull
@@ -51,7 +51,7 @@ docker compose pull
 docker compose up -d
 ```
 
-Per passare a una versione nuova (per esempio da 0.3 a 0.4) leggi cosa cambia in [CHANGELOG.md](CHANGELOG.md), fai una copia dei dati (vedi sotto), poi cambia il numero nel `docker-compose.yml` (`galactic-feed:0.4`) e ripeti i due comandi. Il database si aggiorna da solo all'avvio. La versione in uso è scritta in fondo alle Impostazioni.
+Per passare a una versione nuova (per esempio da 0.4 a 0.5) leggi cosa cambia in [CHANGELOG.md](CHANGELOG.md), fai una copia dei dati (vedi sotto), poi cambia il numero nel `docker-compose.yml` (`galactic-feed:0.5`) e ripeti i due comandi. Il database si aggiorna da solo all'avvio. La versione in uso è scritta in fondo alle Impostazioni.
 
 ## Versioni e aggiornamenti
 
@@ -59,8 +59,8 @@ Le versioni sono numerate `MAGGIORE.MINORE.CORRETTIVA` ([semver](https://semver.
 
 | Etichetta dell'immagine | Cosa ricevi |
 |---|---|
-| `0.3` (consigliata) | La versione 0.3 con tutte le sue correzioni |
-| `0.3.0` | Esattamente quella versione, senza aggiornamenti |
+| `0.4` (consigliata) | La versione 0.4 con tutte le sue correzioni |
+| `0.4.0` | Esattamente quella versione, senza aggiornamenti |
 | `latest` | L'ultima modifica del ramo principale, anche prima di una release |
 
 **Copia dei dati.** Gli aggiornamenti del database vanno solo in avanti: per tornare a una versione precedente serve la copia fatta prima. Con il volume del `docker-compose.yml`:
@@ -198,7 +198,7 @@ Su iPhone l'app non si aggiorna in background: le notizie le scarica sempre il s
 
 Le immagini sono su GitHub Container Registry: `ghcr.io/tehmaat/galactic-feed`.
 
-- `0.3` e `0.3.0`: le versioni pubblicate (vedi «Versioni e aggiornamenti»);
+- `0.4` e `0.4.0`: le versioni pubblicate (vedi «Versioni e aggiornamenti»);
 - `latest`: l'ultima versione del ramo principale;
 - `sha-xxxxxxx`: un commit preciso.
 
@@ -232,20 +232,16 @@ cd frontend && npm run build && npx playwright test
 
 ### Pubblicare una versione
 
-Il numero di versione sta solo nel file [`VERSION`](VERSION); lo script lo copia nei pacchetti e i test controllano che coincidano.
+Il numero di versione sta solo nel file [`VERSION`](VERSION); lo script lo copia nei pacchetti e i test controllano che coincidano. Le novità si scrivono via via nella sezione «Da pubblicare» di `CHANGELOG.md`.
 
-1. Prepara la versione e scrivi le novità nella sua sezione di `CHANGELOG.md`:
-
-   ```bash
-   python3 scripts/release.py bump 0.4.0
-   ```
-
-2. Fai il merge su `main`, poi crea il tag sul commit di `main` e mandalo a GitHub:
+1. Nella PR che chiude il lavoro, prepara la versione: la sezione «Da pubblicare» prende il numero nuovo.
 
    ```bash
-   git tag -a v0.4.0 -m "Galactic Feed 0.4.0" && git push origin v0.4.0
+   python3 scripts/release.py bump 0.5.0
    ```
 
-Il workflow controlla che il tag corrisponda a `VERSION`, pubblica le immagini `:0.4.0` e `:0.4` e crea la release con le note del `CHANGELOG.md`. Un tag come `v0.4.0-rc.1` diventa una versione di prova: solo `:0.4.0-rc.1`, segnata come pre-release.
+2. Fai il merge della PR su `main`. Il workflow vede che `v0.5.0` non esiste ancora: pubblica le immagini `:0.5.0` e `:0.5`, poi crea il tag e la release con le note del `CHANGELOG.md`. Nessun tag a mano.
+
+Una versione come `0.5.0-rc.1` diventa una versione di prova: solo `:0.5.0-rc.1`, segnata come pre-release.
 
 Per lavorare sull'interfaccia, avvia il server con `cd backend && DATA_DIR=../data python -m app`, poi `cd frontend && npm run dev`. Vite manda le chiamate `/api` al server sulla porta 8080.

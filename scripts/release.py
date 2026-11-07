@@ -6,9 +6,9 @@ il server lo legge all'avvio. Questo script lo copia anche nei file dei pacchett
 devono restare uguali (lo controllano i test), e prepara le note di una release.
 
     python3 scripts/release.py check              # VERSION, pacchetti e CHANGELOG coincidono?
-    python3 scripts/release.py check v0.3.0       # …e coincidono anche con questo tag?
+    python3 scripts/release.py check v0.4.0       # …e coincidono anche con questo tag?
     python3 scripts/release.py bump 0.4.0         # nuova versione in tutti i file (e «Da pubblicare» → 0.4.0)
-    python3 scripts/release.py notes 0.3.0        # note della versione, prese da CHANGELOG.md
+    python3 scripts/release.py notes 0.4.0        # note della versione, prese da CHANGELOG.md
 
 Le versioni seguono semver: MAGGIORE.MINORE.CORRETTIVA (per esempio 0.3.1), con un
 eventuale suffisso per le prove (0.4.0-rc.1).
@@ -103,7 +103,7 @@ def bump(version: str) -> None:
         text = text[: first + 1] + head + text[first + 1 :] if first >= 0 else text + "\n" + head
         CHANGELOG.write_text(text, encoding="utf-8")
         print(f"Aggiunta in CHANGELOG.md la sezione {version}: scrivi cosa cambia.")
-    print(f"Versione {version}. Poi: commit, merge su main, e il tag v{version} su main.")
+    print(f"Versione {version}. Al merge su main il workflow pubblica immagini, tag v{version} e release.")
 
 
 def main(argv: list[str]) -> int:
