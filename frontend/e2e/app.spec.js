@@ -547,3 +547,36 @@ test("tag delle fonti: assegnati dalla scheda e usati come filtro nel Flusso", a
   await page.locator(".sheet.is-open").getByRole("switch", { name: "Mostra #Astronomia nel Flusso" }).click();
   await expect(page.locator(".toast")).toContainText("#Astronomia non è più nel Flusso");
 });
+
+test("accesso con un provider OIDC configurato dal pannello", async ({ page, browser }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+  await page.getByLabel("Nome utente").fill("anna");
+  await page.getByLabel("Password").fill(PASSWORD);
+  await page.getByRole("button", { name: "Entra" }).click();
+  await page.locator(".tabbar").getByRole("button", { name: "Amministrazione" }).click();
+  const sheet = page.locator(".sheet.is-open");
+  await sheet.getByRole("button", { name: /^Accesso/ }).click();
+  await sheet.getByRole("switch", { name: "Accesso con il provider" }).click();
+  await sheet.getByLabel("Issuer").fill("http://127.0.0.1:8098/oidc");
+  await sheet.getByLabel("Client ID").fill("galactic-e2e");
+  await sheet.getByLabel("Client secret").fill("segreto-e2e");
+  await sheet.getByLabel("Testo del pulsante").fill("Entra con Prova");
+  await sheet.getByRole("switch", { name: "Crea gli utenti al primo accesso" }).click();
+  await expect(sheet.getByLabel("Indirizzo di ritorno (da copiare nel provider)")).toHaveValue("http://127.0.0.1:8097/api/auth/oidc/callback");
+  await sheet.getByRole("button", { name: "Prova la configurazione" }).click();
+  await expect(sheet.locator(".form-ok")).toContainText("Il provider risponde");
+  // Il client secret salvato non torna indietro.
+  await expect(sheet.getByLabel("Client secret")).toHaveValue("");
+
+  // Un nuovo utente entra con il pulsante: il provider lo rimanda all'app, già dentro.
+  const ctx = await browser.newContext({ viewport: PHONE, locale: "it-IT" });
+  const other = await ctx.newPage();
+  await other.goto("/");
+  await other.getByRole("link", { name: "Entra con Prova" }).click();
+  await expect(other.locator(".appbar")).toBeVisible();
+  await expect(other).toHaveURL(/127\.0\.0\.1:8097\/$/);
+  await other.getByRole("button", { name: "Impostazioni" }).click();
+  await expect(other.locator(".sheet.is-open .who")).toContainText("Olivia Bianchi");
+  await ctx.close();
+});

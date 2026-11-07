@@ -277,3 +277,7 @@ img.src-av.is-icon { padding: 3px; }
 .feed-name { display: grid; gap: 1px; min-width: 0; }
 .feed-name b { overflow: hidden; font-weight: 600; white-space: nowrap; text-overflow: ellipsis; }
 .feed-name small { color: var(--ink-3); font-size: 12.5px; }
+
+/* ---------- Accesso con il provider (#22) ---------- */
+a.oidc-btn { text-decoration: none; }
+.form-error.panel { margin: 0; }

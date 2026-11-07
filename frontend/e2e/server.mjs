@@ -4,6 +4,7 @@
 // Il codice di primo avvio finisce nel log, che i test leggono come farebbe una persona.
 
 import { spawn } from "node:child_process";
+import crypto from "node:crypto";
 import fs from "node:fs";
 import http from "node:http";
 import os from "node:os";
@@ -59,8 +60,65 @@ function fakeAi(body) {
   return { risposta: "ok" };
 }
 
+// Un provider OpenID Connect finto (#22): approva subito chi arriva e firma l'ID token in RS256.
+const OIDC = `${SITE}/oidc`;
+const { publicKey, privateKey } = crypto.generateKeyPairSync("rsa", { modulusLength: 2048 });
+const jwk = { ...publicKey.export({ format: "jwk" }), kid: "e2e", use: "sig", alg: "RS256" };
+const codes = new Map();
+const b64url = (buf) => Buffer.from(buf).toString("base64url");
+
+function idToken(claims) {
+  const head = b64url(JSON.stringify({ alg: "RS256", typ: "JWT", kid: "e2e" }));
+  const body = b64url(JSON.stringify(claims));
+  const sig = crypto.sign("sha256", Buffer.from(`${head}.${body}`), privateKey);
+  return `${head}.${body}.${b64url(sig)}`;
+}
+
+function oidc(req, res, url, query) {
+  const json = (data, status = 200) => {
+    res.writeHead(status, { "Content-Type": "application/json" });
+    res.end(JSON.stringify(data));
+  };
+  if (url === "/oidc/.well-known/openid-configuration") {
+    return json({
+      issuer: OIDC, authorization_endpoint: `${OIDC}/authorize`, token_endpoint: `${OIDC}/token`,
+      jwks_uri: `${OIDC}/jwks`, userinfo_endpoint: `${OIDC}/userinfo`,
+      id_token_signing_alg_values_supported: ["RS256"], token_endpoint_auth_methods_supported: ["client_secret_basic"],
+    });
+  }
+  if (url === "/oidc/jwks") return json({ keys: [jwk] });
+  if (url === "/oidc/authorize") {
+    const code = crypto.randomBytes(12).toString("hex");
+    codes.set(code, { nonce: query.get("nonce"), challenge: query.get("code_challenge") });
+    res.writeHead(302, { Location: `${query.get("redirect_uri")}?code=${code}&state=${encodeURIComponent(query.get("state"))}` });
+    return res.end();
+  }
+  if (url === "/oidc/token" && req.method === "POST") {
+    let raw = "";
+    req.on("data", (c) => (raw += c));
+    req.on("end", () => {
+      const form = new URLSearchParams(raw);
+      const saved = codes.get(form.get("code"));
+      codes.delete(form.get("code"));
+      const pkce = saved && crypto.createHash("sha256").update(form.get("code_verifier") || "").digest("base64url");
+      if (!saved || pkce !== saved.challenge || req.headers.authorization !== `Basic ${Buffer.from("galactic-e2e:segreto-e2e").toString("base64")}`) {
+        return json({ error: "invalid_grant" }, 400);
+      }
+      const now = Math.floor(Date.now() / 1000);
+      const claims = { iss: OIDC, aud: "galactic-e2e", sub: "olivia-1", iat: now, exp: now + 300, nonce: saved.nonce,
+        preferred_username: "olivia", name: "Olivia Bianchi", email: "olivia@example.org", email_verified: true };
+      json({ id_token: idToken(claims), access_token: "at", token_type: "Bearer" });
+    });
+    return;
+  }
+  if (url === "/oidc/userinfo") return json({ sub: "olivia-1" });
+  res.writeHead(404);
+  res.end();
+}
+
 const site = http.createServer((req, res) => {
   const url = req.url.split("?")[0];
+  if (url.startsWith("/oidc/")) return oidc(req, res, url, new URL(req.url, SITE).searchParams);
   if (req.method === "POST" && url === "/v1/chat/completions") {
     let raw = "";
     req.on("data", (c) => (raw += c));

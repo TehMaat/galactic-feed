@@ -11,7 +11,9 @@ backend/                  Server Python (FastAPI)
     healthcheck.py        controllo di salute usato dal container (python -m app.healthcheck)
     config.py             variabili d'ambiente (PUBLIC_URL, TZ, …) e versione (dal file VERSION)
     instance.py           impostazioni dell'istanza scelte dall'amministratore (GUI → variabile d'ambiente → predefinito)
-    secretbox.py          segreti cifrati nel database (chiave dell'AI) con data/secret.key
+    secretbox.py          segreti cifrati nel database (chiave dell'AI, client secret OIDC) con data/secret.key
+    oidc.py               accesso con un provider OpenID Connect: configurazione, discovery, verifica dei token
+    emergency.py          accesso d'emergenza: riaccende il login con password (python -m app.emergency)
     db.py + migrations/   SQLite, schema versionato con file .sql numerati
     security.py           password argon2, sessioni, protezione CSRF
     api/                  un file per area: auth, admin, folders, sources, opml, articles, interests, images
@@ -54,6 +56,8 @@ I contenuti dei feed sono **condivisi**: un feed seguito da tre utenti si scaric
 **Account**
 - `users`: username (unico, senza distinzione tra maiuscole e minuscole), nome visualizzato, hash della password, amministratore, disattivato, preferenze (JSON: tema, colore principale, font dell'interfaccia e degli articoli, dimensione del testo, unione dei doppioni, Edizione e orari, metodo e descrizione per l'AI, riassunti, cartelle importanti per le notifiche), creato il, ultimo accesso
 - `sessions`: hash del token, utente, creata il, ultimo uso, scadenza, dispositivo
+- `user_identities`: account del provider OIDC collegati a un utente (issuer, subject, email, nome utente)
+- `oidc_states`: accessi in corso verso il provider (hash dello state, verificatore PKCE, nonce; 10 minuti, una volta sola)
 - `invites`: hash del token, tipo (`invite` o `reset`), nota, creato da, utente destinatario (solo reset), scadenza, usato da, usato il
 
 **Fonti**
@@ -98,7 +102,7 @@ Tutti sotto `/api`; salvo `auth`, `invites` e `health` richiedono l'accesso. Gli
 
 | Area | Endpoint |
 |---|---|
-| Accesso | `GET auth/state` · `POST auth/setup` · `POST auth/login` · `POST auth/logout` |
+| Accesso | `GET auth/state` · `POST auth/setup` · `POST auth/login` · `POST auth/logout` · `GET auth/oidc/start` · `GET auth/oidc/callback` · `GET`/`DELETE me/identities[/{id}]` · `GET`/`PUT admin/oidc` · `POST admin/oidc/test` |
 | Inviti | `GET invites/{token}` · `POST invites/{token}/accept` (anche per il reset della password) |
 | Profilo | `GET`/`PATCH me` · `POST me/password` · `GET me/sessions` · `DELETE me/sessions/{id}` |
 | Admin | `GET admin/users` · `PATCH`/`DELETE admin/users/{id}` · `POST admin/users/{id}/reset` · `GET`/`POST admin/invites` · `DELETE admin/invites/{id}` · `GET admin/status` · `GET`/`PATCH admin/settings` (impostazioni dell'istanza) · `GET`/`PUT admin/defaults` (preferenze dei nuovi utenti) |
@@ -141,6 +145,7 @@ Fuori da `/api`: la PWA, `/manifest.webmanifest`, `/sw.js`, `/icons/*`. Devono r
 - **AI** (facoltativa): la configura l'amministratore, locale (Ollama o un server compatibile con OpenAI) o cloud (Anthropic con l'SDK ufficiale, oppure OpenAI), con un tetto di richieste al giorno. Ogni utente sceglie parole chiave, AI o entrambi e descrive i suoi interessi. Lo scheduler manda al modello gli articoli delle ultime 48 ore a lotti di 20, con risposta in JSON strutturato; dopo un errore si ferma 15 minuti. Con Claude si usa effort basso e, sui modelli che lo permettono, il ripiego lato server se il modello rifiuta una richiesta. I riassunti (tre punti) si scrivono alla prima apertura di un articolo lungo e valgono per tutti.
 - **Notifiche**: Web Push standard. Chiavi VAPID create al primo avvio in `data/vapid.pem`; contenuto cifrato (RFC 8291), così i servizi push dei browser non lo leggono. Si accettano solo gli indirizzi dei servizi push di Google, Mozilla, Apple e Microsoft. Per ogni utente: le notizie «per te» nelle cartelle importanti, non lette e mai notificate, in una notifica sola, al massimo una ogni 10 minuti; più, a scelta, l'Edizione pronta. Il numero di non letti va sull'icona dell'app (Badging API).
 - **Reti locali**: le fonti possono stare sulla rete di casa; l'amministratore lo può vietare dal pannello (o con `BLOCK_PRIVATE_NETWORKS=true`). Il controllo vale per ogni richiesta, compresi i redirect.
+- **Accesso con OIDC** (`oidc.py`, `api/oidc.py`): configurazione in `app_settings` (`oidc.*`, client secret cifrato con `secretbox.py`). Flusso authorization code con PKCE S256, `state` legato al browser con un cookie e `nonce`. L'ID token si verifica con PyJWT sulle chiavi JWKS del provider (o con il client secret per HS256): firma, `iss`, `aud`, `azp`, `exp`, `iat`, `nonce`; mai `none`. L'utente si trova per identità collegata, poi per email verificata o nome utente (se permesso), oppure si crea; i gruppi del provider possono dare i permessi di amministratore (mai togliendo l'ultimo). Il login con password si spegne solo con un amministratore collegato; `EMERGENCY_PASSWORD_LOGIN` e `python -m app.emergency` lo riaccendono.
 - **Pannello di amministrazione** (`frontend/src/sheets/Admin.svelte`, API `admin/*`): tutte le impostazioni dell'istanza da GUI. `instance.py` le risolve in quest'ordine: valore salvato in `app_settings` (`instance.*`) → variabile d'ambiente → predefinito; ne tiene una copia in memoria che si rinnova a ogni salvataggio, così valgono subito. Le preferenze per i nuovi utenti (`instance.user_defaults`) si copiano nell'account quando viene creato. I segreti (chiave dell'AI; poi il client secret OIDC) sono cifrati con una chiave ricavata da `data/secret.key` (`secretbox.py`) e le API non li restituiscono mai.
 
 ## Variabili d'ambiente
@@ -159,3 +164,4 @@ Fuori da `/api`: la PWA, `/manifest.webmanifest`, `/sw.js`, `/icons/*`. Devono r
 | `REMEMBER_DAYS` | `90` | Giorni di una sessione con «Ricordami» |
 | `SESSION_HOURS` | `12` | Ore senza utilizzo dopo cui chiude una sessione senza «Ricordami» |
 | `INVITE_HOURS` | `48` | Ore di validità dei link d'invito e di reimpostazione della password |
+| `EMERGENCY_PASSWORD_LOGIN` | `false` | Tiene acceso l'accesso con password anche se spento dal pannello (emergenza OIDC) |

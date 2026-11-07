@@ -21,6 +21,10 @@
   let status = $state(null);
   let newTime = $state("19:00");
   let feeds = $state(null); // feed seguiti, con la nazione (#20)
+  let oidcCfg = $state(null); // accesso con il provider (#22), come lo restituisce il server
+  let oidcForm = $state(null); // le modifiche in corso
+  let oidcBusy = $state(false);
+  let oidcTest = $state(null); // { ok, message }
   let presets = $state(null); // gruppi di parole pronti
   let openPreset = $state(null);
   let presetWord = $state("");
@@ -61,11 +65,52 @@
     if (p === "defaults") loadDefaults();
     if (p === "presets") loadPresets();
     if (p === "feeds") loadFeeds();
+    if (p === "access") loadOidc();
     if (p === "status") loadStatus();
   }
 
   function back() {
     go(page === "user" ? "users" : page === "feeds" ? "sources" : "main");
+  }
+
+  // ---- Accesso con un provider OIDC (#22) ----
+  async function loadOidc() {
+    try {
+      oidcCfg = await api("/admin/oidc");
+      oidcForm = { ...oidcCfg, client_secret: "" };
+      oidcTest = null;
+    } catch (err) {
+      toast(err.message);
+    }
+  }
+
+  async function saveOidc(e) {
+    e?.preventDefault?.();
+    oidcBusy = true;
+    const keys = ["enabled", "issuer", "client_id", "scopes", "label", "auto_create", "link_email", "link_username", "admin_claim", "admin_value", "password_login", "rp_logout"];
+    const body = Object.fromEntries(keys.map((k) => [k, oidcForm[k]]));
+    if (oidcForm.client_secret) body.client_secret = oidcForm.client_secret;
+    try {
+      oidcCfg = await api("/admin/oidc", { method: "PUT", body });
+      oidcForm = { ...oidcCfg, client_secret: "" };
+      toast("Accesso con il provider salvato");
+    } catch (err) {
+      toast(err.message);
+    } finally {
+      oidcBusy = false;
+    }
+  }
+
+  async function testOidc() {
+    await saveOidc();
+    oidcBusy = true;
+    try {
+      oidcTest = await api("/admin/oidc/test", { method: "POST" });
+    } catch (err) {
+      oidcTest = { ok: false, message: err.message };
+    } finally {
+      oidcBusy = false;
+    }
   }
 
   // ---- Nazione delle fonti condivise (#20) ----
@@ -420,7 +465,62 @@
         {@render option("remember_days", "La sessione dura", "Dall'ultima volta che si usa l'app su quel dispositivo.")}
         <div class="set-label">Senza «Ricordami»</div>
         {@render option("session_hours", "Esce dopo", "La sessione finisce anche chiudendo il browser.", " senza usarla")}
-        <p class="set-note">Le nuove durate valgono subito; le sessioni già aperte si adeguano al prossimo utilizzo. L'accesso con un provider esterno (OIDC) arriverà qui.</p>
+        <p class="set-note">Le nuove durate valgono subito; le sessioni già aperte si adeguano al prossimo utilizzo.</p>
+
+        {#snippet oidcSwitch(key, label)}
+          <div class="set-row"><span>{label}</span>
+            <button type="button" class="switch" role="switch" aria-checked={!!oidcForm[key]} aria-label={label} onclick={() => (oidcForm[key] = !oidcForm[key])}></button>
+          </div>
+        {/snippet}
+        <div class="set-label">Accesso con un provider (OIDC)</div>
+        {#if oidcForm}
+          <form class="form-stack" onsubmit={saveOidc}>
+            <div class="set-group">{@render oidcSwitch("enabled", "Accesso con il provider")}</div>
+            <div class="field"><label for="oidc-issuer">Issuer</label>
+              <input class="input" id="oidc-issuer" bind:value={oidcForm.issuer} placeholder="https://auth.example.org/application/o/galactic-feed/" autocapitalize="off" spellcheck="false" inputmode="url" />
+              <p class="hint">L'indirizzo del provider: l'app legge da sola /.well-known/openid-configuration. Funziona con Authentik, Authelia, Keycloak, Pocket ID e gli altri provider OpenID Connect.</p></div>
+            <div class="field"><label for="oidc-client">Client ID</label>
+              <input class="input" id="oidc-client" bind:value={oidcForm.client_id} autocapitalize="off" spellcheck="false" /></div>
+            <div class="field"><label for="oidc-secret">Client secret</label>
+              <input class="input" id="oidc-secret" type="password" autocomplete="new-password" bind:value={oidcForm.client_secret}
+                placeholder={oidcCfg.has_secret ? "Salvato: lascia vuoto per non cambiarlo" : "Il segreto del client"} />
+              <p class="hint">Salvato cifrato; non viene mai mostrato né restituito.</p></div>
+            <div class="field"><label for="oidc-redirect">Indirizzo di ritorno (da copiare nel provider)</label>
+              <input class="input mono" id="oidc-redirect" readonly value={oidcCfg.redirect_uri} onfocus={(e) => e.target.select()} />
+              <p class="hint">Si basa su PUBLIC_URL. Nel provider va registrato esattamente così.</p></div>
+            <div class="field"><label for="oidc-scopes">Scope</label>
+              <input class="input" id="oidc-scopes" bind:value={oidcForm.scopes} autocapitalize="off" spellcheck="false" /></div>
+            <div class="field"><label for="oidc-label">Testo del pulsante</label>
+              <input class="input" id="oidc-label" bind:value={oidcForm.label} maxlength="40" placeholder="Entra con Authentik" /></div>
+
+            <span class="sublabel">Utenti</span>
+            <div class="set-group">
+              {@render oidcSwitch("auto_create", "Crea gli utenti al primo accesso")}
+              {@render oidcSwitch("link_email", "Collega gli utenti con la stessa email verificata")}
+              {@render oidcSwitch("link_username", "Collega gli utenti con lo stesso nome utente")}
+            </div>
+            <p class="hint">Senza la creazione automatica serve ancora un invito; poi ognuno collega il suo account da Impostazioni → Account collegati.</p>
+            <div class="two-selects">
+              <div class="field"><label for="oidc-claim">Claim dei gruppi</label><input class="input" id="oidc-claim" bind:value={oidcForm.admin_claim} placeholder="groups" autocapitalize="off" spellcheck="false" /></div>
+              <div class="field"><label for="oidc-admin">Gruppo degli amministratori</label><input class="input" id="oidc-admin" bind:value={oidcForm.admin_value} placeholder="galactic-admin" autocapitalize="off" spellcheck="false" /></div>
+            </div>
+            <p class="hint">Facoltativo: chi è nel gruppo diventa amministratore, chi ne esce smette di esserlo (mai l'ultimo).</p>
+
+            <span class="sublabel">Sicurezza</span>
+            <div class="set-group">
+              {@render oidcSwitch("password_login", "Accesso anche con nome utente e password")}
+              {@render oidcSwitch("rp_logout", "Uscendo, esci anche dal provider")}
+            </div>
+            <p class="hint">Per spegnere la password serve almeno un amministratore collegato al provider (ora: {oidcCfg.linked_admins}). Se il provider non risponde: <code>docker compose exec galactic-feed python -m app.emergency</code> riaccende la password, oppure la variabile EMERGENCY_PASSWORD_LOGIN=true.{#if oidcCfg.emergency} Adesso è attiva.{/if}</p>
+
+            <button type="submit" class="btn-primary" disabled={oidcBusy}><Icon name="check" />Salva</button>
+            <button type="button" class="btn-secondary" disabled={oidcBusy || !oidcForm.issuer || !oidcForm.client_id} onclick={testOidc}><Icon name="refresh" />Prova la configurazione</button>
+            {#if oidcTest}<p class={oidcTest.ok ? "form-ok" : "form-error"} role="status">{oidcTest.message}</p>{/if}
+            <p class="set-note">{oidcCfg.linked_users === 1 ? "1 utente collegato" : `${oidcCfg.linked_users} utenti collegati`} al provider.</p>
+          </form>
+        {:else}
+          <p class="loading">Carico l'accesso con il provider…</p>
+        {/if}
       {:else}
         <p class="loading">Carico le impostazioni…</p>
       {/if}

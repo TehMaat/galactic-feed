@@ -17,6 +17,9 @@ export const session = $state({
   token: null, // token dell'invito o del reset, preso dall'indirizzo
   invite: null, // { kind, invited_by, username }
   inviteError: "",
+  // Accesso con il provider OIDC (#22): { enabled, label, password_login }.
+  oidc: { enabled: false, label: "", password_login: true },
+  oidcError: "", // errore tornato dal provider (?oidc_error=…)
 });
 
 // ---------- Dati ----------
@@ -178,6 +181,14 @@ export async function boot() {
     if (session.phase === "ready" && ui.online && hasPending()) sendQueued();
   }, 60000);
 
+  // Ritorno dal provider OIDC: l'esito è nell'indirizzo, che poi si ripulisce.
+  const params = new URLSearchParams(location.search);
+  const oidcLinked = params.get("oidc_linked") === "1";
+  if (params.has("oidc_error") || oidcLinked) {
+    session.oidcError = params.get("oidc_error") || "";
+    history.replaceState({ gf: true }, "", location.pathname);
+  }
+
   const loc = readLocation();
   const link = loc.path.match(/^\/(invito|reimposta)\/([\w-]+)$/);
   if (link) {
@@ -193,12 +204,15 @@ export async function boot() {
   ui.tab = loc.tab;
   ui.reader = loc.article;
   await checkSession();
+  if (session.phase === "ready" && session.oidcError) toast(session.oidcError);
+  else if (session.phase === "ready" && oidcLinked) toast("Account del provider collegato: ora puoi entrare anche con quello");
 }
 
 export async function checkSession() {
   try {
     const st = await api("/auth/state", { quiet401: true });
     session.version = st.version;
+    if (st.oidc) session.oidc = st.oidc;
     if (st.setup_needed) session.phase = "setup";
     else if (st.user) enter(st.user);
     else session.phase = "login";
@@ -234,8 +248,9 @@ export async function logout() {
   // Dopo l'uscita questo dispositivo non riceve più notifiche dell'account, né il numero sull'icona.
   await disablePush().catch(() => {});
   setBadge(0);
+  let redirect = null;
   try {
-    await api("/auth/logout", { method: "POST" });
+    redirect = (await api("/auth/logout", { method: "POST" })).redirect;
   } catch {
     /* si esce comunque */
   }
@@ -248,6 +263,8 @@ export async function logout() {
   ui.sheet = null;
   ui.reader = null;
   history.replaceState({ gf: true }, "", "/");
+  // Uscita anche dal provider, se l'amministratore l'ha scelta.
+  if (redirect) location.assign(redirect);
 }
 
 // ---------- Preferenze ----------
