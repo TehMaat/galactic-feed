@@ -51,6 +51,91 @@
     apply(api(`/interests/muted/${w.id}`, { method: "DELETE" }), `«${w.word}» non è più silenziata`);
   }
 
+  // ---- Gruppi di parole (#16): i propri e quelli pronti, accesi come interesse o per silenziare ----
+  const GROUP_MODES = [["off", "Spento"], ["interest", "Interesse"], ["mute", "Silenzia"]];
+  let openGroup = $state(null); // chiave del gruppo aperto: «g12» (proprio) o «p3» (pronto)
+  let newWord = $state("");
+  let newGroup = $state("");
+  const groupRows = $derived([
+    ...(data.interests.groups || []).map((g) => ({ ...g, key: "g" + g.id, preset: false })),
+    ...(data.interests.presets || []).map((p) => ({ ...p, key: "p" + p.id, preset: true, mode: "off", level: "media" })),
+  ]);
+  const activeGroups = $derived((data.interests.groups || []).filter((g) => g.mode !== "off").length);
+
+  function preview(words) {
+    const shown = words.slice(0, 5).join(", ");
+    return words.length > 5 ? `${shown}…` : shown || "nessuna parola";
+  }
+
+  async function groupChange(g, changes, message) {
+    // Un gruppo pronto si prende (copia personale) alla prima modifica.
+    const promise = g.preset
+      ? api("/groups", { method: "POST", body: { preset_id: g.id, ...changes } })
+      : api(`/groups/${g.id}`, { method: "PATCH", body: changes });
+    try {
+      const r = await promise;
+      data.interests.groups = r.groups;
+      data.interests.presets = r.presets;
+      if (g.preset) {
+        const taken = r.groups.find((x) => x.preset_id === g.id);
+        if (taken && openGroup === g.key) openGroup = "g" + taken.id;
+      }
+      if (message) toast(message);
+      if ("mode" in changes || g.mode !== "off") await refreshLists();
+    } catch (err) {
+      toast(err.message);
+    }
+  }
+
+  function setGroupMode(g, mode) {
+    if (mode === g.mode) return;
+    const label = mode === "interest" ? "acceso come interesse" : mode === "mute" ? "silenzia i suoi articoli" : "spento";
+    groupChange(g, { mode }, `${g.name}: ${label}`);
+  }
+
+  function addGroupWord(e, g) {
+    e.preventDefault();
+    const word = newWord.trim();
+    if (!word) return;
+    newWord = "";
+    groupChange(g, { words: [...g.words, word] }, `«${word}» aggiunta a ${g.name}`);
+  }
+
+  function removeGroupWord(g, word) {
+    groupChange(g, { words: g.words.filter((w) => w !== word) }, `«${word}» tolta da ${g.name}`);
+  }
+
+  async function deleteGroup(g) {
+    if (!confirm(g.preset_id ? `Togliere «${g.name}»? Tornerà tra i gruppi pronti con le parole originali.` : `Eliminare il gruppo «${g.name}»?`)) return;
+    try {
+      const r = await api(`/groups/${g.id}`, { method: "DELETE" });
+      data.interests.groups = r.groups;
+      data.interests.presets = r.presets;
+      openGroup = null;
+      toast(`${g.name} tolto`);
+      await refreshLists();
+    } catch (err) {
+      toast(err.message);
+    }
+  }
+
+  async function createGroup(e) {
+    e.preventDefault();
+    const name = newGroup.trim();
+    if (!name) return;
+    try {
+      const r = await api("/groups", { method: "POST", body: { name, words: [] } });
+      data.interests.groups = r.groups;
+      data.interests.presets = r.presets;
+      newGroup = "";
+      const created = r.groups.find((x) => x.name.toLowerCase() === name.toLowerCase());
+      if (created) openGroup = "g" + created.id;
+      toast(`Gruppo «${name}» creato: aggiungi le sue parole`);
+    } catch (err) {
+      toast(err.message);
+    }
+  }
+
   const MODES = [["parole", "Parole chiave"], ["ai", "AI"], ["entrambi", "Entrambi"]];
   const HINTS = {
     parole: "Un articolo è «per te» se il titolo, l'estratto o le categorie contengono un tuo interesse.",
@@ -144,6 +229,55 @@
     <form class="add-inline" onsubmit={addKeyword}>
       <input bind:value={newKeyword} placeholder="Parola o argomento" autocomplete="off" aria-label="Nuovo interesse" maxlength="60" />
       <button type="submit">Aggiungi</button>
+    </form>
+  </section>
+
+  <section class="panel">
+    <h3>Gruppi di parole <span class="count">{activeGroups ? `${activeGroups} accesi` : "pronti da accendere"}</span></h3>
+    <p class="hint">Un gruppo raccoglie le parole di un argomento. Accendilo come interesse o per silenziare i suoi articoli; tocca il nome per vederne e cambiarne le parole.</p>
+    <div class="wgroups">
+      {#each groupRows as g (g.key)}
+        <div class="wg" data-mode={g.mode}>
+          <div class="wg-row">
+            <button type="button" class="wg-name" aria-expanded={openGroup === g.key} onclick={() => (openGroup = openGroup === g.key ? null : g.key)}>
+              <b>{g.name}</b><small>{preview(g.words)}</small>
+            </button>
+            <div class="segmented wg-mode" style="--cols:3" role="group" aria-label="Gruppo {g.name}">
+              {#each GROUP_MODES as [k, label]}
+                <button type="button" aria-pressed={g.mode === k} onclick={() => setGroupMode(g, k)}>{label}</button>
+              {/each}
+            </div>
+          </div>
+          {#if openGroup === g.key}
+            <div class="wg-body">
+              <div class="tags">
+                {#each g.words as w (w)}
+                  <button type="button" class="tag" aria-label="Togli {w} da {g.name}" onclick={() => removeGroupWord(g, w)}>{w}<Icon name="close" /></button>
+                {/each}
+              </div>
+              <form class="add-inline" onsubmit={(e) => addGroupWord(e, g)}>
+                <input bind:value={newWord} placeholder="Parola da aggiungere" autocomplete="off" aria-label="Nuova parola per {g.name}" maxlength="60" />
+                <button type="submit">Aggiungi</button>
+              </form>
+              {#if g.mode === "interest"}
+                <div class="wg-level"><span>Priorità</span>
+                  <div class="segmented" style="--cols:2" role="group" aria-label="Priorità di {g.name}">
+                    <button type="button" aria-pressed={g.level === "alta"} onclick={() => groupChange(g, { level: "alta" }, `${g.name}: priorità alta`)}>Alta</button>
+                    <button type="button" aria-pressed={g.level === "media"} onclick={() => groupChange(g, { level: "media" }, `${g.name}: priorità media`)}>Media</button>
+                  </div>
+                </div>
+              {/if}
+              {#if !g.preset}
+                <button type="button" class="link-row danger" onclick={() => deleteGroup(g)}><Icon name="trash" />{g.preset_id ? "Togli e torna al gruppo pronto" : "Elimina il gruppo"}</button>
+              {/if}
+            </div>
+          {/if}
+        </div>
+      {/each}
+    </div>
+    <form class="add-inline" onsubmit={createGroup}>
+      <input bind:value={newGroup} placeholder="Nome di un gruppo nuovo" autocomplete="off" aria-label="Nome del nuovo gruppo" maxlength="40" />
+      <button type="submit">Crea</button>
     </form>
   </section>
 

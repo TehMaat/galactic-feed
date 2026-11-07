@@ -213,3 +213,36 @@ img.src-av.is-icon { padding: 3px; }
 .set-note.top { margin: 0 4px 12px; }
 .set-group.mt { margin-top: 16px; }
 .mono.small { font-family: var(--font-mono); font-size: 13px; }
+
+/* ---------- Gruppi di parole (Interessi) ---------- */
+.wgroups { display: grid; gap: 0; margin: 4px 0 12px; border-radius: 14px; background: var(--surface-2); overflow: hidden; }
+.wg + .wg { border-top: 1px solid var(--line); }
+.wg-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 8px 8px 8px 12px; }
+.wg-name { display: grid; gap: 1px; min-width: 0; text-align: left; }
+.wg-name b { font-weight: 650; }
+.wg-name small { overflow: hidden; color: var(--ink-3); font-size: 12.5px; white-space: nowrap; text-overflow: ellipsis; }
+.wg[data-mode="interest"] .wg-name b { color: var(--accent); }
+.wg[data-mode="mute"] .wg-name b { color: var(--ink-3); text-decoration: line-through; }
+.wg-mode { width: 210px; margin: 0; background: var(--surface); }
+.wg-mode button { padding: 6px 0; font-size: 12.5px; }
+.wg-mode button[aria-pressed="true"] { background: var(--surface-2); }
+.wg[data-mode="interest"] .wg-mode button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); }
+.wg-body { display: grid; gap: 10px; padding: 4px 12px 12px; }
+.wg-level { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 14px; font-weight: 600; }
+.wg-level .segmented { width: 150px; margin: 0; background: var(--surface); }
+.wg-body .link-row { padding-inline: 0; }
+@container app (max-width: 420px) {
+  .wg-row { grid-template-columns: minmax(0, 1fr); }
+  .wg-mode { width: 100%; }
+}
+
+/* Gruppi pronti nel pannello Amministrazione */
+.preset + .preset { border-top: 1px solid var(--line); }
+.preset .set-row + .set-row { border: 0; }
+.preset-name { display: grid; gap: 1px; min-width: 0; text-align: left; }
+.preset-name b { font-weight: 600; }
+.preset-name small { color: var(--ink-3); font-size: 12.5px; }
+.preset.is-hidden .preset-name b { color: var(--ink-3); }
+.preset-body { display: grid; gap: 10px; padding: 0 14px 14px; }
+.add-inline.mt { margin-top: 14px; }
+.wg-body .tag, .wg-body .add-inline input, .wg-body .add-inline button { background: var(--surface); }

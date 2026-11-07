@@ -10,7 +10,7 @@
   import { ACCENTS, FONTS, READ_FONTS, SIZES, bytesLabel, durationLabel, initials, timeAgoLong } from "../lib/format.js";
   import { loadSources, session, toast, ui } from "../lib/store.svelte.js";
 
-  // main · users · user · access · sources · ai · defaults · status
+  // main · users · user · access · sources · presets · ai · defaults · status
   let page = $state("main");
   let users = $state([]);
   let invites = $state([]);
@@ -20,6 +20,10 @@
   let defaults = $state(null); // { prefs, chosen } per i nuovi utenti
   let status = $state(null);
   let newTime = $state("19:00");
+  let presets = $state(null); // gruppi di parole pronti
+  let openPreset = $state(null);
+  let presetWord = $state("");
+  let newPreset = $state("");
 
   const me = $derived(session.user);
   const TITLES = {
@@ -28,6 +32,7 @@
     user: "Utente",
     access: "Accesso",
     sources: "Fonti e archivio",
+    presets: "Gruppi di parole pronti",
     ai: "AI",
     defaults: "Nuovi utenti",
     status: "Stato del sistema",
@@ -36,6 +41,7 @@
     ["users", "user", "Utenti e inviti", "Invita, disattiva, nuove password"],
     ["access", "key", "Accesso", "Durata delle sessioni e di «Ricordami»"],
     ["sources", "rss", "Fonti e archivio", "Conservazione, controlli, rete locale"],
+    ["presets", "folder", "Gruppi di parole pronti", "Proposti a tutti negli Interessi"],
     ["ai", "spark", "AI", "Fornitore, modello e limite giornaliero"],
     ["defaults", "sliders", "Predefiniti per i nuovi utenti", "Tema, colore, font, Edizione"],
     ["status", "devices", "Stato del sistema", "Versione, spazio, errori recenti"],
@@ -51,6 +57,7 @@
     if (p === "users") loadUsers();
     if (["users", "access", "sources", "status"].includes(p)) loadInstance();
     if (p === "defaults") loadDefaults();
+    if (p === "presets") loadPresets();
     if (p === "status") loadStatus();
   }
 
@@ -226,6 +233,58 @@
     saveDefault({ edition_times: times.filter((x) => x !== t) });
   }
 
+  // ---- Gruppi di parole pronti ----
+  async function loadPresets() {
+    try {
+      presets = (await api("/admin/presets")).presets;
+    } catch (err) {
+      toast(err.message);
+    }
+  }
+
+  async function presetRequest(path, options, message) {
+    try {
+      presets = (await api(path, options)).presets;
+      if (message) toast(message);
+      return true;
+    } catch (err) {
+      toast(err.message);
+      return false;
+    }
+  }
+
+  function patchPreset(p, changes, message) {
+    return presetRequest(`/admin/presets/${p.id}`, { method: "PATCH", body: changes }, message);
+  }
+
+  function addPresetWord(e, p) {
+    e.preventDefault();
+    const word = presetWord.trim();
+    if (!word) return;
+    presetWord = "";
+    patchPreset(p, { words: [...p.words, word] }, `«${word}» aggiunta a ${p.name}`);
+  }
+
+  function renamePreset(p, value) {
+    const name = value.trim();
+    if (name && name !== p.name) patchPreset(p, { name }, `Rinominato in ${name}`);
+  }
+
+  async function removePreset(p) {
+    if (!p.builtin && !confirm(`Eliminare il gruppo pronto «${p.name}»? Chi l'ha già preso tiene la sua copia.`)) return;
+    if (await presetRequest(`/admin/presets/${p.id}`, { method: "DELETE" }, p.builtin ? `${p.name} nascosto` : `${p.name} eliminato`)) openPreset = null;
+  }
+
+  async function createPreset(e) {
+    e.preventDefault();
+    const name = newPreset.trim();
+    if (!name) return;
+    if (await presetRequest("/admin/presets", { method: "POST", body: { name, words: [] } }, `Gruppo «${name}» creato: aggiungi le parole`)) {
+      newPreset = "";
+      openPreset = presets.find((x) => x.name.toLowerCase() === name.toLowerCase())?.id ?? null;
+    }
+  }
+
   // ---- Stato del sistema ----
   async function loadStatus() {
     try {
@@ -353,6 +412,47 @@
       {:else}
         <p class="loading">Carico le impostazioni…</p>
       {/if}
+    {:else if page === "presets"}
+      {#if presets}
+        <p class="set-note top">Ogni utente li trova negli Interessi e li accende come interesse o per silenziare con un tocco. Le modifiche valgono per chi li prende da adesso: chi li usa già tiene la sua copia.</p>
+        <div class="set-group">
+          {#each presets as p (p.id)}
+            <div class="preset" class:is-hidden={p.hidden}>
+              <div class="set-row">
+                <button type="button" class="preset-name" aria-expanded={openPreset === p.id} onclick={() => (openPreset = openPreset === p.id ? null : p.id)}>
+                  <b>{p.name}</b><small>{p.words.length === 1 ? "1 parola" : `${p.words.length} parole`}{p.builtin ? " · fornito con l'app" : ""}</small>
+                </button>
+                <button type="button" class="switch" role="switch" aria-checked={!p.hidden} aria-label="Proponi {p.name}"
+                  onclick={() => patchPreset(p, { hidden: !p.hidden }, p.hidden ? `${p.name} di nuovo proposto` : `${p.name} nascosto`)}></button>
+              </div>
+              {#if openPreset === p.id}
+                <div class="preset-body">
+                  <input class="input" value={p.name} aria-label="Nome del gruppo" maxlength="40" onchange={(e) => renamePreset(p, e.target.value)} />
+                  <div class="tags">
+                    {#each p.words as w (w)}
+                      <button type="button" class="tag" aria-label="Togli {w}" onclick={() => patchPreset(p, { words: p.words.filter((x) => x !== w) }, `«${w}» tolta`)}>{w}<Icon name="close" /></button>
+                    {/each}
+                  </div>
+                  <form class="add-inline" onsubmit={(e) => addPresetWord(e, p)}>
+                    <input bind:value={presetWord} placeholder="Parola da aggiungere" autocomplete="off" aria-label="Nuova parola per {p.name}" maxlength="60" />
+                    <button type="submit">Aggiungi</button>
+                  </form>
+                  {#if !p.builtin}
+                    <button type="button" class="link-row danger" onclick={() => removePreset(p)}><Icon name="trash" />Elimina il gruppo pronto</button>
+                  {/if}
+                </div>
+              {/if}
+            </div>
+          {/each}
+        </div>
+        <form class="add-inline mt" onsubmit={createPreset}>
+          <input bind:value={newPreset} placeholder="Nome di un gruppo pronto nuovo" autocomplete="off" aria-label="Nome del nuovo gruppo pronto" maxlength="40" />
+          <button type="submit">Crea</button>
+        </form>
+        <p class="set-note">Quelli forniti con l'app non si cancellano: si spengono e non vengono più proposti.</p>
+      {:else}
+        <p class="loading">Carico i gruppi…</p>
+      {/if}
     {:else if page === "ai"}
       <AiSettings />
     {:else if page === "defaults"}
@@ -437,7 +537,10 @@
             <button type="button" class="set-row as-button" onclick={resetDefaults}><span>Torna ai predefiniti dell'app</span><Icon name="refresh" /></button>
           </div>
         {/if}
-        <p class="set-note">I gruppi di parole pronti per gli interessi arriveranno qui.</p>
+        <div class="set-group mt">
+          <button type="button" class="set-row as-button" onclick={() => go("presets")}><span>Gruppi di parole pronti</span><Icon name="chevron" /></button>
+        </div>
+        <p class="set-note">I nuovi utenti trovano i gruppi pronti negli Interessi e li accendono con un tocco.</p>
       {:else}
         <p class="loading">Carico i predefiniti…</p>
       {/if}

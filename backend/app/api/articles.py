@@ -92,7 +92,8 @@ def item_payload(row: sqlite3.Row, secret: bytes, others: list[dict] | None = No
         "read": row["read_at"] is not None,
         "saved": row["saved_at"] is not None,
         "saved_at": iso(row["saved_at"]),
-        "match": {"keyword": row["keyword"], "level": row["level"]} if row["level"] else None,
+        # Il gruppo di parole («Motori») che ha fatto corrispondere l'articolo, se c'è.
+        "match": {"keyword": row["keyword"], "level": row["level"], "group": row["group_name"]} if row["level"] else None,
         "muted": bool(row["muted"]),
         "also_on": others or [],
     }

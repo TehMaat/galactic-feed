@@ -463,3 +463,33 @@ test("pannello di amministrazione: impostazioni dell'istanza e predefiniti", asy
   await expect(other.locator(".tabbar").getByRole("button", { name: "Amministrazione" })).toHaveCount(0);
   await ctx.close();
 });
+
+test("gruppi di parole: un gruppo pronto acceso come interesse con un tocco", async ({ page }) => {
+  await page.setViewportSize(PHONE);
+  await page.goto("/");
+  await page.getByLabel("Nome utente").fill("anna");
+  await page.getByLabel("Password").fill(PASSWORD);
+  await page.getByRole("button", { name: "Entra" }).click();
+  await page.locator(".tabbar").getByRole("button", { name: "Interessi" }).click();
+  const interessi = page.locator("section[aria-label='Interessi']");
+  // Un test precedente ha scelto l'AI: qui servono le parole chiave.
+  await interessi.getByRole("group", { name: "Metodo di selezione" }).getByRole("button", { name: "Parole chiave" }).click();
+  // Il gruppo pronto «Scienza» acceso come interesse, con una parola in più.
+  await interessi.getByRole("group", { name: "Gruppo Scienza" }).getByRole("button", { name: "Interesse" }).click();
+  await expect(page.locator(".toast")).toContainText("Scienza: acceso come interesse");
+  await interessi.getByRole("button", { name: /^Scienza/ }).click();
+  await expect(interessi.getByRole("button", { name: "Togli astronomia da Scienza" })).toBeVisible();
+  await interessi.getByLabel("Nuova parola per Scienza").fill("galassia");
+  await interessi.getByLabel("Nuova parola per Scienza").press("Enter");
+  await expect(page.locator(".toast")).toContainText("«galassia» aggiunta a Scienza");
+  // Nel Flusso «Per te» l'articolo mostra il gruppo e la parola trovata.
+  await page.locator(".tabbar").getByRole("button", { name: "Oggi" }).click();
+  const oggi = page.locator("section[aria-label='Oggi']");
+  if (await oggi.getByRole("tab", { name: "Flusso" }).count()) await oggi.getByRole("tab", { name: "Flusso" }).click();
+  await oggi.getByRole("button", { name: /^Per te/ }).click();
+  await expect(oggi.locator(".card").filter({ hasText: "galassia lontana" }).locator(".match")).toContainText("Scienza · galassia");
+  // Spento di nuovo, per non cambiare gli altri test.
+  await page.locator(".tabbar").getByRole("button", { name: "Interessi" }).click();
+  await interessi.getByRole("group", { name: "Gruppo Scienza" }).getByRole("button", { name: "Spento" }).click();
+  await expect(page.locator(".toast")).toContainText("Scienza: spento");
+});

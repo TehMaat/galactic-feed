@@ -3,7 +3,7 @@
   // terza colonna, sempre visibile (come nel mockup).
   import { api } from "../lib/api.js";
   import { isAvailableOffline, overlay } from "../lib/offline.js";
-  import { sourceColor, timeAgoLong } from "../lib/format.js";
+  import { matchLabel, sourceColor, timeAgoLong } from "../lib/format.js";
   import { TEXT_SIZES, closeReader, foldersById, savePrefs, session, setRead, setSaved, stream, saved, ui, toast } from "../lib/store.svelte.js";
   import Icon from "./Icon.svelte";
   import SourceIcon from "./SourceIcon.svelte";
@@ -149,7 +149,7 @@
           <SourceIcon source={article.source} color={sourceColor(article.source, foldersById())} />
           <span class="src">{article.source.title}</span>
         </div>
-        {#if article.match}<span class="match"><Icon name="spark" />{article.match.keyword}</span>{/if}
+        {#if article.match}<span class="match"><Icon name="spark" />{matchLabel(article.match)}</span>{/if}
         {#if available}<span class="offline"><Icon name="check" />Disponibile offline</span>{/if}
       </div>
       <h1 class="reader-title">{article.title}</h1>

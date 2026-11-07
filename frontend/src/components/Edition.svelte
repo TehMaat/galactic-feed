@@ -2,7 +2,7 @@
   // Edizione: testata con il cielo stellato, notizia in primo piano e sezioni per cartella,
   // come nel mockup. La compone il server agli orari scelti nelle Impostazioni.
   import { paintStars } from "../lib/art.js";
-  import { folderColor } from "../lib/format.js";
+  import { folderColor, matchLabel } from "../lib/format.js";
   import { composeEdition, edition, foldersById, openArticle, session, ui } from "../lib/store.svelte.js";
   import Icon from "./Icon.svelte";
   import SourceMeta from "./SourceMeta.svelte";
@@ -62,7 +62,7 @@
       <Thumb article={a} color={color(a)} wide />
       <div class="hero-body">
         <div class="hero-label"><span class="count">In primo piano</span>
-          {#if a.match}<span class="match"><Icon name="spark" />{a.match.keyword}</span>{/if}</div>
+          {#if a.match}<span class="match"><Icon name="spark" />{matchLabel(a.match)}</span>{/if}</div>
         <h3 class="hero-title">{a.title}</h3>
         {#if a.excerpt}<p class="excerpt clamp-2">{a.excerpt}</p>{/if}
         <SourceMeta article={a} />
@@ -81,7 +81,7 @@
           aria-label={a.title} onclick={() => openArticle(a.id)} onkeydown={(e) => key(e, a.id)}>
           <div class="row-text">
             <h4 class="row-title clamp-3">{a.title}</h4>
-            <div class="row-foot"><SourceMeta article={a} />{#if a.match}<span class="match"><Icon name="spark" />{a.match.keyword}</span>{/if}</div>
+            <div class="row-foot"><SourceMeta article={a} />{#if a.match}<span class="match"><Icon name="spark" />{matchLabel(a.match)}</span>{/if}</div>
           </div>
           <Thumb article={a} color={color(a)} />
         </article>

@@ -177,11 +177,12 @@ def article_rows(conn: sqlite3.Connection, user_id: int, ids: list[int], full: b
         "SELECT a.id, a.cluster_id, a.url, a.title, a.author, a.excerpt, a.image_url, a.video_id, a.word_count,"
         " a.published_at, f.kind, f.title AS feed_title, f.site_url, f.icon_url, s.id AS sub_id, s.title AS sub_title,"
         " s.folder_id, s.icon_mode, s.icon_custom,"
-        f" ua.read_at, ua.saved_at, m.keyword, m.level, COALESCE(m.muted, 0) AS muted{content}"
+        f" ua.read_at, ua.saved_at, m.keyword, m.level, COALESCE(m.muted, 0) AS muted, g.name AS group_name{content}"
         " FROM articles a JOIN feeds f ON f.id = a.feed_id"
         " LEFT JOIN subscriptions s ON s.feed_id = a.feed_id AND s.user_id = ?"
         " LEFT JOIN user_articles ua ON ua.article_id = a.id AND ua.user_id = ?"
         " LEFT JOIN user_matches m ON m.article_id = a.id AND m.user_id = ?"
+        " LEFT JOIN word_groups g ON g.id = m.group_id"
         f" WHERE a.id IN ({marks})",
         [user_id, user_id, user_id, *ids],
     ).fetchall()

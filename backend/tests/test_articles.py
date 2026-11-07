@@ -64,8 +64,8 @@ def test_interests_and_per_te(admin, app):
     assert [k["keyword"] for k in r.json()["keywords"]] == ["Docker", "Luna"]
     items = _list(admin, view="perte")["items"]
     assert [(a["title"][:6], a["match"]) for a in items] == [
-        ("Perché", {"keyword": "Luna", "level": "media"}),
-        ("Docker", {"keyword": "Docker", "level": "alta"}),
+        ("Perché", {"keyword": "Luna", "level": "media", "group": None}),
+        ("Docker", {"keyword": "Docker", "level": "alta", "group": None}),
     ]
     luna = r.json()["keywords"][1]["id"]
     admin.patch(f"/api/interests/keywords/{luna}", json={"level": "spento"})

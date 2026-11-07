@@ -145,3 +145,9 @@ export function bytesLabel(n) {
   if (n < 1024 ** 3) return `${(n / 1024 ** 2).toFixed(1).replace(".", ",")} MB`;
   return `${(n / 1024 ** 3).toFixed(2).replace(".", ",")} GB`;
 }
+
+/** Il testo della corrispondenza: «Motori · Ferrari» per un gruppo di parole, altrimenti la parola trovata. */
+export function matchLabel(match) {
+  if (!match) return "";
+  return match.group && match.group !== match.keyword ? `${match.group} · ${match.keyword}` : match.keyword;
+}

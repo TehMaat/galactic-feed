@@ -17,6 +17,7 @@ from ..reading.text import normalize
 from ..ai import config as ai_config
 from .ai import status_payload
 from .common import prefs_with_defaults
+from .groups import groups_payload
 
 router = APIRouter(prefix="/api/interests", tags=["interessi"])
 
@@ -43,6 +44,8 @@ def _payload(conn: sqlite3.Connection, user: User, secret: bytes) -> dict:
         "muted": [dict(r) for r in muted],
         "rules": {"dedupe": prefs_with_defaults(user.prefs)["dedupe"]},
         "ai": status_payload(ai_config.load(conn, secret)),
+        # Gruppi di parole (vedi api/groups.py): quelli dell'utente e quelli pronti ancora da prendere.
+        **groups_payload(conn, user.id),
     }
 
 
