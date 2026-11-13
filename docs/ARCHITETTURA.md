@@ -30,7 +30,9 @@ frontend/                 PWA Svelte + Vite
     views/                Oggi, Fonti, Interessi, Salvati, Impostazioni, Amministrazione, Accesso, Primo avvio, Invito
     components/           Card, Row, Reader, Sheet, Page (pagine con indice), Confirm (conferme dell'app), TabBar, Chips, Toast
     sw.js                 service worker
-  public/icons/
+  public/icons/            icone dell'app; apple-touch-icon.png (chiara) e -dark.png (scura) per iOS
+  icons-src/              sorgenti SVG delle icone per iOS (npm run icons → public/icons/)
+  scripts/icons.mjs       genera le PNG da icons-src/ con il Chromium di Playwright
   tests/                  vitest (logica) + Playwright (prova nel browser)
 Dockerfile                build in più fasi: PWA → dipendenze Python → immagine finale (utente non root, uid 1000)
 docker-compose.yml

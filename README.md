@@ -231,6 +231,8 @@ In Pangolin si fa con le regole della risorsa: una regola "Bypass Auth" per cias
 2. Tocca il pulsante Condividi, poi **Aggiungi alla schermata Home**, poi **Aggiungi**.
 3. Apri Galactic Feed dall'icona: si apre a schermo intero, come un'app.
 
+L'icona è bianca se l'iPhone è in modalità chiara e nera, nello stile delle icone Apple, se è in modalità scura. iOS la sceglie **quando aggiungi l'app** e poi non la cambia più, perché per le web app non permette icone diverse per tema. Per passare all'altra icona (o per vedere quella nuova dopo un aggiornamento), cambia la modalità del sistema, togli l'app dalla schermata Home e aggiungila di nuovo: account e dati restano sul server.
+
 Su iPhone l'app non si aggiorna in background: le notizie le scarica sempre il server, e l'app le prende quando la apri. I salvati e gli ultimi 300 articoli letti restano leggibili anche offline. Quello che segni o salvi senza rete parte quando la rete torna.
 
 **Android** (Chrome): menu ⋮, poi **Installa app** o **Aggiungi a schermata Home**.
