@@ -17,7 +17,7 @@ export default defineConfig({
       manifestFilename: "manifest.webmanifest",
       includeAssets: ["icons/*.png", "icons/*.svg"],
       injectManifest: {
-        globPatterns: ["**/*.{js,css,html,svg}", "**/*-latin-[0-9]*.woff2", "**/*-latin-wght-normal*.woff2", "icons/apple-touch-icon.png"],
+        globPatterns: ["**/*.{js,css,html,svg}", "**/*-latin-[0-9]*.woff2", "**/*-latin-wght-normal*.woff2", "icons/apple-touch-icon*.png"],
         maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
       },
       manifest: {

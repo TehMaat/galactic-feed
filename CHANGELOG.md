@@ -4,6 +4,11 @@ Tutte le versioni di Galactic Feed, dalla più recente. I numeri seguono [semver
 
 Per aggiornare basta scaricare la nuova immagine: le modifiche al database si applicano da sole all'avvio. Prima di saltare a una nuova versione minore conviene fare una copia del volume `/data` (vedi il README, «Versioni e aggiornamenti»).
 
+## [Da pubblicare]
+
+### Novità
+- **Nuova icona per iPhone e iPad**, nello stile delle icone Apple: sfondo pulito, bianco se il sistema è in modalità chiara, nero se è in modalità scura (#30). iOS la sceglie quando aggiungi l'app alla schermata Home: per vedere quella nuova togli l'app dalla Home e aggiungila di nuovo.
+
 ## [0.7.0] – 2026-11-07
 
 ### Novità

@@ -12,7 +12,19 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Galactic">
 <link rel="icon" href="/icons/favicon.svg" type="image/svg+xml">
-<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<!-- Icona della schermata Home su iOS: bianca col sistema chiaro, nera (stile Apple) con lo scuro (#30).
+     iOS non legge varianti per tema, quindi lo script qui sotto sceglie quella giusta prima che la PWA venga
+     aggiunta alla Home. Le sorgenti sono in icons-src/ («npm run icons»). -->
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" id="touch-icon">
+<script>
+  // Icona per la schermata Home: segue il tema del sistema (non quello scelto nell'app).
+  try {
+    var dm = matchMedia("(prefers-color-scheme: dark)"), ti = document.getElementById("touch-icon");
+    var syncIcon = function () { ti.href = dm.matches ? "/icons/apple-touch-icon-dark.png" : "/icons/apple-touch-icon.png"; };
+    syncIcon();
+    dm.addEventListener("change", syncIcon);
+  } catch (e) {}
+</script>
 <script>
   // Tema e aspetto scelti, applicati prima di disegnare la pagina per evitare un lampo di
   // colori o font sbagliati. Li salva applyPrefs (src/lib/store.svelte.js).
