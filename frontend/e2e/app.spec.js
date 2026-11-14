@@ -717,13 +717,20 @@ test("telefono: le barre escono scorrendo giù e rientrano tornando su (#36)", a
   await expect(oggi.locator(".card, [role='tablist']").first()).toBeVisible();
   if (await oggi.getByRole("tab", { name: "Flusso" }).count()) await oggi.getByRole("tab", { name: "Flusso" }).click();
   await expect(oggi.locator(".card").first()).toBeVisible();
+  // Per cliccare un elemento che sta ancora entrando, Playwright può far scorrere la sezione:
+  // si riparte dalla cima, dove le barre sono sempre visibili.
+  await oggi.evaluate((v) => v.scrollTo(0, 0));
   const app = page.locator(".app");
   await expect(app).not.toHaveAttribute("data-bars", "hidden");
 
   // La Dock è staccata dal fondo e dai lati.
-  const dock = await page.locator(".tabbar").boundingBox();
-  expect(dock.x).toBeGreaterThanOrEqual(12);
-  expect(520 - (dock.y + dock.height)).toBeGreaterThanOrEqual(16);
+  // (si aspetta la fine dell'animazione con cui rientra)
+  const dock = page.locator(".tabbar");
+  await expect.poll(async () => {
+    const box = await dock.boundingBox();
+    return 520 - (box.y + box.height);
+  }).toBeGreaterThanOrEqual(16);
+  expect((await dock.boundingBox()).x).toBeGreaterThanOrEqual(12);
 
   await page.mouse.move(195, 260);
   await page.mouse.wheel(0, 200);
