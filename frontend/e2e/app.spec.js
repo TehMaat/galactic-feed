@@ -630,3 +630,53 @@ test("accesso con un provider OIDC configurato dal pannello", async ({ page, bro
   await expect(other.locator(`${SETTINGS} .who`)).toContainText("Olivia Bianchi");
   await ctx.close();
 });
+
+test("lettura: gli articoli senza testo completo si nascondono dalle Impostazioni", async ({ page }) => {
+  await page.setViewportSize(PHONE);
+  await page.goto("/");
+  await page.getByLabel("Nome utente").fill("anna");
+  await page.getByLabel("Password").fill(PASSWORD);
+  await page.getByRole("button", { name: "Entra" }).click();
+
+  // Una fonte che dà solo l'estratto: il server prova a leggere le pagine, ma il sito non le dà.
+  await page.locator(".tabbar").getByRole("button", { name: "Fonti" }).click();
+  await page.getByRole("button", { name: "Aggiungi", exact: true }).click();
+  await page.getByLabel("Indirizzo").fill("http://127.0.0.1:8098/chiuso.xml");
+  await sheetClick(page, "Cerca feed");
+  await expect(page.locator(".found-item")).toContainText("solo estratto");
+  await sheetClick(page, "Aggiungi fonte");
+  await expect(page.locator(".toast")).toContainText("Chiuso aggiunta");
+  // Appena l'estrazione è fallita, la scheda della fonte lo dice (dopo aver ricaricato le fonti).
+  await expect(async () => {
+    await page.reload();
+    await page.locator(".tabbar").getByRole("button", { name: "Fonti" }).click();
+    await page.getByRole("button", { name: "Fonte Chiuso" }).click();
+    await expect(page.locator(".sheet.is-open")).toContainText("Spesso solo estratto", { timeout: 1000 });
+  }).toPass({ timeout: 20_000 });
+  await expect(page.locator(".sheet.is-open")).toContainText("Impostazioni → Lettura");
+  await page.keyboard.press("Escape");
+
+  // Impostazioni → Lettura.
+  await page.getByRole("button", { name: "Impostazioni" }).click();
+  const settings = page.locator(SETTINGS);
+  const toggle = settings.getByRole("switch", { name: "Nascondi gli articoli senza testo completo" });
+  await expect(toggle).toHaveAttribute("aria-checked", "false");
+  await toggle.click();
+  await expect(toggle).toHaveAttribute("aria-checked", "true");
+
+  // Nel Flusso non ci sono più, ma si possono mostrare per una volta.
+  await page.locator(".tabbar").getByRole("button", { name: "Oggi" }).click();
+  const oggi = page.locator("section[aria-label='Oggi']");
+  if (await oggi.getByRole("tab", { name: "Flusso" }).count()) await oggi.getByRole("tab", { name: "Flusso" }).click();
+  await expect(oggi.locator(".card").first()).toBeVisible();
+  await expect(oggi.locator(".card", { hasText: "Riservato agli abbonati" })).toHaveCount(0);
+  const note = oggi.locator(".hidden-note", { hasText: "testo completo" });
+  await expect(note).toContainText("3 articoli nascosti perché il sito non lascia leggere il testo completo");
+  await note.getByRole("button", { name: "Mostra" }).click();
+  await expect(oggi.locator(".card", { hasText: "Riservato agli abbonati" })).toHaveCount(3);
+
+  // Spenta di nuovo, per non cambiare gli altri test.
+  await page.getByRole("button", { name: "Impostazioni" }).click();
+  await toggle.click();
+  await expect(toggle).toHaveAttribute("aria-checked", "false");
+});

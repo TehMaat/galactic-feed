@@ -5,7 +5,7 @@
   import SourceIcon from "../components/SourceIcon.svelte";
   import { api } from "../lib/api.js";
   import { COUNTRIES, KIND_LABEL, countryName, flag, folderColor, intervalLabel, shortUrl, since, sourceColor, timeAgoLong } from "../lib/format.js";
-  import { ask, closeSheet, data, foldersById, loadAll, loadCounts, loadSources, patchSourceInLists, showSource, toast, ui } from "../lib/store.svelte.js";
+  import { ask, closeSheet, data, foldersById, loadAll, loadCounts, loadSources, patchSourceInLists, session, showSource, toast, ui } from "../lib/store.svelte.js";
 
   let source = $state(null);
   let title = $state("");
@@ -286,7 +286,13 @@
           <a class="set-row link" href={source.site_url} target="_blank" rel="noopener noreferrer"><span>Sito</span><span class="val ellipsis">{shortUrl(source.site_url)} ↗</span></a>
         {/if}
         <div class="set-row"><span>Articoli</span><span class="val">{source.articles} · {source.unread} non letti</span></div>
+        {#if source.mostly_partial}
+          <div class="set-row"><span>Testo completo</span><span class="val">Spesso solo estratto</span></div>
+        {/if}
       </div>
+      {#if source.mostly_partial}
+        <p class="set-note">Il sito di solito non lascia leggere qui il testo completo: lo trovi nell'articolo originale.{session.user?.prefs?.hide_partial ? " Con la tua impostazione questi articoli sono nascosti." : " Puoi nasconderli in Impostazioni → Lettura."}</p>
+      {/if}
 
       <button type="button" class="btn-secondary" onclick={refresh} disabled={busy}><Icon name="refresh" />{busy ? "Controllo…" : "Controlla adesso"}</button>
       <button type="button" class="btn-secondary danger" onclick={unfollow}><Icon name="trash" />Smetti di seguire</button>

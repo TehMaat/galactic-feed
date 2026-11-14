@@ -8,7 +8,7 @@
   import { currentSubscription, disablePush, enablePush, isIos, isStandalone } from "../lib/push.js";
   import { api } from "../lib/api.js";
   import { ACCENTS, DARK_STYLES, LIGHT_STYLES, FONTS, READ_FONTS, SIZES, countryName, initials, timeAgoLong } from "../lib/format.js";
-  import { ask, data, editionConfigs, loadEditionConfigs, logout, openPage, openSheet, savePrefs, session, setEditionConfigs, toast, ui } from "../lib/store.svelte.js";
+  import { ask, data, editionConfigs, loadEditionConfigs, logout, openPage, openSheet, savePrefs, session, setEditionConfigs, setFilter, toast, ui } from "../lib/store.svelte.js";
 
   let { active } = $props();
   let page = $state("main"); // main · password · sessions · identities
@@ -30,6 +30,7 @@
     ["notifiche", "bell", "Notifiche"],
     ["ai", "spark", "AI"],
     ["aspetto", "sliders", "Aspetto"],
+    ["lettura", "eye-off", "Lettura"],
     ["server", "devices", "Server e dati"],
   ];
   let section = $state("account");
@@ -43,6 +44,13 @@
   }
 
   const me = $derived(session.user);
+
+  // ---- Lettura ----
+  async function toggleHidePartial() {
+    await savePrefs({ hide_partial: !me.prefs.hide_partial });
+    // Ricarica Flusso e contatori; un «Mostra» di prima non vale più.
+    setFilter({ showPartial: false });
+  }
 
   // ---- Notifiche ----
   let pushOn = $state(false);
@@ -386,6 +394,14 @@
             : "Questo browser non fa conoscere il colore del sistema (succede su iPhone, iPad e Android): resta il colore Galassia."
           : "Tema, colore, font e dimensione del testo valgono su tutti i tuoi dispositivi. La variante «Scuro» vale con il tema Scuro e con Auto quando il dispositivo è in modo scuro; «Nero» spegne i pixel degli schermi OLED. «Galactic» usa Unbounded per i titoli; «Sistema» il font del dispositivo."}
       </p>
+
+      <div class="set-label" id="set-lettura">Lettura</div>
+      <div class="set-group">
+        <div class="set-row"><span>Nascondi gli articoli senza testo completo</span>
+          <button type="button" class="switch" role="switch" aria-checked={!!me.prefs.hide_partial} aria-label="Nascondi gli articoli senza testo completo" onclick={toggleHidePartial}></button>
+        </div>
+      </div>
+      <p class="set-note">Alcuni siti mettono nel feed solo un estratto e non lasciano leggere qui il resto. Con questa opzione i loro articoli non compaiono nel Flusso, nell'Edizione e nelle notifiche. Gli articoli salvati restano visibili e quelli appena arrivati si vedono subito, mentre il server prova a scaricare il testo completo.</p>
 
       <div class="set-label" id="set-server">Server</div>
       <div class="set-group">

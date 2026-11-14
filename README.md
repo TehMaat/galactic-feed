@@ -144,6 +144,8 @@ Si scrivono nel `docker-compose.yml`. Le prime quattro servono prima dell'avvio 
 
 In Impostazioni → Aspetto ognuno sceglie tema (automatico, chiaro, scuro), la variante dello scuro (Notte, Grigio o Nero, per gli schermi OLED) e del chiaro (Neutro o Carta), colore principale, font dell'interfaccia e degli articoli e dimensione del testo. Le scelte valgono su tutti i suoi dispositivi.
 
+In Impostazioni → Lettura si possono nascondere gli articoli senza testo completo: quelli dei siti che nel feed danno solo un estratto e non lasciano leggere la pagina (paywall, blocchi). Non compaiono nel Flusso, nell'Edizione e nelle notifiche; i salvati restano. Nel Flusso un avviso dice quanti sono e li mostra con un tocco; nella scheda della fonte c'è scritto «Spesso solo estratto».
+
 - Il **colore del sistema** funziona solo dove il browser lo fa conoscere, soprattutto sui computer: su iPhone, iPad e Android una web app non può leggere i colori del sistema (per esempio Material You), quindi resta il colore predefinito.
 - Il font **Sistema** usa quello del dispositivo (San Francisco su iPhone e Mac, Roboto su Android). Inter e Alta leggibilità (Atkinson Hyperlegible) sono inclusi nell'app e funzionano anche offline.
 

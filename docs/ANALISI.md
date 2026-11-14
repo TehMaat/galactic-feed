@@ -84,7 +84,7 @@ No, è il modo normale di usare un lettore RSS. Ci sono solo alcuni casi da cono
 
 - **Basta l'indirizzo del sito**: il server cerca da solo il feed nella pagina. Se ne trova più d'uno (tutte le notizie, una categoria, i commenti), l'utente sceglie.
 - **Siti senza feed**: sempre meno comuni, ma esistono. Per ora non sono supportati. In seguito si può aggiungere un generatore di feed (per esempio un container RSSHub, o regole che leggono la pagina).
-- **Feed con solo un estratto**: il server prova a scaricare l'articolo e a estrarre il testo completo. Sui siti a pagamento si vedrà solo l'estratto.
+- **Feed con solo un estratto**: il server prova a scaricare l'articolo e a estrarre il testo completo. Sui siti a pagamento si vedrà solo l'estratto. Chi non li vuole li nasconde in Impostazioni → Lettura (#32).
 - **Siti che bloccano i programmi automatici**: alcuni rifiutano le richieste dei server. Nella schermata Fonti compare un errore chiaro.
 - **YouTube**: ogni canale ha un feed pubblico, non serve un account.
 - Il server rispetta gli header di cache dei siti e non li interroga più spesso del necessario.

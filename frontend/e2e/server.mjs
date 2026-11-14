@@ -41,6 +41,12 @@ const pages = {
     ["Le PWA su iPhone: cosa possono fare davvero e cosa no", "Notifiche, badge, offline.", 1.5],
     ["Docker in un mini PC da 150 euro: il mio stack", "Foto, password e backup.", 3, "Docker"],
   ]),
+  // Un sito che nel feed dà solo l'estratto e non lascia leggere le pagine (#32): rispondono 404.
+  "/chiuso.xml": rss("Chiuso", [
+    ["Riservato agli abbonati: il bilancio dello spazioporto", "Solo per chi è abbonato.", 2],
+    ["Riservato agli abbonati: le nuove tute lunari", "Solo per chi è abbonato.", 4],
+    ["Riservato agli abbonati: chi paga i satelliti", "Solo per chi è abbonato.", 6],
+  ]),
 };
 
 // Un finto servizio AI compatibile con OpenAI (come Ollama): sceglie gli articoli che parlano

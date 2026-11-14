@@ -85,6 +85,8 @@ class Prefs(BaseModel):
     font_read: Literal["serif", "sans", "sistema"] = "serif"
     text_size: float = Field(default=1.0, ge=0.85, le=1.3)
     dedupe: bool = True
+    # Nasconde gli articoli di cui il sito non lascia leggere il testo completo (solo l'estratto).
+    hide_partial: bool = False
     # Tag proposti in automatico per le fonti nuove.
     auto_tags: bool = True
     # Edizione: accesa o spenta e orari (nel fuso dell'istanza).

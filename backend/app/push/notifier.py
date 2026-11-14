@@ -29,8 +29,8 @@ RECENT = 3 * 3600
 MAX_FAILURES = 5
 
 
-def unread_count(conn: sqlite3.Connection, user_id: int, dedupe: bool = True) -> int:
-    return query.count(conn, user_id, ArticleFilter(view="nonletti", dedupe=dedupe))
+def unread_count(conn: sqlite3.Connection, user_id: int, dedupe: bool = True, hide_partial: bool = False) -> int:
+    return query.count(conn, user_id, ArticleFilter(view="nonletti", dedupe=dedupe, hide_partial=hide_partial))
 
 
 class Notifier:
@@ -92,7 +92,9 @@ class Notifier:
                 out.append((r["id"], prefs, r["since"]))
         return out
 
-    def pending_news(self, conn: sqlite3.Connection, user_id: int, folders: list[str], since: int, ts: int) -> list[sqlite3.Row]:
+    def pending_news(
+        self, conn: sqlite3.Connection, user_id: int, folders: list[str], since: int, ts: int, hide_partial: bool = False
+    ) -> list[sqlite3.Row]:
         ids = [int(f) for f in folders if f.isdigit()]
         clause = []
         params: list = []
@@ -103,6 +105,9 @@ class Notifier:
             clause.append("s.folder_id IS NULL")
         if not clause:
             return []
+        # Con la preferenza attiva si notifica solo quando il testo completo c'è: gli articoli ancora
+        # da estrarre arrivano a un giro successivo, quelli con solo l'estratto non arrivano mai.
+        full_only = " AND a.full_status IN ('none', 'ok')" if hide_partial else ""
         return conn.execute(
             "SELECT a.id, a.title, COALESCE(NULLIF(s.title, ''), NULLIF(f.title, ''), f.url) AS source, m.level"
             " FROM articles a JOIN feeds f ON f.id = a.feed_id"
@@ -112,7 +117,7 @@ class Notifier:
             " LEFT JOIN push_sent p ON p.article_id = a.id AND p.user_id = ?"
             " WHERE a.fetched_at >= ? AND a.published_at >= ? AND ua.read_at IS NULL AND p.article_id IS NULL"
             " AND (a.cluster_id IS NULL OR a.cluster_id = a.id)"
-            f" AND ({' OR '.join(clause)})"
+            f" AND ({' OR '.join(clause)}){full_only}"
             " ORDER BY m.level = 'alta' DESC, a.published_at DESC LIMIT 20",
             [user_id, user_id, user_id, user_id, max(since, ts - RECENT), ts - 24 * 3600, *params],
         ).fetchall()
@@ -129,10 +134,10 @@ class Notifier:
             if ts - self.last_sent.get(user_id, 0) < THROTTLE:
                 continue
             with self.ctx.db.session() as conn:
-                rows = self.pending_news(conn, user_id, prefs["notify_folders"], since, ts)
+                rows = self.pending_news(conn, user_id, prefs["notify_folders"], since, ts, prefs["hide_partial"])
                 if not rows:
                     continue
-                badge = unread_count(conn, user_id, prefs["dedupe"])
+                badge = unread_count(conn, user_id, prefs["dedupe"], prefs["hide_partial"])
             if len(rows) == 1:
                 r = rows[0]
                 data = {"title": r["source"], "body": r["title"], "url": f"/?a={r['id']}", "tag": f"art-{r['id']}"}
@@ -174,7 +179,7 @@ class Notifier:
             if not prefs["notify_edition"] or not row["notify"]:
                 return
             selected = json.loads(row["stats"] or "{}").get("selected", 0)
-            badge = unread_count(conn, user_id, prefs["dedupe"])
+            badge = unread_count(conn, user_id, prefs["dedupe"], prefs["hide_partial"])
         body = f"{selected} notizie scelte per te." if selected != 1 else "1 notizia scelta per te."
         # Con più Edizioni la notifica dice quale.
         title = f"«{row['name']}» è pronta" if row["name"] and row["configs"] > 1 else f"L'Edizione delle {row['slot']} è pronta"

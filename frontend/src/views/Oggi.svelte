@@ -151,6 +151,13 @@
       </div>
     {/if}
 
+    {#if stream.hiddenPartial && !stream.showPartial}
+      <div class="hidden-note">
+        <Icon name="eye-off" /><span>{stream.hiddenPartial === 1 ? "1 articolo nascosto" : `${stream.hiddenPartial} articoli nascosti`} perché il sito non lascia leggere il testo completo</span>
+        <button type="button" onclick={() => setFilter({ showPartial: true })}>Mostra</button>
+      </div>
+    {/if}
+
     <div bind:this={sentinel} class="sentinel" aria-hidden="true"></div>
     {#if stream.loading}<p class="loading">Carico gli articoli…</p>{/if}
 

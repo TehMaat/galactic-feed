@@ -7,6 +7,7 @@ Per aggiornare basta scaricare la nuova immagine: le modifiche al database si ap
 ## [Da pubblicare]
 
 ### Novità
+- **Nascondi gli articoli senza testo completo** (#32): in Impostazioni → Lettura. Alcuni siti mettono nel feed solo un estratto e non lasciano leggere la pagina (paywall, blocchi); con l'opzione accesa i loro articoli non compaiono nel Flusso, nell'Edizione, nei contatori e nelle notifiche. I salvati restano, gli articoli appena arrivati si vedono subito mentre il server prova a scaricare il testo completo, e se la stessa notizia arriva anche da una fonte che la dà intera si mostra quella. Nel Flusso un avviso dice quanti articoli sono nascosti e li mostra con un tocco; la scheda della fonte dice «Spesso solo estratto» quando il sito di solito non lascia leggere. È anche tra i predefiniti per i nuovi utenti, in Amministrazione.
 - **Nuova icona per iPhone e iPad**, nello stile delle icone Apple: sfondo pulito, bianco se il sistema è in modalità chiara, nero se è in modalità scura (#30). iOS la sceglie quando aggiungi l'app alla schermata Home: per vedere quella nuova togli l'app dalla Home e aggiungila di nuovo.
 
 ## [0.7.0] – 2026-11-07
