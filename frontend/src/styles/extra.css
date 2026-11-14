@@ -74,16 +74,30 @@ select.input { appearance: none; background-image: linear-gradient(45deg, transp
 .btn-secondary.danger, .link-row.danger { color: var(--danger); }
 
 /* ---------- Fonti ---------- */
+/* Il nome della cartella apre la sua scheda (#33): la matita e lo sfondo al tocco dicono che si
+   può modificare; l'area da toccare è alta 44px senza spostare il resto della pagina. */
+.group-label:has(.group-edit) { align-items: center; margin-block: 12px 0; }
 .group-label .group-edit {
   display: inline-flex;
   align-items: center;
   gap: 7px;
+  min-width: 0;
+  min-height: 44px;
+  margin-left: -8px;
+  padding: 0 10px 0 8px;
+  border-radius: 10px;
   font: inherit;
   letter-spacing: inherit;
   text-transform: inherit;
   color: inherit;
+  transition: background-color 0.15s, color 0.15s;
 }
-.group-label .group-edit .dot { width: 7px; height: 7px; }
+.group-label .group-edit .dot { width: 7px; height: 7px; flex: none; }
+.group-label .group-edit .group-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.group-label .group-edit .ico { width: 15px; height: 15px; stroke-width: 2; color: var(--ink-2); }
+.group-label .group-edit:hover { background: var(--surface-2); color: var(--ink-2); }
+.group-label .group-edit:active { background: var(--surface-2); color: var(--ink); }
+.group-label:has(.group-edit) > span:last-child { flex: none; }
 .hint.indent { margin: 0 4px; }
 .status-box { display: grid; grid-template-columns: 8px minmax(0, 1fr); gap: 10px; align-items: baseline; padding: 12px 14px; border-radius: 14px; background: var(--surface); }
 .status-box p { margin: 0; font-size: 14px; line-height: 1.45; }

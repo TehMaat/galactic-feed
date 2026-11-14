@@ -13,9 +13,12 @@
 
   $effect(() => {
     if (ui.sheet === "folder") {
-      folder = ui.sheetArg ? { ...ui.sheetArg } : null;
-      name = folder?.name || "";
-      color = folder?.color || null;
+      // Si legge solo la copia, non «folder»: l'effetto scrive «folder», e rileggerlo lo farebbe
+      // ripartire all'infinito, riportando il nome a quello iniziale a ogni tasto (#33).
+      const copy = ui.sheetArg ? { ...ui.sheetArg } : null;
+      folder = copy;
+      name = copy?.name || "";
+      color = copy?.color || null;
     }
   });
 

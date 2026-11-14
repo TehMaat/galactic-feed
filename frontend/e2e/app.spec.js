@@ -61,6 +61,19 @@ test("primo avvio, fonti, interessi, lettura e salvati sul telefono", async ({ p
   await expect(page.locator(".src-row")).toHaveCount(2);
   await expect(page.locator(".group-label").first()).toContainText("Spazio");
 
+  // La cartella si modifica dal suo titolo, con la matita (#33).
+  await page.getByRole("button", { name: "Modifica la cartella Spazio" }).click();
+  await expect(page.locator(".sheet.is-open")).toContainText("Elimina la cartella");
+  await page.locator(".sheet.is-open").getByLabel("Nome").fill("Cosmo");
+  await sheetClick(page, "Salva");
+  await expect(page.locator(".toast")).toContainText("Cartella aggiornata");
+  await expect(page.locator(".group-label").first()).toContainText("Cosmo");
+  // Di nuovo «Spazio», che serve più avanti.
+  await page.getByRole("button", { name: "Modifica la cartella Cosmo" }).click();
+  await page.locator(".sheet.is-open").getByLabel("Nome").fill("Spazio");
+  await sheetClick(page, "Salva");
+  await expect(page.getByRole("button", { name: "Modifica la cartella Spazio" })).toBeVisible();
+
   // Interessi e parole silenziate.
   await page.locator(".tabbar").getByRole("button", { name: "Interessi" }).click();
   await page.getByLabel("Nuovo interesse").fill("Luna");

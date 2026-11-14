@@ -8,6 +8,10 @@ Per aggiornare basta scaricare la nuova immagine: le modifiche al database si ap
 
 ### Novità
 - **Nuova icona per iPhone e iPad**, nello stile delle icone Apple: sfondo pulito, bianco se il sistema è in modalità chiara, nero se è in modalità scura (#30). iOS la sceglie quando aggiungi l'app alla schermata Home: per vedere quella nuova togli l'app dalla Home e aggiungila di nuovo.
+- **Le cartelle delle fonti hanno la matita**: in Fonti, accanto al nome di ogni cartella, una matita indica che toccandola si cambiano nome e colore o si elimina la cartella (#33). Prima il nome sembrava una semplice etichetta.
+
+### Correzioni
+- Modificare una cartella non funzionava: il nome scritto tornava subito quello di prima e «Salva» lasciava tutto com'era (#33).
 
 ## [0.7.0] – 2026-11-07
 
