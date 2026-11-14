@@ -5,7 +5,7 @@
   import Icon from "../components/Icon.svelte";
   import Page from "../components/Page.svelte";
   import { folderColor } from "../lib/format.js";
-  import { currentSubscription, disablePush, enablePush, isIos, isStandalone } from "../lib/push.js";
+  import { disablePush, enablePush, isIos, isStandalone, syncPush, testPush as sendTestPush } from "../lib/push.js";
   import { api } from "../lib/api.js";
   import { ACCENTS, DARK_STYLES, LIGHT_STYLES, FONTS, READ_FONTS, SIZES, countryName, initials, timeAgoLong } from "../lib/format.js";
   import { ask, data, editionConfigs, loadEditionConfigs, logout, openPage, openSheet, savePrefs, session, setEditionConfigs, setFilter, toast, ui } from "../lib/store.svelte.js";
@@ -73,7 +73,11 @@
   );
 
   $effect(() => {
-    if (active) currentSubscription().then((s) => (pushOn = !!s));
+    if (active)
+      syncPush().then((s) => {
+        pushOn = s.on;
+        pushError = s.error;
+      });
   });
 
   async function togglePush() {
@@ -103,12 +107,8 @@
   }
 
   async function testPush() {
-    try {
-      await api("/push/test", { method: "POST" });
-      toast("Notifica di prova inviata");
-    } catch (err) {
-      toast(err.message);
-    }
+    const error = await sendTestPush();
+    toast(error || "Notifica di prova inviata. Non compare? Controlla le notifiche del sistema per il browser o l'app.");
   }
   const edOn = $derived(Boolean(me?.prefs?.edition));
 
