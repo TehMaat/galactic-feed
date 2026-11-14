@@ -79,12 +79,19 @@ def unsubscribe(body: EndpointBody, user: User = Depends(current_user), conn: sq
 
 
 @router.post("/test")
-async def test(user: User = Depends(current_user), ctx: AppContext = Depends(get_ctx)):
+async def test(body: EndpointBody | None = None, user: User = Depends(current_user), ctx: AppContext = Depends(get_ctx)):
+    # Con l'endpoint la prova va solo al dispositivo da cui la si chiede: così un errore di
+    # questo dispositivo non resta nascosto dal successo di un altro.
+    # Senza tag: ogni prova è una notifica nuova, anche se la precedente è ancora nel centro notifiche.
+    endpoint = body.endpoint if body else None
     sent, errors = await ctx.notifier.send_to_user(
         user.id,
-        {"title": "Galactic Feed", "body": "Le notifiche funzionano su questo dispositivo.", "url": "/", "tag": "prova"},
+        {"title": "Galactic Feed", "body": "Le notifiche funzionano su questo dispositivo.", "url": "/"},
+        endpoint=endpoint,
     )
     if not sent:
-        detail = errors[0] if errors else "Nessun dispositivo iscritto alle notifiche."
-        raise HTTPException(status_code=502 if errors else 404, detail=detail)
+        if errors:
+            raise HTTPException(status_code=502, detail=errors[0])
+        detail = "Questo dispositivo non risulta iscritto: spegni e riaccendi le notifiche." if endpoint else "Nessun dispositivo iscritto alle notifiche."
+        raise HTTPException(status_code=404, detail=detail)
     return {"sent": sent}

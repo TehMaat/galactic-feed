@@ -160,6 +160,9 @@ self.addEventListener("push", (event) => {
     icon: "/icons/icon-192.png",
     badge: "/icons/icon-192.png",
     tag: data.tag,
+    // Con lo stesso tag la notifica nuova sostituisce la vecchia: senza renotify lo farebbe in
+    // silenzio (niente banner né suono), e una seconda notifica sembrerebbe non arrivare.
+    renotify: Boolean(data.tag),
     data: { url: data.url || "/" },
   });
   // Il numero sull'icona: con l'app aperta lo aggiorna la pagina (che ricarica i contatori),

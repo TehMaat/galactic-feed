@@ -14,6 +14,9 @@ Per aggiornare basta scaricare la nuova immagine: le modifiche al database si ap
 
 ### Correzioni
 - Modificare una cartella non funzionava: il nome scritto tornava subito quello di prima e «Salva» lasciava tutto com'era (#33).
+- Notifiche: dalla seconda in poi con lo stesso argomento (per esempio la notifica di prova ripetuta) sostituivano in silenzio quella ancora nel centro notifiche, senza banner né suono, e sembravano non arrivare. Ora ogni notifica si vede.
+- Notifiche: la prova va solo al dispositivo da cui la chiedi e, se il servizio push (Apple, Google, Mozilla, Microsoft) la rifiuta, il messaggio dice il motivo; prima bastava che arrivasse a un altro dispositivo per dire «inviata». Gli errori finiscono anche nel log del server.
+- Notifiche: aprendo le Impostazioni il dispositivo si riiscrive da solo se il server lo aveva dimenticato o se l'iscrizione era stata fatta con chiavi del server ormai cambiate (per esempio dopo aver ricreato il volume `/data`); prima l'interruttore restava acceso ma non arrivava più nulla.
 
 ## [0.7.0] – 2026-11-07
 
