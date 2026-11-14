@@ -210,18 +210,17 @@ test("la PWA si può installare", async ({ request }) => {
   expect(sw.status()).toBe(200);
   expect(sw.headers()["cache-control"]).toBe("no-cache");
   expect((await request.get("/icons/apple-touch-icon.png")).status()).toBe(200);
-  expect((await request.get("/icons/apple-touch-icon-dark.png")).status()).toBe(200);
 });
 
-test("l'icona della schermata Home segue il tema del sistema", async ({ page }) => {
+test("l'icona della schermata Home è una sola, scritta nell'HTML", async ({ page }) => {
+  // iOS la salva all'aggiunta alla Home: niente varianti per tema scelte da JavaScript (#40).
   const icon = page.locator('link[rel="apple-touch-icon"]');
-  await page.emulateMedia({ colorScheme: "light" });
-  await page.goto("/");
-  await expect(icon).toHaveAttribute("href", "/icons/apple-touch-icon.png");
-  await page.emulateMedia({ colorScheme: "dark" });
-  await expect(icon).toHaveAttribute("href", "/icons/apple-touch-icon-dark.png");
-  await page.goto("/");
-  await expect(icon).toHaveAttribute("href", "/icons/apple-touch-icon-dark.png");
+  for (const colorScheme of ["light", "dark"]) {
+    await page.emulateMedia({ colorScheme });
+    await page.goto("/");
+    await expect(icon).toHaveCount(1);
+    await expect(icon).toHaveAttribute("href", "/icons/apple-touch-icon.png");
+  }
 });
 
 test("offline: salvati e letti restano leggibili, le azioni partono al ritorno della rete", async ({ page, context }) => {
