@@ -4,7 +4,11 @@
 .app {
   --top-inset: max(8px, env(safe-area-inset-top, 0px));
   --bottom-inset: max(6px, env(safe-area-inset-bottom, 0px));
-  --tabbar-h: calc(56px + var(--bottom-inset));
+  /* Dock (#36): staccata dal fondo. Con la home indicator di iPhone (34px) sta un po' più in basso
+     dell'area riservata; senza (Android con i gesti, telefoni con i tasti) a 16px dal bordo. */
+  --dock-gap: max(16px, calc(env(safe-area-inset-bottom, 0px) - 8px));
+  --dock-h: 62px;
+  --tabbar-h: calc(var(--dock-h) + var(--dock-gap));
   --appbar-h: calc(52px + var(--top-inset));
   --ts: 1;
   container: app / inline-size;
@@ -514,23 +518,26 @@ a.wordmark:active { opacity: 0.7; }
 .appbar .wordmark { font-size: 17px; }
 .appbar .wordmark .ico { width: 26px; height: 26px; }
 
-/* ---------- Tab bar ---------- */
+/* ---------- Tab bar: sul telefono una Dock fluttuante (#36) ---------- */
 .tabbar {
   position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  left: max(12px, env(safe-area-inset-left, 0px));
+  right: max(12px, env(safe-area-inset-right, 0px));
+  bottom: var(--dock-gap);
   z-index: 30;
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  padding-top: 7px;
-  padding-bottom: var(--bottom-inset);
-  padding-left: max(16px, env(safe-area-inset-left, 0px));
-  padding-right: max(16px, env(safe-area-inset-right, 0px));
-  border-top: 1px solid var(--line);
+  align-content: center;
+  height: var(--dock-h);
+  max-width: 440px;
+  margin-inline: auto;
+  padding: 0 6px;
+  border: 1px solid var(--line);
+  border-radius: 26px;
   background: var(--glass);
-  -webkit-backdrop-filter: saturate(1.6) blur(20px);
-  backdrop-filter: saturate(1.6) blur(20px);
+  -webkit-backdrop-filter: saturate(1.8) blur(24px);
+  backdrop-filter: saturate(1.8) blur(24px);
+  box-shadow: 0 12px 32px -14px rgba(0, 0, 0, 0.35), 0 2px 6px -2px rgba(0, 0, 0, 0.12);
 }
 .tabbar button { position: relative; display: grid; justify-items: center; gap: 3px; padding: 3px 0; font-size: 10.5px; font-weight: 600; color: var(--ink-3); }
 .tabbar .ico { width: 25px; height: 25px; }
@@ -728,6 +735,24 @@ a.wordmark:active { opacity: 0.7; }
 }
 .toast.is-on { opacity: 1; transform: translate(-50%, 0); }
 
+/* ---------- Solo telefono: Dock più trasparente e barre a scomparsa (#36) ---------- */
+/* Più trasparente solo dove il vetro sfoca davvero; altrimenti resta il vetro pieno. */
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) and (background: color-mix(in srgb, red 50%, transparent)) {
+  @container app (max-width: 699.98px) {
+    .tabbar { background: color-mix(in srgb, var(--glass) 72%, transparent); }
+  }
+}
+@container app (max-width: 699.98px) {
+  .appbar, .tabbar { transition: transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.2s; }
+  .appbar > * { transition: opacity 0.2s; }
+  /* Resta coperta solo l'area di sistema in alto (ora e notch su iPhone); dove non c'è, come
+     nella PWA su Android, la barra esce del tutto. */
+  .app[data-bars="hidden"] .appbar { transform: translateY(calc(-100% + env(safe-area-inset-top, 0px))); }
+  .app[data-bars="hidden"] .appbar > * { opacity: 0; }
+  .app[data-bars="hidden"] .tabbar { transform: translateY(calc(100% + var(--dock-gap) + 16px)); opacity: 0; }
+  .app[data-bars="hidden"] .toast { bottom: calc(var(--dock-gap) + 8px); }
+}
+
 /* ---------- Novità v0.2 ---------- */
 .offline { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; font-size: 12px; color: var(--ink-3); }
 .offline .ico { width: 14px; height: 14px; stroke-width: 2.2; color: var(--accent); }
@@ -770,14 +795,21 @@ a.wordmark:active { opacity: 0.7; }
   .appbar { display: none; }
   .tabbar {
     top: 0;
+    left: 0;
     right: auto;
+    bottom: 0;
     width: 96px;
+    height: auto;
+    max-width: none;
+    margin: 0;
     display: flex;
     flex-direction: column;
     gap: 8px;
     padding: var(--top-inset) 8px 16px;
-    border-top: 0;
+    border: 0;
     border-right: 1px solid var(--line);
+    border-radius: 0;
+    box-shadow: none;
   }
   .tabbar button { padding: 8px 0; border-radius: 12px; }
   .tabbar .nav-brand {

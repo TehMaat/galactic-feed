@@ -6,6 +6,7 @@
   // altrove; le Impostazioni in fondo alla barra laterale (in alto a destra sul telefono).
   // Impostazioni e Amministrazione sono pagine (/impostazioni, /amministrazione), non finestre.
   // Toccando il nome dell'app si torna a Oggi.
+  // Sul telefono le barre escono dallo schermo scorrendo giù e rientrano tornando su (#36).
   import Confirm from "./components/Confirm.svelte";
   import Icon from "./components/Icon.svelte";
   import Reader from "./components/Reader.svelte";
@@ -16,6 +17,7 @@
   import Settings from "./views/Settings.svelte";
   import SourceSheet from "./sheets/SourceSheet.svelte";
   import TagsSheet from "./sheets/TagsSheet.svelte";
+  import { barsAfterScroll } from "./lib/bars.js";
   import { closeReader, closeSheet, data, goHome, openPage, session, switchTab, ui } from "./lib/store.svelte.js";
   import Fonti from "./views/Fonti.svelte";
   import Interessi from "./views/Interessi.svelte";
@@ -30,6 +32,43 @@
   ];
   const ts = $derived(session.user?.prefs?.text_size ?? 1);
   let scrimVisible = $state(false);
+  let appEl = $state();
+  let barsHidden = $state(false);
+  const barsRef = new WeakMap(); // posizione di riferimento di ogni sezione
+
+  // Cambiando sezione o pagina, aprendo o chiudendo il lettore o una scheda, toccando il logo:
+  // le barre tornano visibili.
+  $effect(() => {
+    ui.tab;
+    ui.reader;
+    ui.sheet;
+    ui.homeTick;
+    ui.pageTick;
+    barsHidden = false;
+  });
+
+  // Lo scorrimento è dentro ogni sezione (.view), non nella pagina: lo si ascolta in fase di
+  // cattura su <main>, così un solo listener basta per tutte. Solo sul telefono (sotto i 700px,
+  // come i container query in app.css): su tablet e computer la barra è laterale e resta ferma.
+  function onViewScroll(e) {
+    const el = e.target;
+    if (!(el instanceof HTMLElement) || !el.classList.contains("view")) return;
+    if (!appEl || appEl.clientWidth >= 700) {
+      barsHidden = false;
+      return;
+    }
+    const next = barsAfterScroll(barsRef.get(el) ?? 0, el.scrollTop, el.scrollHeight - el.clientHeight);
+    barsRef.set(el, next.ref);
+    if (next.hidden !== null) barsHidden = next.hidden;
+  }
+
+  // Un elemento con il focus non deve restare fuori schermo (tastiera, campo di ricerca).
+  function showBars() {
+    barsHidden = false;
+  }
+  function onViewFocus(e) {
+    if (e.target instanceof HTMLElement && e.target.matches("input, textarea, select")) barsHidden = false;
+  }
 
   $effect(() => {
     if (ui.sheet) scrimVisible = true;
@@ -60,8 +99,8 @@
 
 <svelte:window onkeydown={onKey} />
 
-<div class="app" data-tab={ui.tab} style="--ts:{ts}">
-  <main class="views">
+<div class="app" bind:this={appEl} data-tab={ui.tab} data-bars={barsHidden ? "hidden" : undefined} style="--ts:{ts}">
+  <main class="views" onscrollcapture={onViewScroll} onfocusin={onViewFocus}>
     <Oggi active={ui.tab === "oggi"} />
     <Fonti active={ui.tab === "fonti"} />
     <Interessi active={ui.tab === "interessi"} />
@@ -70,12 +109,12 @@
     {#if session.user?.is_admin}<Admin active={ui.tab === "amministrazione"} />{/if}
   </main>
 
-  <header class="appbar">
+  <header class="appbar" onfocusin={showBars}>
     <a class="wordmark" href="/" aria-label="galactic feed: vai a Oggi" title="Vai a Oggi" onclick={home}><Icon name="orbit" /><span>galactic feed</span></a>
     <button type="button" class="icon-btn" aria-label="Impostazioni" aria-pressed={ui.tab === "impostazioni" || ui.tab === "amministrazione"} onclick={() => openPage("impostazioni")}><Icon name="sliders" /></button>
   </header>
 
-  <nav class="tabbar" aria-label="Sezioni">
+  <nav class="tabbar" aria-label="Sezioni" onfocusin={showBars}>
     <a class="nav-brand wordmark" href="/" aria-label="galactic feed: vai a Oggi" title="Vai a Oggi" onclick={home}><Icon name="orbit" /><span>galactic feed</span></a>
     {#each TABS as [key, icon, label]}
       <button type="button" aria-current={ui.tab === key ? "page" : undefined} onclick={() => switchTab(key)}>
