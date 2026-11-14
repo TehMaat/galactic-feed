@@ -157,3 +157,22 @@ def test_news_notifications(admin, app):
 
     bad = admin.patch("/api/me", json={"prefs": {"notify_folders": ["../etc"]}})
     assert bad.status_code == 422
+
+
+@respx.mock
+def test_push_test_targets_this_device(admin):
+    phone, mac = Device(), Device("https://web.push.apple.com/QGuQ")
+    admin.post("/api/push/subscriptions", json=phone.subscription())
+    admin.post("/api/push/subscriptions", json=mac.subscription())
+    respx.post(FCM).mock(return_value=httpx.Response(201))
+    apple = respx.post(mac.endpoint).mock(return_value=httpx.Response(403, json={"reason": "BadJwtToken"}))
+
+    # Il telefono riceve, il Mac no: chiesta dal Mac, la prova dice perché.
+    res = admin.post("/api/push/test", json={"endpoint": mac.endpoint})
+    assert res.status_code == 502 and res.json()["detail"] == "Il servizio push ha risposto 403 (BadJwtToken)."
+    assert apple.call_count == 1
+    assert admin.post("/api/push/test", json={"endpoint": phone.endpoint}).json() == {"sent": 1}
+    gone = admin.post("/api/push/test", json={"endpoint": "https://fcm.googleapis.com/fcm/send/altro"})
+    assert gone.status_code == 404 and "non risulta iscritto" in gone.json()["detail"]
+    # Senza endpoint (client vecchi): tutti i dispositivi.
+    assert admin.post("/api/push/test").json() == {"sent": 1}

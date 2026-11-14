@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 import logging
 import sqlite3
+from urllib.parse import urlsplit
 
 import httpx
 
@@ -42,7 +43,12 @@ class Notifier:
 
     def start(self) -> None:
         settings = self.ctx.settings
-        subject = settings.public_url if settings.public_url.startswith("https://") else "mailto:admin@galactic-feed.invalid"
+        if settings.public_url.startswith("https://"):
+            subject = settings.public_url
+        else:
+            # Apple (Safari, iPhone, iPad, Mac) può rifiutare gli invii senza un contatto valido.
+            subject = "mailto:admin@galactic-feed.invalid"
+            log.warning("PUBLIC_URL non è un indirizzo https: le notifiche su Safari e iPhone potrebbero non arrivare.")
         self.vapid = Vapid.load_or_create(settings.data_dir / "vapid.pem", subject)
         self.client = httpx.AsyncClient(timeout=15, follow_redirects=False)
 
@@ -52,12 +58,16 @@ class Notifier:
 
     # ---- invio ----
 
-    async def send_to_user(self, user_id: int, data: dict, urgency: str = "normal") -> tuple[int, list[str]]:
+    async def send_to_user(
+        self, user_id: int, data: dict, urgency: str = "normal", endpoint: str | None = None
+    ) -> tuple[int, list[str]]:
+        sql = "SELECT id, endpoint, p256dh, auth FROM push_subscriptions WHERE user_id = ?"
+        params: list = [user_id]
+        if endpoint is not None:
+            sql += " AND endpoint = ?"
+            params.append(endpoint)
         with self.ctx.db.session() as conn:
-            subs = [
-                Subscription(r["id"], r["endpoint"], r["p256dh"], r["auth"])
-                for r in conn.execute("SELECT id, endpoint, p256dh, auth FROM push_subscriptions WHERE user_id = ?", (user_id,))
-            ]
+            subs = [Subscription(r["id"], r["endpoint"], r["p256dh"], r["auth"]) for r in conn.execute(sql, params)]
         sent, errors = 0, []
         for sub in subs:
             outcome = await send(self.client, self.vapid, sub, data, urgency)
@@ -68,6 +78,7 @@ class Notifier:
                 elif outcome.gone:
                     conn.execute("DELETE FROM push_subscriptions WHERE id = ?", (sub.id,))
                 else:
+                    log.warning("Notifica non consegnata a %s: %s", urlsplit(sub.endpoint).hostname, outcome.message)
                     errors.append(outcome.message)
                     conn.execute("UPDATE push_subscriptions SET failures = failures + 1 WHERE id = ?", (sub.id,))
                     conn.execute("DELETE FROM push_subscriptions WHERE id = ? AND failures >= ?", (sub.id, MAX_FAILURES))

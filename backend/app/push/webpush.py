@@ -147,4 +147,14 @@ async def send(client: httpx.AsyncClient, vapid: Vapid, sub: Subscription, data:
         return Outcome(True, status=res.status_code)
     if res.status_code in (404, 410):
         return Outcome(False, gone=True, status=res.status_code, message="Il dispositivo non è più iscritto.")
-    return Outcome(False, status=res.status_code, message=f"Il servizio push ha risposto {res.status_code}.")
+    return Outcome(False, status=res.status_code, message=f"Il servizio push ha risposto {res.status_code}{_reason(res)}.")
+
+
+def _reason(res: httpx.Response) -> str:
+    """Il motivo del rifiuto, se il servizio lo dice (Apple: {"reason": "BadJwtToken"})."""
+    try:
+        reason = res.json().get("reason") or ""
+    except (ValueError, AttributeError):
+        reason = res.text
+    reason = " ".join(str(reason).split())[:160]
+    return f" ({reason})" if reason else ""

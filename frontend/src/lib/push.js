@@ -36,6 +36,34 @@ export async function currentSubscription() {
   }
 }
 
+function sameKey(sub, publicKey) {
+  const current = sub.options?.applicationServerKey;
+  if (!current) return true; // il browser non la dice: si dà per buona
+  const a = new Uint8Array(current);
+  const b = keyBytes(publicKey);
+  return a.length === b.length && a.every((x, i) => x === b[i]);
+}
+
+/**
+ * Iscrive il dispositivo (o riusa l'iscrizione che ha) e la comunica al server.
+ * Un'iscrizione fatta con un'altra chiave del server (per esempio dopo aver ricreato il
+ * volume dei dati) non riceverebbe più nulla: si rifà.
+ */
+async function subscribeAndRegister() {
+  const { public_key } = await api("/push/key");
+  const reg = await registration();
+  let sub = await reg.pushManager.getSubscription();
+  if (sub && !sameKey(sub, public_key)) {
+    await sub.unsubscribe().catch(() => {});
+    sub = null;
+  }
+  if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(public_key) });
+  await api("/push/subscriptions", { method: "POST", body: sub.toJSON() });
+  return sub;
+}
+
+const BLOCKED = "Le notifiche sono bloccate: permettile nelle impostazioni del browser o del sistema.";
+
 /** Chiede il permesso e iscrive il dispositivo. Restituisce un messaggio d'errore o "". */
 export async function enablePush() {
   if (!pushSupported()) {
@@ -44,18 +72,42 @@ export async function enablePush() {
       : "Questo browser non supporta le notifiche.";
   }
   const permission = await Notification.requestPermission();
-  if (permission !== "granted") {
-    return "Le notifiche sono bloccate: permettile nelle impostazioni del browser o del telefono.";
-  }
+  if (permission !== "granted") return BLOCKED;
   try {
-    const { public_key } = await api("/push/key");
-    const reg = await registration();
-    let sub = await reg.pushManager.getSubscription();
-    if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(public_key) });
-    await api("/push/subscriptions", { method: "POST", body: sub.toJSON() });
+    await subscribeAndRegister();
     return "";
   } catch (err) {
     return err.message || "Iscrizione alle notifiche non riuscita.";
+  }
+}
+
+/**
+ * All'apertura delle Impostazioni: se il dispositivo è iscritto, controlla che l'iscrizione
+ * sia ancora valida e che il server la conosca (il server dimentica i dispositivi dopo
+ * qualche invio fallito). Restituisce { on, error }.
+ */
+export async function syncPush() {
+  const sub = await currentSubscription();
+  if (!sub) return { on: false, error: "" };
+  if (Notification.permission !== "granted") return { on: false, error: BLOCKED };
+  try {
+    await subscribeAndRegister();
+  } catch {
+    /* senza rete: l'iscrizione resta quella che c'è */
+  }
+  return { on: true, error: "" };
+}
+
+/** Manda la notifica di prova a questo dispositivo. Restituisce un messaggio d'errore o "". */
+export async function testPush() {
+  if (pushSupported() && Notification.permission !== "granted") return BLOCKED;
+  const sub = await currentSubscription();
+  if (!sub) return "Questo dispositivo non è iscritto: spegni e riaccendi le notifiche.";
+  try {
+    await api("/push/test", { method: "POST", body: { endpoint: sub.endpoint } });
+    return "";
+  } catch (err) {
+    return err.message || "Invio della notifica di prova non riuscito.";
   }
 }
 
