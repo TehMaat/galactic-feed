@@ -137,9 +137,9 @@ def delete_muted(word_id: int, user: User = Depends(current_user), conn: sqlite3
 @router.get("/preview")
 def preview(user: User = Depends(current_user), conn: sqlite3.Connection = Depends(get_db)):
     """«N notizie delle ultime 24 ore sono per te, su M arrivate.» Il riquadro in cima agli Interessi."""
-    dedupe = prefs_with_defaults(user.prefs)["dedupe"]
-    since = now() - 86400
-    total = query.count(conn, user.id, ArticleFilter(since=since, dedupe=dedupe))
-    matching = query.count(conn, user.id, ArticleFilter(view="perte", since=since, dedupe=dedupe))
-    hidden = query.count(conn, user.id, ArticleFilter(since=since, dedupe=dedupe), muted=True)
+    prefs = prefs_with_defaults(user.prefs)
+    opts = {"since": now() - 86400, "dedupe": prefs["dedupe"], "hide_partial": prefs["hide_partial"]}
+    total = query.count(conn, user.id, ArticleFilter(**opts))
+    matching = query.count(conn, user.id, ArticleFilter(view="perte", **opts))
+    hidden = query.count(conn, user.id, ArticleFilter(**opts), muted=True)
     return {"matching": matching, "total": total, "hidden": hidden, "hours": 24}

@@ -8,11 +8,14 @@ poi, per ogni notizia, si tiene l'articolo pubblicato per primo.
 from __future__ import annotations
 
 import sqlite3
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from .text import normalize
 
 VIEWS = ("tutti", "perte", "nonletti", "video", "salvati")
+# Articoli di cui si ha solo l'estratto del feed: il sito non lascia leggere il resto
+# (estrazione fallita, oppure saltata perché l'articolo era già vecchio all'arrivo).
+PARTIAL_SQL = "a.full_status IN ('failed', 'skipped')"
 MAX_SEARCH_WORDS = 8
 
 
@@ -27,6 +30,9 @@ class ArticleFilter:
     q: str = ""
     show_muted: bool = False
     dedupe: bool = True
+    # Preferenza dell'utente: niente articoli con solo l'estratto. show_partial li mostra lo stesso.
+    hide_partial: bool = False
+    show_partial: bool = False
     before: int | None = None
     since: int | None = None
 
@@ -85,6 +91,9 @@ def visible_cte(user_id: int, f: ArticleFilter, muted: bool | None = False) -> t
     if f.since is not None:
         where.append("a.published_at >= ?")
         params.append(f.since)
+    if f.hide_partial and not f.show_partial and f.view != "salvati":
+        # I salvati restano: se l'utente l'ha salvato, lo vuole ritrovare.
+        where.append(f"(NOT {PARTIAL_SQL} OR ua.saved_at IS NOT NULL)")
     if muted is True:
         where.append("COALESCE(m.muted, 0) = 1")
     elif muted is False and not f.show_muted and f.view != "salvati":
@@ -135,9 +144,16 @@ def count(conn: sqlite3.Connection, user_id: int, f: ArticleFilter, muted: bool 
     return conn.execute(f"WITH {cte}, {ranked_sql(f)} SELECT COUNT(*) FROM ranked WHERE rn = 1", params).fetchone()[0]
 
 
+def partial_hidden(conn: sqlite3.Connection, user_id: int, f: ArticleFilter) -> int:
+    """Quante notizie spariscono dal filtro perché il sito ne dà solo l'estratto."""
+    if not f.hide_partial or f.show_partial or f.view == "salvati":
+        return 0
+    return count(conn, user_id, replace(f, show_partial=True)) - count(conn, user_id, f)
+
+
 def counts(conn: sqlite3.Connection, user_id: int, f: ArticleFilter) -> dict:
     """I numeri sui filtri del Flusso, per la ricerca in corso."""
-    base = ArticleFilter(q=f.q, dedupe=f.dedupe, show_muted=f.show_muted)
+    base = ArticleFilter(q=f.q, dedupe=f.dedupe, show_muted=f.show_muted, hide_partial=f.hide_partial, show_partial=f.show_partial)
     cte, params = visible_cte(user_id, base)
     row = conn.execute(
         f"WITH {cte}, {ranked_sql(base)} SELECT COUNT(*) AS tutti,"

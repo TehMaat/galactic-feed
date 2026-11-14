@@ -73,11 +73,13 @@ export const stream = $state({
   country: null, // nazione delle fonti («IT») o null
   q: "",
   showMuted: false,
+  showPartial: false, // mostra anche gli articoli senza testo completo nascosti dalla preferenza
   items: [],
   cursor: null,
   loading: false,
   error: "",
   hidden: 0,
+  hiddenPartial: 0,
   serverTime: null,
   done: false,
 });
@@ -400,7 +402,7 @@ export async function loadInterests() {
 
 export async function loadCounts() {
   try {
-    data.counts = await api("/articles/counts" + qs({ q: stream.q, show_muted: stream.showMuted }));
+    data.counts = await api("/articles/counts" + qs({ q: stream.q, show_muted: stream.showMuted, show_partial: stream.showPartial }));
     if (!stream.q) setBadge(data.counts.nonletti);
   } catch {
     /* i contatori non sono essenziali */
@@ -424,6 +426,7 @@ export async function loadStream(reset = false) {
           country: stream.country,
           q: stream.q,
           show_muted: stream.showMuted,
+          show_partial: stream.showPartial,
           cursor: reset ? null : stream.cursor,
         }),
     );
@@ -434,6 +437,7 @@ export async function loadStream(reset = false) {
     stream.done = !r.next_cursor;
     if (reset) {
       stream.hidden = r.hidden;
+      stream.hiddenPartial = r.hidden_partial || 0;
       stream.serverTime = r.server_time;
     }
   } catch (err) {
@@ -448,7 +452,7 @@ export function setFilter(changes) {
   stream.cursor = null;
   stream.done = false;
   loadStream(true);
-  if ("q" in changes || "showMuted" in changes) loadCounts();
+  if ("q" in changes || "showMuted" in changes || "showPartial" in changes) loadCounts();
 }
 
 export async function loadSaved(reset = false) {

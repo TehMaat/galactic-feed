@@ -18,6 +18,7 @@ from ..feeds.net import FetchError, normalize_input_url
 from ..feeds.sanitize import normalize_feed_url
 from ..reading import tagging
 from ..reading.matching import recompute_feed_for_user
+from ..reading.query import PARTIAL_SQL
 from .folders import check_folder
 from .images import proxied_icon, source_icon
 from .tags import set_source_tags, tags_by_source
@@ -118,7 +119,14 @@ SOURCE_SELECT = (
     " (SELECT COUNT(*) FROM articles a"
     "   LEFT JOIN user_articles ua ON ua.article_id = a.id AND ua.user_id = s.user_id"
     "   LEFT JOIN user_matches m ON m.article_id = a.id AND m.user_id = s.user_id"
-    "   WHERE a.feed_id = f.id AND ua.read_at IS NULL AND COALESCE(m.muted, 0) = 0) AS unread"
+    "   WHERE a.feed_id = f.id AND ua.read_at IS NULL AND COALESCE(m.muted, 0) = 0"
+    # Con «Nascondi gli articoli senza testo completo» non si contano quelli con solo l'estratto.
+    f"   AND NOT ({PARTIAL_SQL} AND ua.saved_at IS NULL"
+    "     AND COALESCE((SELECT json_extract(u.prefs, '$.hide_partial') FROM users u WHERE u.id = s.user_id), 0))"
+    "  ) AS unread,"
+    # Testo completo cercato sul sito: quante volte è riuscito e quante no.
+    " (SELECT COUNT(*) FROM articles a WHERE a.feed_id = f.id AND a.full_status IN ('ok', 'failed')) AS extracted,"
+    " (SELECT COUNT(*) FROM articles a WHERE a.feed_id = f.id AND a.full_status = 'failed') AS extract_failed"
     " FROM subscriptions s JOIN feeds f ON f.id = s.feed_id"
 )
 
@@ -144,6 +152,8 @@ def source_payload(row: sqlite3.Row, secret: bytes, tags: list[dict] | None = No
         "next_fetch_at": iso(row["next_fetch_at"]) if row["next_fetch_at"] else None,
         "articles": row["articles"],
         "unread": row["unread"],
+        # Il sito di solito non lascia leggere il testo completo: nel feed c'è solo l'estratto.
+        "mostly_partial": mostly_partial(row["extracted"], row["extract_failed"]),
         "created_at": iso(row["created_at"]),
         # Icona: quella da mostrare (None = iniziali), la scelta dell'utente e quella trovata in automatico.
         "icon": source_icon(secret, row["icon_mode"], row["icon_custom"], row["icon_url"]),
@@ -157,6 +167,14 @@ def source_payload(row: sqlite3.Row, secret: bytes, tags: list[dict] | None = No
         **country_info(row),
         "language": row["language"] or None,
     }
+
+
+# Bastano pochi tentativi per capire come si comporta un sito.
+PARTIAL_MIN_TRIES = 3
+
+
+def mostly_partial(tried: int, failed: int) -> bool:
+    return tried >= PARTIAL_MIN_TRIES and failed * 2 > tried
 
 
 def country_info(row: sqlite3.Row) -> dict:

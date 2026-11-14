@@ -35,6 +35,7 @@ def make_filter(
     show_muted: bool = False,
     tag: int | None = None,
     country: str | None = None,
+    show_partial: bool = False,
 ) -> ArticleFilter:
     if view not in VIEWS:
         raise HTTPException(status_code=422, detail="Filtro sconosciuto.")
@@ -47,7 +48,10 @@ def make_filter(
         if not folder.isdigit():
             raise HTTPException(status_code=422, detail="Cartella non valida.")
         f.folder = int(folder)
-    f.dedupe = bool(prefs_with_defaults(user.prefs)["dedupe"])
+    prefs = prefs_with_defaults(user.prefs)
+    f.dedupe = bool(prefs["dedupe"])
+    f.hide_partial = bool(prefs["hide_partial"])
+    f.show_partial = show_partial
     return f
 
 
@@ -59,9 +63,10 @@ def filter_params(
     show_muted: bool = Query(False, description="mostra anche gli articoli nascosti dalle parole silenziate"),
     tag: int | None = Query(None, description="id del tag delle fonti"),
     country: str | None = Query(None, description="nazione delle fonti, per esempio IT"),
+    show_partial: bool = Query(False, description="mostra anche gli articoli senza testo completo nascosti dalla preferenza"),
     user: User = Depends(current_user),
 ) -> ArticleFilter:
-    return make_filter(user, view, folder, source, q, show_muted, tag, country)
+    return make_filter(user, view, folder, source, q, show_muted, tag, country, show_partial)
 
 
 def _cursor(raw: str | None) -> tuple[int, int] | None:
@@ -125,6 +130,8 @@ def list_articles(
         "items": items,
         "next_cursor": f"{next_cursor[0]}:{next_cursor[1]}" if next_cursor else None,
         "hidden": hidden,
+        # Notizie nascoste perché il sito ne dà solo l'estratto (preferenza «hide_partial»).
+        "hidden_partial": 0 if cursor else query.partial_hidden(conn, user.id, f),
         "server_time": iso(now()),
     }
 

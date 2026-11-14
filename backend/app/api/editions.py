@@ -249,7 +249,8 @@ def preview_config(
     """«Con queste regole oggi avresti 12 notizie», e le prossime uscite."""
     rules = _check_rules(conn, user.id, body.rules)
     config = {"rules": rules, "schedule": body.schedule, "max_items": body.max_items, "period": body.period}
-    result = edition.preview(conn, user.id, config, prefs_with_defaults(user.prefs)["dedupe"])
+    prefs = prefs_with_defaults(user.prefs)
+    result = edition.preview(conn, user.id, config, prefs["dedupe"], hide_partial=prefs["hide_partial"])
     tz = _tz(ctx, user, conn)
     result["description"] = schedule.describe(body.schedule)
     result["next"] = [{"at": iso(t), "time": slot} for t, slot in schedule.next_occurrences(body.schedule, tz, now(), 3)]
@@ -410,7 +411,7 @@ def compose_now(
     if last and now() - last < 60:
         raise HTTPException(status_code=429, detail="Hai appena composto questa Edizione: riprova tra un minuto.")
     slot = datetime.fromtimestamp(now(), schedule.zone(_tz(ctx, user, conn))).strftime("%H:%M")
-    edition_id = edition.compose(conn, user.id, config, slot, dedupe=prefs["dedupe"])
+    edition_id = edition.compose(conn, user.id, config, slot, dedupe=prefs["dedupe"], hide_partial=prefs["hide_partial"])
     row = conn.execute("SELECT * FROM editions WHERE id = ?", (edition_id,)).fetchone()
     return {
         "edition": edition_payload(conn, user, ctx, row),

@@ -164,8 +164,8 @@ def user_timezone(ctx, prefs: dict, conn: sqlite3.Connection | None = None) -> s
 # ---------- Scelta delle notizie ----------
 
 
-def _candidates(conn: sqlite3.Connection, user_id: int, since: int, dedupe: bool) -> list[sqlite3.Row]:
-    f = ArticleFilter(since=since, dedupe=dedupe)
+def _candidates(conn: sqlite3.Connection, user_id: int, since: int, dedupe: bool, hide_partial: bool = False) -> list[sqlite3.Row]:
+    f = ArticleFilter(since=since, dedupe=dedupe, hide_partial=hide_partial)
     cte, params = query.visible_cte(user_id, f)
     return conn.execute(
         f"WITH {cte}, {query.ranked_sql(f)}"
@@ -255,26 +255,29 @@ def window(conn: sqlite3.Connection, config: dict, ts: int) -> int:
     return max(prev["created_at"], ts - cap) if prev else ts - first
 
 
-def preview(conn: sqlite3.Connection, user_id: int, config: dict, dedupe: bool, ts: int | None = None) -> dict:
+def preview(
+    conn: sqlite3.Connection, user_id: int, config: dict, dedupe: bool, ts: int | None = None, hide_partial: bool = False
+) -> dict:
     """Quante notizie avrebbe l'Edizione con queste regole, adesso (per l'anteprima nelle Impostazioni)."""
     ts = ts or now()
     first, _ = schedule.window_seconds(config["schedule"], config["period"])
-    rows = apply_rules(conn, user_id, _candidates(conn, user_id, ts - first, dedupe), config["rules"])
+    rows = apply_rules(conn, user_id, _candidates(conn, user_id, ts - first, dedupe, hide_partial), config["rules"])
     chosen = select(rows, config["max_items"], has_rules(config["rules"]))
     return {"available": len(rows), "selected": len(chosen), "hours": first // 3600}
 
 
 def compose(
-    conn: sqlite3.Connection, user_id: int, config: dict, slot: str, ts: int | None = None, dedupe: bool = True
+    conn: sqlite3.Connection, user_id: int, config: dict, slot: str, ts: int | None = None, dedupe: bool = True,
+    hide_partial: bool = False,
 ) -> int:
     """Compone e salva un'uscita dell'Edizione. Restituisce il suo id."""
     ts = ts or now()
     since = window(conn, config, ts)
     restricted = has_rules(config["rules"])
-    all_rows = _candidates(conn, user_id, since, dedupe)
+    all_rows = _candidates(conn, user_id, since, dedupe, hide_partial)
     rows = apply_rules(conn, user_id, all_rows, config["rules"])
     chosen = select(rows, config["max_items"], restricted)
-    hidden = query.count(conn, user_id, ArticleFilter(since=since, dedupe=dedupe), muted=True)
+    hidden = query.count(conn, user_id, ArticleFilter(since=since, dedupe=dedupe, hide_partial=hide_partial), muted=True)
     sources = conn.execute("SELECT COUNT(*) FROM subscriptions WHERE user_id = ?", (user_id,)).fetchone()[0]
     stats = {
         "sources": sources,
@@ -336,7 +339,7 @@ def run_due(ctx, ts: int | None = None) -> list[tuple[int, int]]:
             slot = schedule.is_due(config["schedule"], user_timezone(ctx, prefs, conn), ts, last)
             if slot:
                 try:
-                    made.append((config["user_id"], compose(conn, config["user_id"], config, slot, ts, prefs["dedupe"])))
+                    made.append((config["user_id"], compose(conn, config["user_id"], config, slot, ts, prefs["dedupe"], prefs["hide_partial"])))
                 except Exception:
                     log.exception("Edizione «%s» non composta per l'utente %s", config["name"], config["user_id"])
     return made
