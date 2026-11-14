@@ -105,7 +105,7 @@
     <div class="group-label">
       {#if g.folder}
         <button type="button" class="group-edit" onclick={() => openSheet("folder", g.folder)} aria-label="Modifica la cartella {g.folder.name}">
-          <span class="dot" style="--topic-c:var(--c-{g.folder.color})"></span>{g.folder.name}
+          <span class="dot" style="--topic-c:var(--c-{g.folder.color})"></span><span class="group-name">{g.folder.name}</span><Icon name="edit" />
         </button>
       {:else}
         <span>Senza cartella</span>
