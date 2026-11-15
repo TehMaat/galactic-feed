@@ -11,7 +11,6 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 // sorgente → [file in public/icons, lato in pixel]
 const ICONS = [
   ["apple-touch-icon.svg", "apple-touch-icon.png", 180],
-  ["apple-touch-icon-dark.svg", "apple-touch-icon-dark.png", 180],
 ];
 
 const browser = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {});
