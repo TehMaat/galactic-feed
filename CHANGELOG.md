@@ -4,6 +4,12 @@ Tutte le versioni di Galactic Feed, dalla più recente. I numeri seguono [semver
 
 Per aggiornare basta scaricare la nuova immagine: le modifiche al database si applicano da sole all'avvio. Prima di saltare a una nuova versione minore conviene fare una copia del volume `/data` (vedi il README, «Versioni e aggiornamenti»).
 
+## [Da pubblicare]
+
+### Correzioni
+- **Colore del sistema** (#46): il campione in Impostazioni → Aspetto mostra il colore che arriva davvero, e la nota dice la verità. Chrome, Edge e i telefoni Android non fanno conoscere il colore del sistema e danno sempre lo stesso blu; prima la nota diceva che il colore veniva dalle impostazioni del dispositivo. Il colore del sistema ora viene scurito in chiaro e schiarito in scuro quanto basta perché testo e pulsanti si leggano bene (contrasto AA, come gli altri colori); prima si usava così com'era, anche dove non si leggeva.
+- **Font** (#46): «Galactic» usa il font del dispositivo per tutto tranne i titoli anche su Linux e ChromeOS (prima Roboto o Arial); «Sistema» lo usa anche per i titoli. La nota spiega che sui telefoni Android il browser usa Roboto e non i font scelti nelle impostazioni del telefono.
+
 ## [0.8.0] – 2026-11-15
 
 ### Novità
