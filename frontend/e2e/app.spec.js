@@ -697,8 +697,9 @@ test("tag delle fonti: assegnati dalla scheda e usati come filtro nel Flusso", a
   const oggi = page.locator("section[aria-label='Oggi']");
   if (await oggi.getByRole("tab", { name: "Flusso" }).count()) await oggi.getByRole("tab", { name: "Flusso" }).click();
   await oggi.getByRole("button", { name: /Astronomia/ }).click();
-  await expect(oggi.locator(".card").first()).toBeVisible();
-  for (const src of await oggi.locator(".card .meta .src").allTextContents()) expect(src).toBe("Orbita");
+  await expect(oggi.getByRole("button", { name: /Astronomia/ })).toHaveAttribute("aria-pressed", "true");
+  // Si aspetta l'elenco filtrato: subito dopo il tocco ci sono ancora le schede di prima.
+  await expect.poll(async () => [...new Set(await oggi.locator(".card .meta .src").allTextContents())]).toEqual(["Orbita"]);
 
   // Gestione dei tag: la chip si può togliere dal Flusso.
   await tab(page, "Fonti");
