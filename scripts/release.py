@@ -8,6 +8,7 @@ devono restare uguali (lo controllano i test), e prepara le note di una release.
     python3 scripts/release.py check              # VERSION, pacchetti e CHANGELOG coincidono?
     python3 scripts/release.py check v0.4.0       # …e coincidono anche con questo tag?
     python3 scripts/release.py bump 0.4.0         # nuova versione in tutti i file (e «Da pubblicare» → 0.4.0)
+    python3 scripts/release.py bump minor         # la prossima minore (0.3.1 → 0.4.0); anche «patch» e «major»
     python3 scripts/release.py notes 0.4.0        # note della versione, prese da CHANGELOG.md
 
 Le versioni seguono semver: MAGGIORE.MINORE.CORRETTIVA (per esempio 0.3.1), con un
@@ -70,7 +71,25 @@ def check(tag: str | None = None) -> list[str]:
     return errors
 
 
+def next_version(current: str, part: str) -> str:
+    """La versione dopo «current»: «major», «minor» o «patch» (un suffisso -rc.N si toglie)."""
+    match = SEMVER.match(current)
+    if not match:
+        raise SystemExit(f"VERSION contiene «{current}», che non è una versione valida.")
+    major, minor, patch = (int(n) for n in match.groups()[:3])
+    if match.group(4):
+        # 0.4.0-rc.1 → 0.4.0: la versione di prova diventa quella vera.
+        return f"{major}.{minor}.{patch}"
+    if part == "major":
+        return f"{major + 1}.0.0"
+    if part == "minor":
+        return f"{major}.{minor + 1}.0"
+    return f"{major}.{minor}.{patch + 1}"
+
+
 def bump(version: str) -> None:
+    if version in ("major", "minor", "patch"):
+        version = next_version(read_version(), version)
     if not SEMVER.match(version):
         raise SystemExit(f"«{version}» non è una versione valida (esempio: 0.4.0).")
     (ROOT / "VERSION").write_text(version + "\n", encoding="utf-8")

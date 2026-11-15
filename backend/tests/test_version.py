@@ -22,3 +22,11 @@ def test_versions_and_changelog_agree():
     assert release.check(f"v{VERSION}") == []
     assert release.check("v99.0.0") != []
     assert "###" in release.notes(VERSION)
+
+
+def test_next_version():
+    assert release.next_version("0.8.0", "minor") == "0.9.0"
+    assert release.next_version("0.8.3", "minor") == "0.9.0"
+    assert release.next_version("0.8.0", "patch") == "0.8.1"
+    assert release.next_version("0.8.2", "major") == "1.0.0"
+    assert release.next_version("0.9.0-rc.1", "minor") == "0.9.0"

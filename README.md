@@ -41,7 +41,7 @@ Il codice cambia a ogni riavvio finché non esiste un account. Serve solo a evit
 
 ### Aggiornare
 
-Le correzioni della versione che usi (per esempio da 0.8.0 a 0.8.1) arrivano con:
+Le correzioni della versione che usi (per esempio da 0.9.0 a 0.9.1) arrivano con:
 
 ```bash
 docker compose pull
@@ -51,7 +51,7 @@ docker compose pull
 docker compose up -d
 ```
 
-Per passare a una versione nuova (per esempio da 0.7 a 0.8) leggi cosa cambia in [CHANGELOG.md](CHANGELOG.md), fai una copia dei dati (vedi sotto), poi cambia il numero nel `docker-compose.yml` (`galactic-feed:0.8`) e ripeti i due comandi. Il database si aggiorna da solo all'avvio. La versione in uso è scritta in fondo alle Impostazioni.
+Per passare a una versione nuova (per esempio da 0.8 a 0.9) leggi cosa cambia in [CHANGELOG.md](CHANGELOG.md), fai una copia dei dati (vedi sotto), poi cambia il numero nel `docker-compose.yml` (`galactic-feed:0.9`) e ripeti i due comandi. Il database si aggiorna da solo all'avvio. La versione in uso è scritta in fondo alle Impostazioni.
 
 ## Versioni e aggiornamenti
 
@@ -59,8 +59,8 @@ Le versioni sono numerate `MAGGIORE.MINORE.CORRETTIVA` ([semver](https://semver.
 
 | Etichetta dell'immagine | Cosa ricevi |
 |---|---|
-| `0.8` (consigliata) | La versione 0.8 con tutte le sue correzioni |
-| `0.8.0` | Esattamente quella versione, senza aggiornamenti |
+| `0.9` (consigliata) | La versione 0.9 con tutte le sue correzioni |
+| `0.9.0` | Esattamente quella versione, senza aggiornamenti |
 | `latest` | L'ultima modifica del ramo principale, anche prima di una release |
 
 **Copia dei dati.** Gli aggiornamenti del database vanno solo in avanti: per tornare a una versione precedente serve la copia fatta prima. Con il volume del `docker-compose.yml`:
@@ -245,7 +245,7 @@ Su iPhone l'app non si aggiorna in background: le notizie le scarica sempre il s
 
 Le immagini sono su GitHub Container Registry: `ghcr.io/tehmaat/galactic-feed`.
 
-- `0.8` e `0.8.0`: le versioni pubblicate (vedi «Versioni e aggiornamenti»);
+- `0.9` e `0.9.0`: le versioni pubblicate (vedi «Versioni e aggiornamenti»);
 - `latest`: l'ultima versione del ramo principale;
 - `sha-xxxxxxx`: un commit preciso.
 
@@ -279,15 +279,16 @@ cd frontend && npm run build && npx playwright test
 
 ### Pubblicare una versione
 
-Il numero di versione sta solo nel file [`VERSION`](VERSION); lo script lo copia nei pacchetti e i test controllano che coincidano. Le novità si scrivono via via nella sezione «Da pubblicare» di `CHANGELOG.md`.
+Il numero di versione sta solo nel file [`VERSION`](VERSION); lo script lo copia nei pacchetti e i test controllano che coincidano. **Ogni PR che cambia l'app è una versione nuova**: il job «versione» del workflow Test fallisce se la PR tocca il codice dell'app e non cambia `VERSION` (le PR di soli test, documenti o workflow no). Le istruzioni per Claude sono in [`CLAUDE.md`](CLAUDE.md).
 
-1. Nella PR che chiude il lavoro, prepara la versione: la sezione «Da pubblicare» prende il numero nuovo.
+1. Nella PR scrivi le modifiche nella sezione «Da pubblicare» di `CHANGELOG.md`, poi prepara la versione: la sezione prende il numero nuovo.
 
    ```bash
-   python3 scripts/release.py bump 0.7.0
+   python3 scripts/release.py bump minor   # novità: 0.8.0 → 0.9.0
+   python3 scripts/release.py bump patch   # solo correzioni: 0.8.0 → 0.8.1
    ```
 
-2. Fai il merge della PR su `main`. Il workflow vede che `v0.7.0` non esiste ancora: pubblica le immagini `:0.7.0` e `:0.7`, poi crea il tag e la release con le note del `CHANGELOG.md`. Nessun tag a mano.
+2. Fai il merge della PR su `main`. Il workflow vede che il tag della versione (per esempio `v0.9.0`) non esiste ancora: pubblica le immagini `:0.9.0` e `:0.9`, poi crea il tag e la release con le note del `CHANGELOG.md`. Nessun tag a mano.
 
 Una versione come `0.7.0-rc.1` diventa una versione di prova: solo `:0.7.0-rc.1`, segnata come pre-release.
 
