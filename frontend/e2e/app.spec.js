@@ -94,6 +94,14 @@ test("primo avvio, fonti, interessi, lettura e salvati sul telefono", async ({ p
   await page.getByLabel("Nuova parola da silenziare").press("Enter");
   await expect(page.locator(".panel .tag", { hasText: "oroscopo" })).toBeVisible();
 
+  // Il cerchio con la «i» spiega come funzionano i doppioni.
+  await page.getByRole("button", { name: "Come funzionano i doppioni" }).click();
+  const help = page.getByRole("alertdialog", { name: "Come funzionano i doppioni" });
+  await expect(help).toContainText("pubblicato per primo");
+  await expect(help.getByRole("button", { name: "Annulla" })).toHaveCount(0);
+  await help.getByRole("button", { name: "Ho capito" }).click();
+  await expect(help).toBeHidden();
+
   // Flusso: per te, nascosti, ricerca.
   await tab(page, "Oggi");
   await expect(page.locator("section[aria-label='Oggi'] .card")).toHaveCount(4);

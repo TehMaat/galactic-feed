@@ -736,13 +736,20 @@ export function showSource(source) {
 // Al posto di window.confirm(), che alcuni browser e alcune app installate bloccano o non
 // mostrano (e allora «Elimina» sembrava non fare niente): una finestra dell'app.
 
-export const confirmation = $state({ open: false, title: "", message: "", action: "Conferma", danger: true });
+export const confirmation = $state({ open: false, title: "", message: "", action: "Conferma", danger: true, info: false });
 let confirmResolve = null;
 
 /** Chiede conferma. Restituisce una promessa: true se la persona conferma. */
 export function ask(message, { title = "Sei sicuro?", action = "Elimina", danger = true } = {}) {
   confirmResolve?.(false);
-  Object.assign(confirmation, { open: true, title, message, action, danger });
+  Object.assign(confirmation, { open: true, title, message, action, danger, info: false });
+  return new Promise((resolve) => (confirmResolve = resolve));
+}
+
+/** Spiega qualcosa (il cerchio con la «i»): stessa finestra, un solo pulsante. message può essere un elenco di paragrafi. */
+export function inform(message, { title = "Come funziona", action = "Ho capito" } = {}) {
+  confirmResolve?.(false);
+  Object.assign(confirmation, { open: true, title, message, action, danger: false, info: true });
   return new Promise((resolve) => (confirmResolve = resolve));
 }
 
