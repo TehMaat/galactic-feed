@@ -14,6 +14,7 @@ Per aggiornare basta scaricare la nuova immagine: le modifiche al database si ap
 - **Le cartelle delle fonti hanno la matita**: in Fonti, accanto al nome di ogni cartella, una matita indica che toccandola si cambiano nome e colore o si elimina la cartella (#33). Prima il nome sembrava una semplice etichetta.
 
 ### Correzioni
+- Sul telefono le barre sparivano quasi di colpo scorrendo giù; ora escono con lo stesso movimento con cui entrano, al contrario: partono piano, accelerano e svaniscono alla fine.
 - Modificare una cartella non funzionava: il nome scritto tornava subito quello di prima e «Salva» lasciava tutto com'era (#33).
 - Notifiche: dalla seconda in poi con lo stesso argomento (per esempio la notifica di prova ripetuta) sostituivano in silenzio quella ancora nel centro notifiche, senza banner né suono, e sembravano non arrivare. Ora ogni notifica si vede.
 - Notifiche: la prova va solo al dispositivo da cui la chiedi e, se il servizio push (Apple, Google, Mozilla, Microsoft) la rifiuta, il messaggio dice il motivo; prima bastava che arrivasse a un altro dispositivo per dire «inviata». Gli errori finiscono anche nel log del server.
