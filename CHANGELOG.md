@@ -4,15 +4,20 @@ Tutte le versioni di Galactic Feed, dalla più recente. I numeri seguono [semver
 
 Per aggiornare basta scaricare la nuova immagine: le modifiche al database si applicano da sole all'avvio. Prima di saltare a una nuova versione minore conviene fare una copia del volume `/data` (vedi il README, «Versioni e aggiornamenti»).
 
-## [Da pubblicare]
+## [0.9.0] – 2026-11-15
 
 ### Novità
 - **Barra di navigazione in alto sul computer**: il nome dell'app, le sezioni e, a destra, Impostazioni e Amministrazione stanno in un'unica barra in alto, al posto della colonna a sinistra. La lista e l'articolo si allargano.
 - **Il tablet è come il telefono**: barra in alto con il nome dell'app e le Impostazioni, Dock fluttuante in basso con le sezioni, e le due barre escono dallo schermo scorrendo verso il basso (#36). Scorre la pagina, così nel browser si riduce anche la barra degli indirizzi (#38). L'Amministrazione si apre dalle Impostazioni, come sul telefono.
 - **Come funzionano i doppioni**: un cerchio con la «i», accanto a «Unisci i doppioni» in Interessi e accanto ad «Anche su» nell'articolo, spiega quando due articoli sono la stessa notizia, quale si vede (il primo pubblicato tra quelli che passano i filtri) e che letto e non letto valgono per tutte le versioni.
+
 ### Correzioni
 - **Colore del sistema** (#46): il campione in Impostazioni → Aspetto mostra il colore che arriva davvero, e la nota dice la verità. Chrome, Edge e i telefoni Android non fanno conoscere il colore del sistema e danno sempre lo stesso blu; prima la nota diceva che il colore veniva dalle impostazioni del dispositivo. Il colore del sistema ora viene scurito in chiaro e schiarito in scuro quanto basta perché testo e pulsanti si leggano bene (contrasto AA, come gli altri colori); prima si usava così com'era, anche dove non si leggeva.
 - **Font** (#46): «Galactic» usa il font del dispositivo per tutto tranne i titoli anche su Linux e ChromeOS (prima Roboto o Arial); «Sistema» lo usa anche per i titoli. La nota spiega che sui telefoni Android il browser usa Roboto e non i font scelti nelle impostazioni del telefono.
+
+### Da sapere per aggiornare
+- Nessuna migrazione del database.
+- Il `docker-compose.yml` d'esempio ora usa `:0.9`: chi ha `:0.8` deve cambiare il numero per ricevere le novità (con `:0.8` arrivano solo le correzioni della 0.8).
 
 ## [0.8.0] – 2026-11-15
 
