@@ -132,6 +132,22 @@ select.input { appearance: none; background-image: linear-gradient(45deg, transp
 /* ---------- Lettore ---------- */
 .video-link { display: block; }
 .also-on { margin: -6px 0 16px; font-size: 13.5px; color: var(--ink-3); }
+
+/* ---------- Cerchio con la «i»: apre una spiegazione ---------- */
+.info-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin: -6px -4px -6px 0;
+  vertical-align: middle;
+  border-radius: 50%;
+  color: var(--ink-3);
+}
+.info-btn .ico { width: 18px; height: 18px; }
+.info-btn:hover { background: var(--surface-2); color: var(--ink-2); }
+.info-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .reader-body { overflow-wrap: break-word; }
 .reader-body > :first-child { margin-top: 0; }
 .reader-body h3 { margin: 1.4em 0 0.5em; font-family: var(--font-ui); font-size: calc(19px * var(--ts)); line-height: 1.3; }
@@ -361,8 +377,10 @@ a.oidc-btn { text-decoration: none; }
   .confirm-scrim, .confirm { position: fixed; }
 }
 .confirm h3 { margin: 0 0 6px; font-size: 18px; line-height: 1.3; }
-.confirm p { margin: 0 0 18px; font-size: 15px; line-height: 1.45; color: var(--ink-2); }
+.confirm p { margin: 0 0 10px; font-size: 15px; line-height: 1.45; color: var(--ink-2); }
+.confirm p:last-child { margin-bottom: 18px; }
 .confirm-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.confirm-actions.is-single { grid-template-columns: 1fr; }
 .confirm-actions button { height: 46px; padding: 0 12px; border-radius: 14px; font-weight: 650; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
 .btn-primary.is-danger { background: var(--danger); color: var(--app-bg); }
 @keyframes fade-in { from { opacity: 0; } }

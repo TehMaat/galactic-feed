@@ -1,6 +1,7 @@
 <script>
   import Icon from "../components/Icon.svelte";
   import { api } from "../lib/api.js";
+  import { explainDedupe } from "../lib/help.js";
   import { ask, data, loadCounts, loadStream, savePrefs, session, toast } from "../lib/store.svelte.js";
 
   let { active } = $props();
@@ -300,7 +301,7 @@
   <section class="panel">
     <h3>Regole</h3>
     <div class="rule">
-      <div><div class="rule-title">Unisci i doppioni</div><div class="rule-sub">La stessa notizia da più fonti compare una volta sola.</div></div>
+      <div><div class="rule-title">Unisci i doppioni <button type="button" class="info-btn" aria-label="Come funzionano i doppioni" onclick={explainDedupe}><Icon name="info" /></button></div><div class="rule-sub">La stessa notizia da più fonti compare una volta sola.</div></div>
       <button type="button" class="switch" role="switch" aria-checked={!!session.user?.prefs?.dedupe} aria-label="Unisci i doppioni" onclick={toggleDedupe}></button>
     </div>
     <div class="rule" class:is-later={!aiOn}>

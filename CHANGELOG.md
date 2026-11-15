@@ -4,6 +4,11 @@ Tutte le versioni di Galactic Feed, dalla più recente. I numeri seguono [semver
 
 Per aggiornare basta scaricare la nuova immagine: le modifiche al database si applicano da sole all'avvio. Prima di saltare a una nuova versione minore conviene fare una copia del volume `/data` (vedi il README, «Versioni e aggiornamenti»).
 
+## [Da pubblicare]
+
+### Novità
+- **Come funzionano i doppioni**: un cerchio con la «i», accanto a «Unisci i doppioni» in Interessi e accanto ad «Anche su» nell'articolo, spiega quando due articoli sono la stessa notizia, quale si vede (il primo pubblicato tra quelli che passano i filtri) e che letto e non letto valgono per tutte le versioni.
+
 ## [0.8.0] – 2026-11-15
 
 ### Novità
