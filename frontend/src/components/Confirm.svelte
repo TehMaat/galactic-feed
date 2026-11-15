@@ -25,9 +25,11 @@
   <div class="confirm-scrim" onclick={() => answer(false)}></div>
   <div class="confirm" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-text">
     <h3 id="confirm-title">{confirmation.title}</h3>
-    <p id="confirm-text">{confirmation.message}</p>
-    <div class="confirm-actions">
-      <button type="button" class="btn-secondary" onclick={() => answer(false)}>Annulla</button>
+    <div id="confirm-text">
+      {#each [confirmation.message].flat() as text}<p>{text}</p>{/each}
+    </div>
+    <div class="confirm-actions" class:is-single={confirmation.info}>
+      {#if !confirmation.info}<button type="button" class="btn-secondary" onclick={() => answer(false)}>Annulla</button>{/if}
       <button type="button" bind:this={okButton} class={confirmation.danger ? "btn-primary is-danger" : "btn-primary"} onclick={() => answer(true)}>
         {#if confirmation.danger}<Icon name="trash" />{/if}{confirmation.action}
       </button>

@@ -146,8 +146,8 @@ In Impostazioni → Aspetto ognuno sceglie tema (automatico, chiaro, scuro), la 
 
 In Impostazioni → Lettura si possono nascondere gli articoli senza testo completo: quelli dei siti che nel feed danno solo un estratto e non lasciano leggere la pagina (paywall, blocchi). Non compaiono nel Flusso, nell'Edizione e nelle notifiche; i salvati restano. Nel Flusso un avviso dice quanti sono e li mostra con un tocco; nella scheda della fonte c'è scritto «Spesso solo estratto».
 
-- Il **colore del sistema** funziona solo dove il browser lo fa conoscere, soprattutto sui computer: su iPhone, iPad e Android una web app non può leggere i colori del sistema (per esempio Material You), quindi resta il colore predefinito.
-- Il font **Sistema** usa quello del dispositivo (San Francisco su iPhone e Mac, Roboto su Android). Inter e Alta leggibilità (Atkinson Hyperlegible) sono inclusi nell'app e funzionano anche offline.
+- Il **colore del sistema** funziona solo dove il browser lo fa conoscere, soprattutto Firefox sui computer. Chrome, Edge e i telefoni Android danno sempre lo stesso blu, e una web app non può leggere i colori di Material You: il campione in Impostazioni mostra il colore che arriva davvero. Il colore viene scurito in chiaro e schiarito in scuro quanto basta perché si legga (contrasto AA).
+- Il font **Sistema** usa quello del dispositivo anche per i titoli (San Francisco su iPhone e Mac, Segoe UI su Windows); **Galactic** lo usa per tutto tranne i titoli, in Unbounded. Sui telefoni Android il browser usa Roboto: i font scelti nelle impostazioni del telefono non arrivano alle web app. Inter e Alta leggibilità (Atkinson Hyperlegible) sono inclusi nell'app e funzionano anche offline.
 
 Accanto a ogni fonte compare l'icona del sito o l'avatar del canale YouTube, trovata in automatico. Dalla scheda della fonte la puoi aggiornare, sostituire con un'altra immagine o togliere per tornare alle iniziali.
 
