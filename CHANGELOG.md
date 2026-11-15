@@ -4,6 +4,17 @@ Tutte le versioni di Galactic Feed, dalla più recente. I numeri seguono [semver
 
 Per aggiornare basta scaricare la nuova immagine: le modifiche al database si applicano da sole all'avvio. Prima di saltare a una nuova versione minore conviene fare una copia del volume `/data` (vedi il README, «Versioni e aggiornamenti»).
 
+## [0.11.0] – 2026-11-15
+
+### Novità
+- **Lettura più pulita** (#9): in alto restano solo Indietro, Salva e «⋯». Nel menu «⋯» ci sono la dimensione del testo (tre pulsanti, con quella in uso evidenziata), Condividi (dove il dispositivo lo permette), Apri l'originale e Segna come non letto. In fondo all'articolo c'è un solo pulsante, «Leggi su …». Scorrendo verso il basso la barra del lettore esce dallo schermo e rientra tornando su; una riga sottile in alto mostra quanto hai letto.
+- **Articolo a pagina intera sul computer** (#9): in Impostazioni → Lettura scegli se l'articolo sta accanto all'elenco (come prima) o si apre a pagina intera sopra l'elenco, che allora usa tutta la larghezza. «Indietro» o Esc riportano all'elenco.
+- **Dock con tre tasti**: su telefono e tablet la Dock ha Oggi, Interessi e Salvati. Le fonti si aprono da Impostazioni → Fonti, con «Indietro» per tornare. Sul computer Fonti resta nella barra in alto.
+
+### Da sapere per aggiornare
+- Nessuna migrazione del database.
+- Il `docker-compose.yml` d'esempio ora usa `:0.11`: chi ha `:0.10` deve cambiare il numero per ricevere le novità (con `:0.10` arrivano solo le correzioni della 0.10).
+
 ## [0.10.0] – 2026-11-15
 
 ### Novità

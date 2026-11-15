@@ -1,11 +1,15 @@
 <script>
   // Lettura di un articolo. Su telefono e tablet scorre sopra l'elenco; sul computer sta nella
-  // terza colonna, sempre visibile (come nel mockup).
+  // colonna di destra oppure, se lo scegli in Impostazioni → Lettura, a tutta pagina (#9).
+  // Pulsanti ridotti all'essenziale: Indietro, Salva e «Altre azioni» (dimensione del testo,
+  // condividi, originale, segna come non letto). Scorrendo verso il basso la barra esce dallo
+  // schermo e rientra tornando su, come le barre delle sezioni (#36).
   import { api } from "../lib/api.js";
+  import { barsAfterScroll } from "../lib/bars.js";
   import { explainDedupe } from "../lib/help.js";
   import { isAvailableOffline, overlay } from "../lib/offline.js";
   import { matchLabel, sourceColor, timeAgoLong } from "../lib/format.js";
-  import { TEXT_SIZES, closeReader, foldersById, savePrefs, session, setRead, setSaved, stream, saved, ui, toast } from "../lib/store.svelte.js";
+  import { TEXT_SIZES, readerBeside, closeReader, foldersById, savePrefs, session, setRead, setSaved, stream, saved, ui, toast } from "../lib/store.svelte.js";
   import Icon from "./Icon.svelte";
   import SourceIcon from "./SourceIcon.svelte";
   import Thumb from "./Thumb.svelte";
@@ -17,6 +21,12 @@
   let summary = $state({ points: null, loading: false, error: "" });
   let scroller = $state();
   let backBtn = $state();
+  let menuOpen = $state(false);
+  let menuBtn = $state();
+  let barHidden = $state(false);
+  let barRef = 0;
+  let progress = $state(0); // quanto dell'articolo è stato letto, da 0 a 1
+  const canShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
 
   const open = $derived(ui.reader !== null);
   const color = $derived(article ? foldersById()[article.source.folder_id]?.color || "indaco" : "indaco");
@@ -40,12 +50,16 @@
         checkOffline(id);
         loadSummary(article);
         if (scroller) scroller.scrollTop = 0;
+        barHidden = false;
+        barRef = 0;
+        progress = 0;
         const inList = listed(id);
         if (!article.read) {
           setRead(inList || article, true);
           article.read = true;
         }
-        if (window.innerWidth < 1100) setTimeout(() => backBtn?.focus({ preventScroll: true }), 360);
+        // Il lettore copre l'elenco: il focus va su «Indietro». Accanto all'elenco resta dov'è.
+        if (!readerBeside()) setTimeout(() => backBtn?.focus({ preventScroll: true }), 360);
       })
       .catch((err) => {
         if (!cancelled) {
@@ -91,6 +105,7 @@
   }
 
   function markUnread() {
+    menuOpen = false;
     if (!article) return;
     setRead(listed(article.id) || article, false);
     article.read = false;
@@ -98,16 +113,47 @@
     closeReader();
   }
 
-  function textSize() {
-    const current = session.user?.prefs?.text_size ?? 1;
-    const i = TEXT_SIZES.indexOf(current);
-    const next = TEXT_SIZES[(i + 1) % TEXT_SIZES.length];
-    savePrefs({ text_size: next });
-    toast(next > 1 ? "Testo più grande" : next < 1 ? "Testo più piccolo" : "Testo standard");
-  }
+  // Dimensioni del testo, dalla più piccola alla più grande.
+  const SIZES = [...TEXT_SIZES].sort((a, b) => a - b).map((v) => [v, v > 1 ? "Grande" : v < 1 ? "Piccolo" : "Standard"]);
+  const textSize = $derived(session.user?.prefs?.text_size ?? 1);
 
   function openOriginal() {
+    menuOpen = false;
     if (article?.url) window.open(article.url, "_blank", "noopener,noreferrer");
+  }
+
+  async function share() {
+    menuOpen = false;
+    if (!article?.url) return;
+    try {
+      await navigator.share({ title: article.title, url: article.url });
+    } catch {
+      // annullato da chi legge: niente da dire
+    }
+  }
+
+  function onScroll() {
+    const max = scroller.scrollHeight - scroller.clientHeight;
+    progress = max > 0 ? Math.min(1, Math.max(0, scroller.scrollTop / max)) : 0;
+    if (menuOpen) return;
+    const next = barsAfterScroll(barRef, scroller.scrollTop, max);
+    barRef = next.ref;
+    if (next.hidden !== null) barHidden = next.hidden;
+  }
+
+  // Il menu si chiude toccando fuori, con Esc o chiudendo l'articolo.
+  $effect(() => {
+    if (!open) menuOpen = false;
+  });
+  function onDocPointer(e) {
+    if (menuOpen && !e.target.closest?.(".reader-menu, .more-btn")) menuOpen = false;
+  }
+  function onMenuKey(e) {
+    if (e.key === "Escape" && menuOpen) {
+      e.stopPropagation();
+      menuOpen = false;
+      menuBtn?.focus();
+    }
   }
 
   // I link dentro l'articolo si aprono fuori dall'app.
@@ -125,17 +171,33 @@
   );
 </script>
 
-<article class="reader" class:is-open={open} class:is-empty={!open} aria-label="Articolo" aria-hidden={!open && window.innerWidth < 1100}>
-  <div class="reader-bar">
+<svelte:document onpointerdown={onDocPointer} />
+
+<article class="reader" class:is-open={open} class:is-empty={!open} class:bar-hidden={barHidden} aria-label="Articolo" aria-hidden={!open && !readerBeside()}>
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div class="reader-bar" onfocusin={() => (barHidden = false)} onkeydown={onMenuKey}>
     <button type="button" class="back-btn" bind:this={backBtn} onclick={closeReader}><Icon name="back" /><span>Indietro</span></button>
     <div class="reader-actions">
-      <button type="button" class="icon-btn" aria-label="Dimensione del testo" onclick={textSize}><span class="aa">Aa</span></button>
-      <button type="button" class="icon-btn" class:is-on={article?.saved} aria-pressed={!!article?.saved} aria-label={article?.saved ? "Rimuovi dai salvati" : "Salva"} onclick={toggleSave}><Icon name="bookmark" /></button>
-      <button type="button" class="icon-btn" aria-label="Apri l'originale" onclick={openOriginal}><Icon name="external" /></button>
+      <button type="button" class="icon-btn" class:is-on={article?.saved} aria-pressed={!!article?.saved} aria-label={article?.saved ? "Rimuovi dai salvati" : "Salva"} title={article?.saved ? "Rimuovi dai salvati" : "Salva"} onclick={toggleSave}><Icon name="bookmark" /></button>
+      <button type="button" class="icon-btn more-btn" bind:this={menuBtn} aria-label="Altre azioni" title="Altre azioni" aria-haspopup="menu" aria-expanded={menuOpen} onclick={() => (menuOpen = !menuOpen)}><Icon name="more" /></button>
     </div>
+    {#if menuOpen}
+      <div class="reader-menu" role="menu" aria-label="Altre azioni">
+        <div class="menu-sizes" role="group" aria-label="Dimensione del testo">
+          {#each SIZES as [value, label], i}
+            <button type="button" role="menuitemradio" aria-checked={textSize === value} aria-label="Testo {label.toLowerCase()}" title={label} onclick={() => savePrefs({ text_size: value })}><span class="aa s{i}">A</span></button>
+          {/each}
+        </div>
+        {#if canShare && article?.url}<button type="button" role="menuitem" onclick={share}><Icon name="share" />Condividi</button>{/if}
+        {#if article?.url}<button type="button" role="menuitem" onclick={openOriginal}><Icon name="external" />{article.video ? "Guarda su YouTube" : "Apri l'originale"}</button>{/if}
+        <button type="button" role="menuitem" onclick={markUnread}><Icon name="check" />Segna come non letto</button>
+      </div>
+    {/if}
+    <div class="read-progress" style="--p:{progress}" aria-hidden="true"></div>
   </div>
-  <div class="reader-scroll" bind:this={scroller}>
+  <div class="reader-scroll" bind:this={scroller} onscroll={onScroll}>
     {#if !open}
+      <!-- Si vede solo sul computer, con l'articolo accanto all'elenco. -->
       <div class="empty reader-empty"><Icon name="edition" /><h3>Scegli un articolo</h3><p>Lo leggi qui, con il testo completo e senza pubblicità.</p></div>
     {:else if error}
       <div class="empty reader-empty"><Icon name="alert" /><h3>Articolo non disponibile</h3><p>{error}</p></div>
@@ -183,12 +245,11 @@
           </p>
         {/if}
       </div>
-      <div class="reader-end">
-        {#if article.url}
-          <button type="button" class="btn-primary" onclick={openOriginal}><Icon name="external" />{article.video ? "Guarda su YouTube" : "Apri l'articolo originale"}</button>
-        {/if}
-        <button type="button" class="btn-secondary" onclick={markUnread}>Segna come non letto</button>
-      </div>
+      {#if article.url}
+        <div class="reader-end">
+          <button type="button" class="btn-primary" onclick={openOriginal}><Icon name="external" />{article.video ? "Guarda su YouTube" : `Leggi su ${article.source.title}`}</button>
+        </div>
+      {/if}
     {:else if loading}
       <p class="loading">Apro l'articolo…</p>
     {/if}

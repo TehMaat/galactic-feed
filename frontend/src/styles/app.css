@@ -531,10 +531,10 @@ a.wordmark:active { opacity: 0.7; }
   bottom: var(--dock-gap);
   z-index: 30;
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   align-content: center;
   height: var(--dock-h);
-  max-width: 440px;
+  max-width: 340px;
   margin-inline: auto;
   padding: 0 6px;
   border: 1px solid var(--line);
@@ -633,6 +633,36 @@ a.wordmark:active { opacity: 0.7; }
 .reader-body h4 { margin: 1.4em 0 0.5em; font-family: var(--font-ui); font-size: calc(17px * var(--ts)); }
 .reader-body blockquote { margin: 1.2em 0; padding-left: 14px; border-left: 3px solid var(--accent); font-style: italic; color: var(--ink-2); }
 .reader-end { display: grid; gap: 10px; margin-top: 28px; }
+/* Barra del lettore a scomparsa e avanzamento della lettura (#9). */
+.reader-bar { transition: transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1); }
+/* Uscendo resta visibile solo l'avanzamento (3px), sotto l'area di sistema. */
+.reader.bar-hidden .reader-bar { transform: translateY(calc(-100% + env(safe-area-inset-top, 0px) + 3px)); transition-timing-function: cubic-bezier(0.8, 0, 0.8, 0.2); }
+.reader.bar-hidden .reader-bar > :not(.read-progress) { opacity: 0; transition: opacity 0.2s 0.08s; }
+.read-progress { position: absolute; left: 0; right: 0; bottom: -1px; height: 3px; background: var(--accent); transform: scaleX(var(--p, 0)); transform-origin: 0 50%; }
+.reader-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: max(10px, env(safe-area-inset-right, 0px));
+  z-index: 3;
+  width: 260px;
+  padding: 6px;
+  display: grid;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--surface);
+  box-shadow: 0 18px 48px rgba(10, 14, 30, 0.22);
+  animation: rise 0.18s ease both;
+}
+.reader-menu > button { display: flex; align-items: center; gap: 12px; min-height: 46px; padding: 0 12px; border-radius: 12px; font-size: 16px; text-align: left; }
+.reader-menu > button:hover { background: var(--surface-2); }
+.reader-menu > button .ico { width: 20px; height: 20px; color: var(--ink-2); }
+.menu-sizes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; margin-bottom: 4px; padding: 4px; border-radius: 14px; background: var(--surface-2); }
+.menu-sizes button { height: 40px; border-radius: 10px; color: var(--ink-2); }
+.menu-sizes button[aria-checked="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 3px rgba(10, 14, 30, 0.14); }
+.menu-sizes .aa { font-family: var(--font-read); font-weight: 600; }
+.menu-sizes .s0 { font-size: 14px; }
+.menu-sizes .s1 { font-size: 18px; }
+.menu-sizes .s2 { font-size: 22px; }
 .btn-primary, .btn-secondary {
   height: 50px;
   display: flex;
@@ -848,7 +878,7 @@ a.wordmark:active { opacity: 0.7; }
 /* ---------- Tablet (da 700 a 1099px): come sul telefono, con barra in alto e Dock ---------- */
 @media (min-width: 700px) and (max-width: 1099.98px) {
   .appbar { padding-left: max(24px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
-  .tabbar { left: 24px; right: 24px; max-width: 480px; }
+  .tabbar { left: 24px; right: 24px; max-width: 380px; }
 }
 
 /* ---------- Computer (da 1100px): barra in alto, lista e lettura affiancate ---------- */

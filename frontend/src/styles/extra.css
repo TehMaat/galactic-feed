@@ -462,3 +462,33 @@ a.oidc-btn { text-decoration: none; }
   .update-bar { bottom: 24px; }
   .toast.above-update { bottom: 80px; }
 }
+
+/* ---------- Dock con tre tasti: Fonti nelle Impostazioni ----------
+   Su telefono e tablet la Dock ha Oggi, Interessi e Salvati; Fonti si apre dalle Impostazioni,
+   con «Impostazioni» per tornare indietro. Sul computer Fonti resta nella barra in alto. */
+.fonti-back { margin: 8px 0 -4px; }
+@media (max-width: 1099.98px) {
+  .tabbar .nav-wide-only { display: none; }
+}
+@media (min-width: 1100px) {
+  .compact-only { display: none !important; }
+}
+
+/* ---------- Computer: articolo a pagina intera (#9) ----------
+   Con «Pagina intera» in Impostazioni → Lettura l'elenco usa tutta la larghezza e l'articolo
+   scorre sopra di esso, come su telefono e tablet; «Indietro» o Esc riportano all'elenco. */
+@media (min-width: 1100px) {
+  .app[data-reader="pagina"] .views { right: 0; width: auto; border-right: 0; }
+  .app[data-reader="pagina"] .view { padding-left: 40px; padding-right: 40px; }
+  .app[data-reader="pagina"] .view > * { max-width: 960px; }
+  .app[data-reader="pagina"] .stack { grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
+  .app[data-reader="pagina"] .reader {
+    left: 0;
+    transform: translateX(100%);
+    visibility: hidden;
+    transition: transform 0.36s cubic-bezier(0.2, 0.8, 0.2, 1), visibility 0s linear 0.36s;
+  }
+  .app[data-reader="pagina"] .reader.is-open { transform: none; visibility: visible; transition-delay: 0s; }
+  .app[data-reader="pagina"] .reader-bar .back-btn { visibility: visible; }
+  .app[data-reader="pagina"] .is-current.card, .app[data-reader="pagina"] .is-current.row, .app[data-reader="pagina"] .is-current.hero { box-shadow: none; }
+}
