@@ -4,6 +4,12 @@ Tutte le versioni di Galactic Feed, dalla più recente. I numeri seguono [semver
 
 Per aggiornare basta scaricare la nuova immagine: le modifiche al database si applicano da sole all'avvio. Prima di saltare a una nuova versione minore conviene fare una copia del volume `/data` (vedi il README, «Versioni e aggiornamenti»).
 
+## [Da pubblicare]
+
+### Novità
+- **Barra di navigazione in alto sul computer**: il nome dell'app, le sezioni e, a destra, Impostazioni e Amministrazione stanno in un'unica barra in alto, al posto della colonna a sinistra. La lista e l'articolo si allargano.
+- **Il tablet è come il telefono**: barra in alto con il nome dell'app e le Impostazioni, Dock fluttuante in basso con le sezioni, e le due barre escono dallo schermo scorrendo verso il basso (#36). Scorre la pagina, così nel browser si riduce anche la barra degli indirizzi (#38). L'Amministrazione si apre dalle Impostazioni, come sul telefono.
+
 ## [0.8.0] – 2026-11-15
 
 ### Novità

@@ -109,7 +109,7 @@ Se i permessi non vanno bene, il log lo dice con un messaggio chiaro e il comand
 
 ## Impostazioni
 
-Quasi tutto si configura dall'app. **Impostazioni** (`/impostazioni`) e **Amministrazione** (`/amministrazione`, solo per gli amministratori) sono pagine nella barra laterale; sul computer occupano tutta la larghezza, con l'indice delle sezioni a sinistra. Sul telefono le Impostazioni si aprono dall'icona in alto a destra e l'Amministrazione da lì. Le modifiche valgono subito, senza riavviare.
+Quasi tutto si configura dall'app. **Impostazioni** (`/impostazioni`) e **Amministrazione** (`/amministrazione`, solo per gli amministratori) sono pagine: sul computer si aprono dalla barra in alto, a destra, e occupano tutta la larghezza, con l'indice delle sezioni a sinistra. Su telefono e tablet le Impostazioni si aprono dall'icona in alto a destra e l'Amministrazione da lì. Le modifiche valgono subito, senza riavviare.
 
 - **Utenti e inviti**: inviti, nuove password, permessi, validità dei link; per ogni utente si vede se entra con la password, con il provider OIDC o con entrambi.
 - **Accesso con OIDC**: il pulsante «Entra con …» di un provider (vedi sotto).

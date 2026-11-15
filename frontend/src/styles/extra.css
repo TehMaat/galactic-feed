@@ -150,7 +150,7 @@ select.input { appearance: none; background-image: linear-gradient(45deg, transp
 .reader-body .hint { margin-top: 1.4em; padding: 12px 14px; border-radius: 14px; background: var(--surface-2); }
 
 .list .link-row + .link-row { border-top: 1px solid var(--line); }
-@container app (min-width: 700px) {
+@media (min-width: 700px) {
   .reader-scroll > .thumb, .reader-scroll > .thumb-wrap, .reader-scroll > .video-link { max-width: 680px; margin-inline: auto; }
 }
 
@@ -313,12 +313,12 @@ a.oidc-btn { text-decoration: none; }
 .advanced summary { cursor: pointer; padding: 10px 0; font-size: 14px; font-weight: 650; color: var(--ink-2); }
 .advanced .set-group { margin-bottom: 8px; }
 .set-label[id] { scroll-margin-top: 16px; }
-@media (max-width: 699.98px) {
-  /* Sul telefono scorre il documento (#38): la barra in alto, fissa, coprirebbe il titolo. */
+@media (max-width: 1099.98px) {
+  /* Su telefono e tablet scorre il documento (#38): la barra in alto, fissa, coprirebbe il titolo. */
   .set-label[id] { scroll-margin-top: calc(var(--appbar-h) + 12px); }
 }
 
-@container app (min-width: 1100px) {
+@media (min-width: 1100px) {
   .app[data-tab="impostazioni"] .views, .app[data-tab="amministrazione"] .views { right: 0; width: auto; border-right: 0; }
   .app[data-tab="impostazioni"] .reader, .app[data-tab="amministrazione"] .reader { display: none; }
   .page-view { padding-left: 40px; padding-right: 40px; }
@@ -356,8 +356,8 @@ a.oidc-btn { text-decoration: none; }
   transform: translateY(-50%);
   animation: fade-in 0.15s ease both;
 }
-@media (max-width: 699.98px) {
-  /* Sul telefono scorre il documento (#38): la conferma resta al centro dello schermo. */
+@media (max-width: 1099.98px) {
+  /* Su telefono e tablet scorre il documento (#38): la conferma resta al centro dello schermo. */
   .confirm-scrim, .confirm { position: fixed; }
 }
 .confirm h3 { margin: 0 0 6px; font-size: 18px; line-height: 1.3; }

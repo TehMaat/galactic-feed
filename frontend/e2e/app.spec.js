@@ -180,17 +180,20 @@ test("accesso e tre colonne sul computer", async ({ page }) => {
   await page.getByRole("button", { name: "Entra" }).click();
 
   await expect(page.locator(".reader-empty")).toContainText("Scegli un articolo");
+  // La barra di navigazione è in alto, a tutta larghezza; sotto, la lista e il lettore.
   const nav = await page.locator(".tabbar").boundingBox();
   const list = await page.locator(".views").boundingBox();
   const reader = await page.locator(".reader").boundingBox();
-  expect(nav.width).toBe(220);
-  expect(list.x).toBe(220);
-  expect(reader.x).toBeGreaterThanOrEqual(640);
-  // Il nome dell'app in cima alla barra laterale, le Impostazioni in basso a sinistra.
+  expect(nav).toMatchObject({ x: 0, y: 0, width: 1440, height: 64 });
+  expect(list).toMatchObject({ x: 0, y: 64, width: 460 });
+  expect(reader.x).toBeGreaterThanOrEqual(460);
+  expect(reader.y).toBe(64);
+  // Il nome dell'app a sinistra nella barra, le Impostazioni in alto a destra.
+  await expect(page.locator(".appbar")).toBeHidden();
   await expect(page.locator(".tabbar .nav-brand")).toHaveText("galactic feed");
   const settings = await page.getByRole("button", { name: "Impostazioni" }).boundingBox();
-  expect(settings.x + settings.width).toBeLessThanOrEqual(220);
-  expect(settings.y + settings.height).toBeGreaterThan(900 - 80);
+  expect(settings.x).toBeGreaterThan(1440 / 2);
+  expect(settings.y + settings.height).toBeLessThanOrEqual(64);
   await page.locator("section[aria-label='Oggi'] .card").first().click();
   await expect(page.locator(".reader .reader-title")).toBeVisible();
   await expect(page.locator("section[aria-label='Oggi'] .card").first()).toHaveClass(/is-current/);
@@ -513,11 +516,12 @@ test("pannello di amministrazione: impostazioni dell'istanza e predefiniti", asy
   await page.getByLabel("Password").fill(PASSWORD);
   await page.getByRole("button", { name: "Entra" }).click();
 
-  // Sul computer la voce è nella barra laterale, sotto Impostazioni.
+  // Sul computer la voce è nella barra in alto, a destra di Impostazioni.
   const nav = page.locator(".tabbar");
   const settingsBox = await nav.getByRole("button", { name: "Impostazioni" }).boundingBox();
   const adminBox = await nav.getByRole("button", { name: "Amministrazione" }).boundingBox();
-  expect(adminBox.y).toBeGreaterThan(settingsBox.y);
+  expect(adminBox.x).toBeGreaterThan(settingsBox.x);
+  expect(adminBox.y).toBe(settingsBox.y);
   await nav.getByRole("button", { name: "Amministrazione" }).click();
   // Sul computer è una pagina larga, con l'indice delle sezioni a sinistra e senza il lettore.
   await expect(page.locator(".reader")).toBeHidden();
@@ -745,10 +749,23 @@ test("telefono: le barre escono scorrendo giù e rientrano tornando su (#36)", a
   await tab(page, "Fonti");
   await expect(app).not.toHaveAttribute("data-bars", "hidden");
 
-  // Su tablet e computer la barra laterale non si muove.
+  // Sul tablet le barre sono le stesse del telefono: barra in alto e Dock, che escono scorrendo.
   await page.setViewportSize({ width: 1024, height: 520 });
   await tab(page, "Oggi");
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await expect(page.locator(".appbar")).toBeVisible();
+  await expect(page.locator(".tabbar .nav-brand")).toBeHidden();
+  await expect.poll(async () => 520 - (await dock.boundingBox()).y).toBeLessThan(100);
   await page.mouse.move(500, 260);
+  await page.mouse.wheel(0, 200);
+  await expect(app).toHaveAttribute("data-bars", "hidden");
+  await page.mouse.wheel(0, -40);
+  await expect(app).not.toHaveAttribute("data-bars", "hidden");
+
+  // Sul computer la barra in alto non si muove.
+  await page.setViewportSize({ width: 1440, height: 520 });
+  await tab(page, "Oggi");
+  await page.mouse.move(200, 300);
   await page.mouse.wheel(0, 300);
   await expect(app).not.toHaveAttribute("data-bars", "hidden");
 });
@@ -794,9 +811,17 @@ test("telefono: scorre la pagina, e ogni sezione ricorda dove eri arrivato (#38)
   await barClick(page.locator(".appbar").getByRole("link", { name: /vai a Oggi/ }));
   await expect.poll(scrollY).toBe(0);
 
-  // Su tablet e computer scorre la sezione, come prima.
+  // Sul tablet scorre ancora il documento.
   await page.setViewportSize({ width: 1024, height: 520 });
   await page.mouse.move(500, 260);
+  await page.mouse.wheel(0, 250);
+  await expect.poll(scrollY).toBeGreaterThan(100);
+  expect(await oggi.evaluate((v) => v.scrollTop)).toBe(0);
+
+  // Sul computer scorre la sezione, perché lista e lettore stanno affiancati.
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.setViewportSize({ width: 1440, height: 520 });
+  await page.mouse.move(200, 300);
   await page.mouse.wheel(0, 250);
   await expect.poll(() => oggi.evaluate((v) => v.scrollTop)).toBeGreaterThan(100);
   expect(await scrollY()).toBe(0);
