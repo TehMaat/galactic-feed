@@ -6,7 +6,9 @@
   // altrove; le Impostazioni in fondo alla barra laterale (in alto a destra sul telefono).
   // Impostazioni e Amministrazione sono pagine (/impostazioni, /amministrazione), non finestre.
   // Toccando il nome dell'app si torna a Oggi.
-  // Sul telefono le barre escono dallo schermo scorrendo giù e rientrano tornando su (#36).
+  // Sul telefono scorre il documento, così nel browser anche la barra degli indirizzi si riduce
+  // (#38); le barre dell'app escono dallo schermo scorrendo giù e rientrano tornando su (#36).
+  import { tick, untrack } from "svelte";
   import Confirm from "./components/Confirm.svelte";
   import Icon from "./components/Icon.svelte";
   import Reader from "./components/Reader.svelte";
@@ -18,7 +20,8 @@
   import SourceSheet from "./sheets/SourceSheet.svelte";
   import TagsSheet from "./sheets/TagsSheet.svelte";
   import { barsAfterScroll } from "./lib/bars.js";
-  import { closeReader, closeSheet, data, goHome, openPage, session, switchTab, ui } from "./lib/store.svelte.js";
+  import { PHONE_QUERY } from "./lib/scroll.js";
+  import { closeReader, closeSheet, confirmation, data, goHome, openPage, session, switchTab, ui } from "./lib/store.svelte.js";
   import Fonti from "./views/Fonti.svelte";
   import Interessi from "./views/Interessi.svelte";
   import Oggi from "./views/Oggi.svelte";
@@ -32,9 +35,58 @@
   ];
   const ts = $derived(session.user?.prefs?.text_size ?? 1);
   let scrimVisible = $state(false);
-  let appEl = $state();
   let barsHidden = $state(false);
-  const barsRef = new WeakMap(); // posizione di riferimento di ogni sezione
+  let barsRef = 0; // posizione di riferimento per le barre
+  // Sul telefono scorre il documento (#38); su tablet e computer ogni sezione ha il suo scroll.
+  const phone = window.matchMedia(PHONE_QUERY);
+  let docMode = $state(phone.matches);
+  $effect(() => {
+    const sync = () => (docMode = phone.matches);
+    phone.addEventListener("change", sync);
+    return () => phone.removeEventListener("change", sync);
+  });
+  // Le posizioni le gestisce l'app (per sezione), non il browser tornando indietro nella cronologia.
+  history.scrollRestoration = "manual";
+
+  // Un solo documento che scorre per tutte le sezioni: ognuna ricorda dove eri arrivato.
+  // Impostazioni e Amministrazione ripartono sempre dalla cima, come le loro sottopagine.
+  const KEEP = new Set(["oggi", "fonti", "interessi", "salvati"]);
+  const positions = {};
+  let shownTab = ui.tab;
+  let seenHome = ui.homeTick;
+  $effect.pre(() => {
+    // Prima che il DOM cambi: window.scrollY è ancora quella della sezione che si lascia.
+    const tab = ui.tab;
+    const home = ui.homeTick;
+    untrack(() => {
+      const from = shownTab;
+      const homed = home !== seenHome;
+      shownTab = tab;
+      seenHome = home;
+      if (tab === from || !docMode) return;
+      positions[from] = window.scrollY;
+      if (homed) positions.oggi = 0; // il logo riporta Oggi in cima
+      const y = KEEP.has(tab) ? (positions[tab] ?? 0) : 0;
+      tick().then(() => {
+        barsRef = y;
+        window.scrollTo(0, y);
+      });
+    });
+  });
+
+  // Con il lettore, una scheda o una conferma aperti la lista sotto non scorre; alla chiusura
+  // torna dov'era, anche se il browser l'ha spostata (per esempio per mostrare un campo).
+  $effect(() => {
+    if (!docMode || !(ui.reader || ui.sheet || confirmation.open)) return;
+    const root = document.documentElement;
+    const y = window.scrollY;
+    root.classList.add("gf-lock");
+    return () => {
+      root.classList.remove("gf-lock");
+      if (Math.abs(window.scrollY - y) > 1) window.scrollTo(0, y);
+      barsRef = window.scrollY;
+    };
+  });
 
   // Cambiando sezione o pagina, aprendo o chiudendo il lettore o una scheda, toccando il logo:
   // le barre tornano visibili.
@@ -47,18 +99,21 @@
     barsHidden = false;
   });
 
-  // Lo scorrimento è dentro ogni sezione (.view), non nella pagina: lo si ascolta in fase di
-  // cattura su <main>, così un solo listener basta per tutte. Solo sul telefono (sotto i 700px,
-  // come i container query in app.css): su tablet e computer la barra è laterale e resta ferma.
-  function onViewScroll(e) {
-    const el = e.target;
-    if (!(el instanceof HTMLElement) || !el.classList.contains("view")) return;
-    if (!appEl || appEl.clientWidth >= 700) {
+  // Barre a scomparsa (#36), solo sul telefono: su tablet e computer la barra è laterale.
+  function onWindowScroll() {
+    if (!docMode || document.documentElement.classList.contains("gf-lock")) return;
+    // Con il focus da tastiera su una barra il browser fa scorrere la pagina per mostrarla: quello
+    // scorrimento non deve nasconderla di nuovo. (Un tocco lascia il focus sul pulsante, ma non
+    // «visibile»: lì le barre continuano a nascondersi.)
+    const focused = document.activeElement;
+    if (focused?.closest?.(".appbar, .tabbar") && focused.matches(":focus-visible")) {
+      barsRef = window.scrollY;
       barsHidden = false;
       return;
     }
-    const next = barsAfterScroll(barsRef.get(el) ?? 0, el.scrollTop, el.scrollHeight - el.clientHeight);
-    barsRef.set(el, next.ref);
+    const max = document.documentElement.scrollHeight - window.innerHeight;
+    const next = barsAfterScroll(barsRef, window.scrollY, max);
+    barsRef = next.ref;
     if (next.hidden !== null) barsHidden = next.hidden;
   }
 
@@ -97,10 +152,10 @@
   }
 </script>
 
-<svelte:window onkeydown={onKey} />
+<svelte:window onkeydown={onKey} onscroll={onWindowScroll} />
 
-<div class="app" bind:this={appEl} data-tab={ui.tab} data-bars={barsHidden ? "hidden" : undefined} style="--ts:{ts}">
-  <main class="views" onscrollcapture={onViewScroll} onfocusin={onViewFocus}>
+<div class="app" data-tab={ui.tab} data-bars={barsHidden ? "hidden" : undefined} style="--ts:{ts}">
+  <main class="views" onfocusin={onViewFocus}>
     <Oggi active={ui.tab === "oggi"} />
     <Fonti active={ui.tab === "fonti"} />
     <Interessi active={ui.tab === "interessi"} />

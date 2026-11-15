@@ -5,6 +5,7 @@
   import Edition from "../components/Edition.svelte";
   import Icon from "../components/Icon.svelte";
   import { countryName, flag, folderColor } from "../lib/format.js";
+  import { scrollViewTo, viewScrollTop } from "../lib/scroll.js";
   import { data, editionOn, loadStream, markAllRead, openSheet, refreshAll, setFilter, stream, ui } from "../lib/store.svelte.js";
 
   let { active } = $props();
@@ -15,7 +16,7 @@
 
   // Tocco sul logo: si torna in cima (se si è già in cima non succede altro).
   $effect(() => {
-    if (ui.homeTick && viewEl && viewEl.scrollTop > 0) viewEl.scrollTo({ top: 0, behavior: "smooth" });
+    if (ui.homeTick && viewEl && viewScrollTop(viewEl) > 0) scrollViewTo(viewEl, { top: 0, behavior: "smooth" });
   });
 
   const VIEWS = [

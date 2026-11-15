@@ -718,7 +718,7 @@ test("telefono: le barre escono scorrendo giù e rientrano tornando su (#36)", a
   await expect(oggi.locator(".card").first()).toBeVisible();
   // Per cliccare un elemento che sta ancora entrando, Playwright può far scorrere la sezione:
   // si riparte dalla cima, dove le barre sono sempre visibili.
-  await oggi.evaluate((v) => v.scrollTo(0, 0));
+  await page.evaluate(() => window.scrollTo(0, 0));
   const app = page.locator(".app");
   await expect(app).not.toHaveAttribute("data-bars", "hidden");
 
@@ -751,4 +751,53 @@ test("telefono: le barre escono scorrendo giù e rientrano tornando su (#36)", a
   await page.mouse.move(500, 260);
   await page.mouse.wheel(0, 300);
   await expect(app).not.toHaveAttribute("data-bars", "hidden");
+});
+
+test("telefono: scorre la pagina, e ogni sezione ricorda dove eri arrivato (#38)", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 520 });
+  await page.goto("/");
+  await page.getByLabel("Nome utente").fill("anna");
+  await page.getByLabel("Password").fill(PASSWORD);
+  await page.getByRole("button", { name: "Entra" }).click();
+  const oggi = page.locator("section[aria-label='Oggi']");
+  await expect(oggi.locator(".card, [role='tablist']").first()).toBeVisible();
+  if (await oggi.getByRole("tab", { name: "Flusso" }).count()) await oggi.getByRole("tab", { name: "Flusso" }).click();
+  await expect(oggi.locator(".card").first()).toBeVisible();
+  await page.evaluate(() => window.scrollTo(0, 0));
+  const scrollY = () => page.evaluate(() => Math.round(window.scrollY));
+
+  // A scorrere è il documento (così nel browser la barra degli indirizzi si riduce), non la sezione.
+  await page.mouse.move(195, 260);
+  await page.mouse.wheel(0, 250);
+  await expect.poll(scrollY).toBeGreaterThan(100);
+  expect(await oggi.evaluate((v) => v.scrollTop)).toBe(0);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
+  const y = await scrollY();
+
+  // Un'altra sezione parte dalla sua posizione; tornando a Oggi si ritrova la propria.
+  await tab(page, "Interessi");
+  await expect.poll(scrollY).toBe(0);
+  await tab(page, "Oggi");
+  await expect.poll(scrollY).toBe(y);
+
+  // Con il lettore aperto la lista sotto non scorre; chiudendolo (anche con Indietro) resta dov'era.
+  await oggi.locator(".card").nth(1).click();
+  await expect(page.locator(".reader.is-open")).toBeVisible();
+  await expect(page.locator("html")).toHaveClass(/gf-lock/);
+  await page.mouse.wheel(0, 300);
+  await page.goBack();
+  await expect(page.locator(".reader.is-open")).toHaveCount(0);
+  await expect(page.locator("html")).not.toHaveClass(/gf-lock/);
+  await expect.poll(scrollY).toBe(y);
+
+  // Il logo riporta Oggi in cima.
+  await barClick(page.locator(".appbar").getByRole("link", { name: /vai a Oggi/ }));
+  await expect.poll(scrollY).toBe(0);
+
+  // Su tablet e computer scorre la sezione, come prima.
+  await page.setViewportSize({ width: 1024, height: 520 });
+  await page.mouse.move(500, 260);
+  await page.mouse.wheel(0, 250);
+  await expect.poll(() => oggi.evaluate((v) => v.scrollTop)).toBeGreaterThan(100);
+  expect(await scrollY()).toBe(0);
 });
