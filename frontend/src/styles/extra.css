@@ -210,8 +210,18 @@ select.input { appearance: none; background-image: linear-gradient(45deg, transp
 .swatch .ico { width: 18px; height: 18px; stroke-width: 2.6; opacity: 0; }
 .swatch[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--sw); }
 .swatch[aria-pressed="true"] .ico { opacity: 1; }
+/* Colore del sistema: il campione mostra quello che arriva davvero (--sys-acc-* in base.css), con
+   un anello arcobaleno per distinguerlo dagli altri. Senza colori relativi resta l'arcobaleno. */
 .swatch.is-system { background: conic-gradient(#4A54D7, #B42F55, #A5451A, #8A5600, #277137, #1B63B7, #4A54D7); }
 .swatch.is-system[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--ink-3); }
+@supports (color: oklch(from AccentColor min(l, 0.45) min(c, 0.15) h)) {
+  .swatch.is-system {
+    --sw-l: var(--sys-acc-l);
+    --sw-d: var(--sys-acc-d);
+    background: radial-gradient(var(--sw) 50%, transparent 53%), conic-gradient(#4A54D7, #B42F55, #A5451A, #8A5600, #277137, #1B63B7, #4A54D7);
+  }
+  .swatch.is-system[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--sw); }
+}
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) .swatch { --sw: var(--sw-d); color: #10121c; }
 }

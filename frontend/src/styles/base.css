@@ -49,7 +49,7 @@
   --font-brand: "Unbounded", "Arial Black", system-ui, sans-serif;
   --font-system: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-display: var(--font-brand);
-  --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-ui: var(--font-system);
   --font-read: "Newsreader", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
   --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 
@@ -257,18 +257,29 @@
   --acc-l: #277137; --acc-on-l: #FFFFFF; --acc-soft-l: rgba(39, 113, 55, 0.12);
   --acc-d: #86DC95; --acc-on-d: #0A2A12; --acc-soft-d: rgba(134, 220, 149, 0.14);
 }
-/* «system»: il colore scelto nel sistema operativo, dove il browser lo rende disponibile
-   (soprattutto su computer). Altrimenti resta il colore predefinito. */
-@supports (color: AccentColor) and (color: color-mix(in srgb, red 10%, transparent)) {
+/* «system»: il colore scelto nel sistema operativo (AccentColor), come lo dà il browser. Firefox
+   dà quello vero; Chrome, Edge e Android danno sempre il loro blu (#0075FF) per privacy (#46).
+   Non si usa così com'è: la stessa tinta va su sfondi chiari e scuri e non sempre si legge.
+   Se ne tiene la tinta, con croma al massimo 0,15 e luminosità (OKLCH) al massimo 0,45 in
+   chiaro e almeno 0,78 in scuro: così ha contrasto AA come la tavolozza (tests/look.test.js).
+   --sys-acc-* servono anche al campione in Impostazioni. Senza i colori relativi
+   (browser vecchi) resta il colore predefinito. */
+@supports (color: oklch(from AccentColor min(l, 0.45) min(c, 0.15) h)) and (color: color-mix(in srgb, red 10%, transparent)) {
+  :root {
+    --sys-acc-l: oklch(from AccentColor min(l, 0.45) min(c, 0.15) h);
+    --sys-acc-d: oklch(from AccentColor max(l, 0.78) min(c, 0.15) h);
+  }
   :root[data-accent="system"] {
-    --acc-l: AccentColor; --acc-on-l: AccentColorText; --acc-soft-l: color-mix(in srgb, AccentColor 12%, transparent);
-    --acc-d: AccentColor; --acc-on-d: AccentColorText; --acc-soft-d: color-mix(in srgb, AccentColor 14%, transparent);
+    --acc-l: var(--sys-acc-l); --acc-on-l: #FFFFFF; --acc-soft-l: color-mix(in srgb, var(--sys-acc-l) 12%, transparent);
+    --acc-d: var(--sys-acc-d); --acc-on-d: #10121C; --acc-soft-d: color-mix(in srgb, var(--sys-acc-d) 14%, transparent);
   }
 }
 
 /* ---------- Font ----------
    galactic (predefinito): titoli in Unbounded, interfaccia nel font del sistema, articoli in Newsreader.
-   sistema: il font del dispositivo ovunque (San Francisco su iPhone e Mac, Roboto su Android…).
+   sistema: il font del dispositivo anche per i titoli (San Francisco su iPhone e Mac, Segoe UI su
+   Windows, il font scelto in Linux e ChromeOS). Su Android i browser usano Roboto: i font del
+   produttore o scelti nelle impostazioni del telefono non arrivano alle pagine web.
    inter e leggibile (Atkinson Hyperlegible): inclusi nell'app, funzionano anche offline. */
 :root[data-font="sistema"] { --font-ui: var(--font-system); --font-display: var(--font-system); }
 :root[data-font="inter"] {

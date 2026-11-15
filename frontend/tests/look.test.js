@@ -94,3 +94,65 @@ describe("varianti dei temi", () => {
     });
   }
 });
+
+// Colore del sistema (#46): il browser può dare qualunque colore, quindi base.css ne tiene solo la
+// tinta e limita croma e luminosità (OKLCH). Qui si prova ogni tinta, croma e luminosità che può
+// uscire, su tutti gli sfondi dei temi, sul fondo tenue e con il testo sopra.
+function oklchToRgb(L, C, H) {
+  const lms = (c) => {
+    const a = c * Math.cos((H * Math.PI) / 180);
+    const b = c * Math.sin((H * Math.PI) / 180);
+    const [l, m, s] = [L + 0.3963377774 * a + 0.2158037573 * b, L - 0.1055613458 * a - 0.0638541728 * b, L - 0.0894841775 * a - 1.291485548 * b].map((x) => x ** 3);
+    return [4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s, -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s, -0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s];
+  };
+  const inGamut = (v) => v.every((x) => x >= -1e-4 && x <= 1 + 1e-4);
+  // Fuori dallo sRGB i browser abbassano la croma tenendo la luminosità (CSS Color 4).
+  let [lo, hi] = [0, C];
+  if (!inGamut(lms(C))) for (let i = 0; i < 25; i++) inGamut(lms((lo + hi) / 2)) ? (lo = (lo + hi) / 2) : (hi = (lo + hi) / 2);
+  else lo = C;
+  return lms(lo).map((x) => {
+    x = Math.min(1, Math.max(0, x));
+    return Math.round(255 * (x <= 0.0031308 ? 12.92 * x : 1.055 * x ** (1 / 2.4) - 0.055));
+  });
+}
+
+describe("colore del sistema", () => {
+  const system = block(':root[data-accent="system"]');
+  const light = css.match(/--sys-acc-l: oklch\(from AccentColor min\(l, ([\d.]+)\) min\(c, ([\d.]+)\) h\);/);
+  const dark = css.match(/--sys-acc-d: oklch\(from AccentColor max\(l, ([\d.]+)\) min\(c, ([\d.]+)\) h\);/);
+  const on = { l: vars(system)["acc-on-l"], d: vars(system)["acc-on-d"] };
+  const backgrounds = (theme) => {
+    const sel = theme === "light" ? [':root', ':root[data-theme="light"][data-light="carta"]'] : [':root[data-theme="dark"]', ':root[data-theme="dark"][data-dark="grigio"]', ':root[data-theme="dark"][data-dark="nero"]'];
+    // In chiaro sfondo e schede, in scuro anche --surface-2 (come per la tavolozza).
+    const keys = theme === "light" ? ["app-bg", "surface"] : ["app-bg", "surface", "surface-2"];
+    return sel.flatMap((s) => keys.map((k) => palette(s)[k])).map(rgb);
+  };
+
+  it("varianti chiara e scura limitate in base.css", () => {
+    expect(light).not.toBeNull();
+    expect(dark).not.toBeNull();
+    expect(system).toContain("--acc-l: var(--sys-acc-l)");
+    expect(system).toContain("--acc-d: var(--sys-acc-d)");
+  });
+
+  for (const [name, match, theme, alpha, text, range] of [
+    ["chiaro", light, "light", 0.12, on.l, (max) => [0, max]],
+    ["scuro", dark, "dark", 0.14, on.d, (min) => [min, 1]],
+  ]) {
+    it(`${name}: contrasto AA con ogni colore che il browser può dare`, () => {
+      const [from, to] = range(Number(match[1]));
+      const maxC = Number(match[2]);
+      const bgs = backgrounds(theme);
+      expect(bgs.length).toBeGreaterThanOrEqual(theme === "light" ? 4 : 9);
+      let worst = Infinity;
+      for (let L = from; L <= to + 1e-9; L += 0.025)
+        for (let H = 0; H < 360; H += 5)
+          for (let C = 0; C <= maxC + 1e-9; C += maxC / 6) {
+            const c = oklchToRgb(L, C, H);
+            for (const bg of bgs) worst = Math.min(worst, contrast(c, bg), contrast(c, over(c, bg, alpha)));
+            worst = Math.min(worst, contrast(rgb(text), c));
+          }
+      expect(worst).toBeGreaterThanOrEqual(4.5);
+    });
+  }
+});

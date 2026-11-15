@@ -339,6 +339,23 @@ export function applyLook(values) {
   }
 }
 
+// Colore del sistema (#46): CSS.supports dice solo se il browser conosce AccentColor, non se dà
+// il colore vero. Chrome, Edge e Android lo conoscono ma danno sempre il loro blu (#0075FF).
+// Le stesse condizioni di base.css: senza colori relativi resta il colore predefinito.
+export const SYSTEM_ACCENT_TEST = "oklch(from AccentColor min(l, 0.45) min(c, 0.15) h)";
+export const CHROMIUM_ACCENT = "rgb(0, 117, 255)";
+
+/** "vero" se il browser dà un colore di sistema, "fisso" se dà sempre il blu di Chromium, "no" se non si può usare. */
+export function systemAccentState() {
+  if (typeof CSS === "undefined" || !CSS.supports?.("color", SYSTEM_ACCENT_TEST)) return "no";
+  const probe = document.createElement("i");
+  probe.style.color = "AccentColor";
+  document.body.append(probe);
+  const color = getComputedStyle(probe).color;
+  probe.remove();
+  return color === CHROMIUM_ACCENT ? "fisso" : "vero";
+}
+
 // Copia sul dispositivo, per applicare l'aspetto prima di disegnare la pagina (vedi index.html).
 function remember(key, value) {
   try {

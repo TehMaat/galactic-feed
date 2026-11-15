@@ -511,6 +511,35 @@ test("icone delle fonti, logo, «Ricordami» e aspetto", async ({ browser }) => 
   await expect.poll(look).toEqual({ accent: "viola", font: "sistema", ok: true });
   await page.reload();
   expect(await look()).toEqual({ accent: "viola", font: "sistema", ok: true });
+
+  // Font «Sistema»: system-ui per l'interfaccia e anche per i titoli.
+  const fonts = () => page.evaluate(() => {
+    const s = getComputedStyle(document.documentElement);
+    return [s.getPropertyValue("--font-ui").trim().split(",")[0], s.getPropertyValue("--font-display").trim().split(",")[0]];
+  });
+  expect(await fonts()).toEqual(["system-ui", "system-ui"]);
+
+  // Colore del sistema (#46): Chromium dà sempre il suo blu (#0075FF) e la nota lo dice. Il colore
+  // usato ne tiene la tinta, scurita in chiaro e schiarita in scuro perché si legga.
+  save = saved();
+  await page.locator(SETTINGS).getByRole("button", { name: "Colore del sistema" }).click();
+  await save;
+  await expect(page.locator(SETTINGS)).toContainText("dà sempre lo stesso blu");
+  const systemColor = () => page.evaluate(() => {
+    const root = document.documentElement;
+    const dark = root.dataset.theme === "dark" || (root.dataset.theme !== "light" && matchMedia("(prefers-color-scheme: dark)").matches);
+    const probe = document.createElement("i");
+    probe.style.color = "var(--accent)";
+    document.body.append(probe);
+    const color = getComputedStyle(probe).color;
+    probe.remove();
+    return { accent: root.dataset.accent, lightness: Number(color.match(/^oklch\(([\d.]+) /)?.[1]), dark };
+  });
+  const sys = await systemColor();
+  expect(sys.accent).toBe("system");
+  expect(sys.lightness).toBe(sys.dark ? 0.78 : 0.45);
+  await page.reload();
+  expect(await systemColor()).toEqual(sys);
   await ctx.close();
 });
 
