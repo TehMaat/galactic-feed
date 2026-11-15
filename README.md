@@ -41,7 +41,7 @@ Il codice cambia a ogni riavvio finché non esiste un account. Serve solo a evit
 
 ### Aggiornare
 
-Le correzioni della versione che usi (per esempio da 0.7.0 a 0.7.1) arrivano con:
+Le correzioni della versione che usi (per esempio da 0.8.0 a 0.8.1) arrivano con:
 
 ```bash
 docker compose pull
@@ -59,8 +59,8 @@ Le versioni sono numerate `MAGGIORE.MINORE.CORRETTIVA` ([semver](https://semver.
 
 | Etichetta dell'immagine | Cosa ricevi |
 |---|---|
-| `0.7` (consigliata) | La versione 0.7 con tutte le sue correzioni |
-| `0.7.0` | Esattamente quella versione, senza aggiornamenti |
+| `0.8` (consigliata) | La versione 0.8 con tutte le sue correzioni |
+| `0.8.0` | Esattamente quella versione, senza aggiornamenti |
 | `latest` | L'ultima modifica del ramo principale, anche prima di una release |
 
 **Copia dei dati.** Gli aggiornamenti del database vanno solo in avanti: per tornare a una versione precedente serve la copia fatta prima. Con il volume del `docker-compose.yml`:
@@ -245,7 +245,7 @@ Su iPhone l'app non si aggiorna in background: le notizie le scarica sempre il s
 
 Le immagini sono su GitHub Container Registry: `ghcr.io/tehmaat/galactic-feed`.
 
-- `0.7` e `0.7.0`: le versioni pubblicate (vedi «Versioni e aggiornamenti»);
+- `0.8` e `0.8.0`: le versioni pubblicate (vedi «Versioni e aggiornamenti»);
 - `latest`: l'ultima versione del ramo principale;
 - `sha-xxxxxxx`: un commit preciso.
 

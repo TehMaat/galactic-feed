@@ -4,7 +4,7 @@ Tutte le versioni di Galactic Feed, dalla più recente. I numeri seguono [semver
 
 Per aggiornare basta scaricare la nuova immagine: le modifiche al database si applicano da sole all'avvio. Prima di saltare a una nuova versione minore conviene fare una copia del volume `/data` (vedi il README, «Versioni e aggiornamenti»).
 
-## [Da pubblicare]
+## [0.8.0] – 2026-11-15
 
 ### Novità
 - **Tutto schermo anche nel browser del telefono** (#38): aprendo Galactic Feed in Safari o Chrome, senza installarlo, scorrendo verso il basso si riduce anche la barra degli indirizzi. Ogni sezione ricorda dove eri arrivato, anche dopo aver letto un articolo o usato il tasto Indietro; con un articolo o una scheda aperti la lista sotto resta ferma. Nel browser non c'è più il «tira giù per aggiornare» (c'è il pulsante Aggiorna). Su tablet, computer e nell'app installata non cambia niente.
@@ -19,6 +19,11 @@ Per aggiornare basta scaricare la nuova immagine: le modifiche al database si ap
 - Notifiche: dalla seconda in poi con lo stesso argomento (per esempio la notifica di prova ripetuta) sostituivano in silenzio quella ancora nel centro notifiche, senza banner né suono, e sembravano non arrivare. Ora ogni notifica si vede.
 - Notifiche: la prova va solo al dispositivo da cui la chiedi e, se il servizio push (Apple, Google, Mozilla, Microsoft) la rifiuta, il messaggio dice il motivo; prima bastava che arrivasse a un altro dispositivo per dire «inviata». Gli errori finiscono anche nel log del server.
 - Notifiche: aprendo le Impostazioni il dispositivo si riiscrive da solo se il server lo aveva dimenticato o se l'iscrizione era stata fatta con chiavi del server ormai cambiate (per esempio dopo aver ricreato il volume `/data`); prima l'interruttore restava acceso ma non arrivava più nulla.
+
+### Da sapere per aggiornare
+- Nessuna migrazione del database.
+- Il `docker-compose.yml` d'esempio ora usa `:0.8`: chi ha `:0.7` deve cambiare il numero per ricevere le novità (con `:0.7` arrivano solo le correzioni della 0.7).
+- L'app installata sul telefono passa alla nuova versione alla riapertura: se mostra ancora la vecchia, chiudila del tutto e riaprila.
 
 ## [0.7.0] – 2026-11-07
 
