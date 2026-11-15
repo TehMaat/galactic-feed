@@ -1,5 +1,8 @@
 /* Galactic Feed · componenti, presi dal mockup (mockup/css/app.css).
-   Le differenze sono solo nell'involucro .app, che qui occupa tutto lo schermo. */
+   Le differenze sono solo nell'involucro .app, che qui occupa tutto lo schermo.
+   .app è sempre largo quanto la finestra: i container query «app» valgono come media query.
+   Sul telefono (sotto i 700px) però scorre il documento e .app non è un container (vedi
+   «Telefono: scorre il documento»), quindi lì si usano media query. */
 /* ---------- App shell ---------- */
 .app {
   --top-inset: max(8px, env(safe-area-inset-top, 0px));
@@ -35,6 +38,7 @@
 }
 .view::-webkit-scrollbar, .reader-scroll::-webkit-scrollbar, .chips::-webkit-scrollbar { display: none; }
 .view.is-entering { animation: rise 0.28s ease both; }
+
 @keyframes rise { from { opacity: 0.4; transform: translateY(8px); } }
 @keyframes spin { to { transform: rotate(360deg); } }
 
@@ -735,14 +739,41 @@ a.wordmark:active { opacity: 0.7; }
 }
 .toast.is-on { opacity: 1; transform: translate(-50%, 0); }
 
+/* ---------- Telefono: scorre il documento (#38) ----------
+   Nel browser la barra degli indirizzi si riduce solo se scorre la pagina, non un elemento
+   interno. Sul telefono quindi la sezione visibile sta nel flusso e scorre il documento; barre,
+   lettore, schede e avvisi sono fissi rispetto allo schermo. .app smette di essere un container
+   (il contenimento renderebbe .app il riferimento degli elementi fissi, che scorrerebbero via)
+   e niente overflow: clip, che bloccherebbe lo scorrimento. La posizione di ogni sezione e il
+   blocco con il lettore aperto (html.gf-lock) li gestisce Shell.svelte. */
+@media (max-width: 699.98px) {
+  /* contain: niente «tira giù per aggiornare» del browser (c'è il pulsante Aggiorna), ma il
+     rimbalzo resta. */
+  html { height: auto; overscroll-behavior-y: contain; scrollbar-width: none; }
+  html::-webkit-scrollbar { display: none; }
+  html.gf-lock { overflow: hidden; }
+  body { height: auto; min-height: 100%; }
+  .app {
+    container-type: normal;
+    position: relative;
+    inset: auto;
+    min-height: 100dvh;
+    overflow: visible;
+    overflow-x: clip;
+  }
+  .views { position: static; }
+  .view { position: static; overflow: visible; }
+  .appbar, .tabbar, .reader, .scrim, .sheet, .toast { position: fixed; }
+}
+
 /* ---------- Solo telefono: Dock più trasparente e barre a scomparsa (#36) ---------- */
 /* Più trasparente solo dove il vetro sfoca davvero; altrimenti resta il vetro pieno. */
 @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) and (background: color-mix(in srgb, red 50%, transparent)) {
-  @container app (max-width: 699.98px) {
+  @media (max-width: 699.98px) {
     .tabbar { background: color-mix(in srgb, var(--glass) 72%, transparent); }
   }
 }
-@container app (max-width: 699.98px) {
+@media (max-width: 699.98px) {
   .appbar, .tabbar { transition: transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.2s; }
   .appbar > * { transition: opacity 0.2s; }
   /* Resta coperta solo l'area di sistema in alto (ora e notch su iPhone); dove non c'è, come
