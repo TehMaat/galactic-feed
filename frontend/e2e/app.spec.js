@@ -493,9 +493,10 @@ test("icone delle fonti, logo, «Ricordami» e aspetto", async ({ browser }) => 
 
   // Colore e font: si vedono subito e restano dopo aver ricaricato la pagina.
   await page.getByRole("button", { name: "Impostazioni" }).click();
-  // In fondo alle Impostazioni c'è la versione in uso (dal file VERSION).
+  // In fondo alle Impostazioni c'è la versione in uso (dal file VERSION), uguale per app e server.
   const version = fs.readFileSync(path.join(path.dirname(new URL(import.meta.url).pathname), "..", "..", "VERSION"), "utf8").trim();
-  await expect(page.locator(`${SETTINGS} .app-version`)).toHaveText(`Galactic Feed versione ${version}`);
+  await expect(page.locator(SETTINGS).locator(".set-row", { hasText: "Versione dell'app" })).toContainText(version);
+  await expect(page.locator(SETTINGS).locator(".set-row", { hasText: "Versione del server" })).toHaveCount(0);
   // Si aspetta che ogni scelta arrivi al server prima di ricaricare la pagina.
   const saved = () => page.waitForResponse((r) => r.url().endsWith("/api/me") && r.request().method() === "PATCH");
   let save = saved();
@@ -862,4 +863,125 @@ test("telefono: scorre la pagina, e ogni sezione ricorda dove eri arrivato (#38)
   await page.mouse.wheel(0, 250);
   await expect.poll(() => oggi.evaluate((v) => v.scrollTop)).toBeGreaterThan(100);
   expect(await scrollY()).toBe(0);
+});
+
+// Uno swipe con il dito, come lo manda il touch screen: il browser lo trasforma in Pointer Events.
+async function swipe(page, from, to, { steps = 10 } = {}) {
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: from.x, y: from.y }] });
+  for (let i = 1; i <= steps; i++) {
+    const x = from.x + ((to.x - from.x) * i) / steps;
+    const y = from.y + ((to.y - from.y) * i) / steps;
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x, y }] });
+    await page.waitForTimeout(16);
+  }
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+  await cdp.detach();
+}
+
+test("telefono: swipe tra Edizione e Flusso, senza toccare la cronologia (#29)", async ({ browser }) => {
+  const ctx = await browser.newContext({ viewport: PHONE, hasTouch: true, isMobile: true });
+  const page = await ctx.newPage();
+  await page.goto("/");
+  await page.getByLabel("Nome utente").fill("anna");
+  await page.getByLabel("Password").fill(PASSWORD);
+  await page.getByRole("button", { name: "Entra" }).click();
+  const oggi = page.locator("section[aria-label='Oggi']");
+  const edizione = oggi.getByRole("tab", { name: "Edizione" });
+  const flusso = oggi.getByRole("tab", { name: "Flusso" });
+  // L'Edizione è accesa dai test precedenti.
+  await expect(edizione).toBeVisible();
+  await edizione.tap();
+  await expect(oggi.locator(".masthead")).toBeVisible();
+  const historyLength = await page.evaluate(() => history.length);
+  const url = page.url();
+
+  // Verso sinistra: il Flusso. Il dito si alza su una scheda, ma l'articolo non si apre.
+  await swipe(page, { x: 320, y: 500 }, { x: 60, y: 510 });
+  await expect(flusso).toHaveAttribute("aria-selected", "true");
+  await expect(oggi.locator(".card").first()).toBeVisible();
+  await expect(page.locator(".reader.is-open")).toHaveCount(0);
+
+  // Agli estremi non cambia niente: già nel Flusso, verso sinistra si resta lì.
+  await swipe(page, { x: 320, y: 500 }, { x: 60, y: 500 });
+  await expect(flusso).toHaveAttribute("aria-selected", "true");
+
+  // Verso destra: l'Edizione.
+  await swipe(page, { x: 70, y: 500 }, { x: 340, y: 500 });
+  await expect(edizione).toHaveAttribute("aria-selected", "true");
+
+  // Uno swipe corto e lento torna al suo posto.
+  await swipe(page, { x: 250, y: 500 }, { x: 200, y: 500 }, { steps: 20 });
+  await expect(edizione).toHaveAttribute("aria-selected", "true");
+  await expect.poll(() => oggi.locator(".mode-pane").evaluate((el) => getComputedStyle(el).transform)).toBe("none");
+
+  // Dal bordo è il gesto «indietro» del sistema: lo swipe non parte.
+  await swipe(page, { x: 4, y: 500 }, { x: 300, y: 500 });
+  await expect(edizione).toHaveAttribute("aria-selected", "true");
+
+  // In verticale scorre la pagina, senza cambiare modalità.
+  await swipe(page, { x: 200, y: 700 }, { x: 230, y: 300 });
+  await expect(edizione).toHaveAttribute("aria-selected", "true");
+
+  // Le chip dei filtri scorrono in orizzontale per conto loro.
+  await flusso.tap();
+  const chips = oggi.locator(".chips");
+  await expect(chips).toBeVisible();
+  const chipBox = await chips.boundingBox();
+  await swipe(page, { x: 300, y: chipBox.y + chipBox.height / 2 }, { x: 80, y: chipBox.y + chipBox.height / 2 });
+  await expect(flusso).toHaveAttribute("aria-selected", "true");
+
+  // Con un articolo aperto lo swipe non cambia la modalità sotto.
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await oggi.locator(".card").first().tap();
+  await expect(page.locator(".reader.is-open")).toBeVisible();
+  await swipe(page, { x: 70, y: 500 }, { x: 340, y: 500 });
+  await page.locator(".reader.is-open").getByRole("button", { name: "Indietro" }).tap();
+  await expect(page.locator(".reader.is-open")).toHaveCount(0);
+  await expect(flusso).toHaveAttribute("aria-selected", "true");
+
+  // Nessuna voce nuova nella cronologia: l'indirizzo è lo stesso (l'articolo aperto e chiuso
+  // ne ha aggiunta una, come sempre, ma lo swipe no).
+  expect(page.url()).toBe(url);
+  expect(await page.evaluate(() => history.length)).toBeLessThanOrEqual(historyLength + 1);
+  await ctx.close();
+});
+
+test("aggiornamenti: la versione nuova si annuncia e si attiva con «Aggiorna» (#41)", async ({ page }) => {
+  const sw = path.join(path.dirname(new URL(import.meta.url).pathname), "..", "dist", "sw.js");
+  const original = fs.readFileSync(sw, "utf8");
+  await page.setViewportSize(PHONE);
+  await page.goto("/");
+  await page.getByLabel("Nome utente").fill("anna");
+  await page.getByLabel("Password").fill(PASSWORD);
+  await page.getByRole("button", { name: "Entra" }).click();
+  await expect(page.locator("section[aria-label='Oggi']")).toBeVisible();
+  await page.waitForFunction(() => navigator.serviceWorker.controller !== null);
+
+  // In Impostazioni → Informazioni c'è la versione dell'app.
+  await page.getByRole("button", { name: "Impostazioni" }).click();
+  const pkg = JSON.parse(fs.readFileSync(path.join(path.dirname(sw), "..", "package.json"), "utf8"));
+  await expect(page.locator(SETTINGS).locator(".set-row", { hasText: "Versione dell'app" })).toContainText(pkg.version);
+  await page.locator(SETTINGS).getByRole("button", { name: "Cerca aggiornamenti" }).click();
+  await expect(page.locator(SETTINGS)).toContainText("L'app è aggiornata");
+  await expect(page.locator(".update-bar")).toHaveCount(0);
+
+  try {
+    // Esce una versione nuova: la si trova cercando gli aggiornamenti, ma aspetta il tuo «Aggiorna».
+    fs.writeFileSync(sw, `${original}\n// e2e: versione nuova ${Date.now()}\n`);
+    await page.evaluate(() => (window.__primaDellAggiornamento = true));
+    await page.locator(SETTINGS).getByRole("button", { name: "Cerca aggiornamenti" }).click();
+    await expect(page.locator(".update-bar")).toContainText("È disponibile una nuova versione");
+    expect(await page.evaluate(() => navigator.serviceWorker.getRegistration().then((r) => Boolean(r.waiting)))).toBe(true);
+    expect(await page.evaluate(() => window.__primaDellAggiornamento)).toBe(true);
+
+    // «Aggiorna»: la versione nuova si attiva e la pagina si ricarica da sola.
+    await page.locator(".update-bar").getByRole("button", { name: "Aggiorna" }).click();
+    await page.waitForFunction(() => window.__primaDellAggiornamento === undefined);
+    await expect(page.locator(SETTINGS)).toBeVisible();
+    await expect(page.locator(".update-bar")).toHaveCount(0);
+    expect(await page.evaluate(() => navigator.serviceWorker.getRegistration().then((r) => Boolean(r.waiting)))).toBe(false);
+  } finally {
+    fs.writeFileSync(sw, original);
+  }
 });

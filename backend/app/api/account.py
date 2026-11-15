@@ -57,15 +57,24 @@ def update_me(
     conn: sqlite3.Connection = Depends(get_db),
     ctx: AppContext = Depends(get_ctx),
 ):
-    display_name = user.display_name
-    if body.display_name is not None:
-        display_name = body.display_name or user.username
-    prefs = prefs_with_defaults(user.prefs)
-    changes: dict = {}
-    if body.prefs is not None:
-        changes = body.prefs.model_dump(exclude_none=True)
-        prefs = Prefs(**{**prefs, **changes}).model_dump()
-    before = prefs_with_defaults(user.prefs)
+    # Le modifiche si applicano ai valori salvati adesso, non a quelli letti all'inizio della
+    # richiesta: due PATCH quasi insieme (per esempio «AI» e poi «Salva la descrizione» negli
+    # Interessi) altrimenti si sovrascrivono, e la seconda riporta indietro la prima.
+    conn.execute("BEGIN IMMEDIATE")
+    try:
+        saved = user_from_row(conn.execute("SELECT * FROM users WHERE id = ?", (user.id,)).fetchone())
+        display_name = saved.display_name
+        if body.display_name is not None:
+            display_name = body.display_name or saved.username
+        before = prefs_with_defaults(saved.prefs)
+        prefs = before
+        changes: dict = {}
+        if body.prefs is not None:
+            changes = body.prefs.model_dump(exclude_none=True)
+            prefs = Prefs(**{**prefs, **changes}).model_dump()
+    except BaseException:
+        conn.rollback()
+        raise
     with conn:
         conn.execute(
             "UPDATE users SET display_name = ?, prefs = ? WHERE id = ?",

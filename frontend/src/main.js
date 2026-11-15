@@ -16,7 +16,7 @@ import "./styles/extra.css";
 
 import { mount } from "svelte";
 import App from "./App.svelte";
-import { registerServiceWorker } from "./lib/pwa.js";
+import { registerServiceWorker } from "./lib/pwa.svelte.js";
 
 mount(App, { target: document.getElementById("root") });
 registerServiceWorker();

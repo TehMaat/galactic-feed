@@ -4,6 +4,21 @@ Tutte le versioni di Galactic Feed, dalla più recente. I numeri seguono [semver
 
 Per aggiornare basta scaricare la nuova immagine: le modifiche al database si applicano da sole all'avvio. Prima di saltare a una nuova versione minore conviene fare una copia del volume `/data` (vedi il README, «Versioni e aggiornamenti»).
 
+## [0.10.0] – 2026-11-15
+
+### Novità
+- **Swipe tra Edizione e Flusso** (#29): in Oggi, sul telefono e sul tablet, con l'Edizione accesa si passa al Flusso scorrendo il dito verso sinistra e si torna all'Edizione verso destra. Il contenuto segue il dito; uno swipe corto torna al suo posto. Il gesto «indietro» dal bordo dello schermo, lo scorrimento delle chip dei filtri e il tasto Indietro funzionano come prima, e ognuna delle due ricorda dove eri arrivato.
+- **L'app installata si aggiorna da sola** (#41): cerca la versione nuova quando la riapri e ogni ora. Se la trova appena riaperta e non stai leggendo, si ricarica da sola; altrimenti in basso compare «È disponibile una nuova versione» con **Aggiorna**. Non serve più togliere e riaggiungere l'app alla schermata Home (serve solo per vedere icona e nome nuovi).
+- **Impostazioni → Informazioni**: versione dell'app (e del server, se diversa) e «Cerca aggiornamenti».
+
+### Correzioni
+- Due impostazioni cambiate una subito dopo l'altra (per esempio «AI» e poi «Salva la descrizione» negli Interessi) potevano annullarsi: la seconda riportava la prima al valore di prima. Ora si salvano tutte e due.
+
+### Da sapere per aggiornare
+- Nessuna migrazione del database.
+- Il `docker-compose.yml` d'esempio ora usa `:0.10`: chi ha `:0.9` deve cambiare il numero per ricevere le novità (con `:0.9` arrivano solo le correzioni della 0.9).
+- Il passaggio a questa versione è l'ultimo che può richiedere di chiudere del tutto e riaprire l'app installata; dalle successive arriva l'avviso «Aggiorna».
+
 ## [0.9.0] – 2026-11-15
 
 ### Novità

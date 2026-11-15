@@ -13,7 +13,12 @@ import { ExpirationPlugin } from "workbox-expiration";
 import { CacheableResponsePlugin } from "workbox-cacheable-response";
 import { CACHE, PREFETCH_HEADER, articleKey, imageUrls, meta, prune } from "./lib/offline-core.js";
 
-self.skipWaiting();
+// Una versione nuova aspetta che la pagina la attivi (pulsante «Aggiorna», vedi lib/pwa.svelte.js):
+// attivandosi da sola cancellerebbe dalla cache i file che la pagina aperta sta ancora usando.
+// La prima installazione invece si attiva subito e prende la pagina aperta.
+self.addEventListener("message", (event) => {
+  if (event.data?.type === "SKIP_WAITING") self.skipWaiting();
+});
 self.addEventListener("activate", (event) => event.waitUntil(self.clients.claim()));
 
 cleanupOutdatedCaches();
