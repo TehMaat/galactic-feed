@@ -20,6 +20,7 @@
   import SourceSheet from "./sheets/SourceSheet.svelte";
   import TagsSheet from "./sheets/TagsSheet.svelte";
   import { barsAfterScroll } from "./lib/bars.js";
+  import { applyUpdate, pwa } from "./lib/pwa.svelte.js";
   import { PHONE_QUERY } from "./lib/scroll.js";
   import { closeReader, closeSheet, confirmation, data, goHome, openPage, session, switchTab, ui } from "./lib/store.svelte.js";
   import Fonti from "./views/Fonti.svelte";
@@ -199,5 +200,14 @@
   <FolderSheet />
   <Confirm />
 
-  <div class="toast" class:is-on={ui.toastOn} role="status" aria-live="polite">{ui.toast}</div>
+  <!-- Versione nuova dell'app pronta (#41): si attiva con un tocco, oppure da sola alla prossima apertura. -->
+  {#if pwa.ready && !pwa.dismissed}
+    <div class="update-bar" role="status">
+      <span>È disponibile una nuova versione</span>
+      <button type="button" class="update-go" onclick={applyUpdate}>Aggiorna</button>
+      <button type="button" class="icon-btn" aria-label="Più tardi" title="Più tardi" onclick={() => (pwa.dismissed = true)}><Icon name="close" /></button>
+    </div>
+  {/if}
+
+  <div class="toast" class:is-on={ui.toastOn} class:above-update={pwa.ready && !pwa.dismissed} role="status" aria-live="polite">{ui.toast}</div>
 </div>

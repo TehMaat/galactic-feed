@@ -51,7 +51,7 @@ docker compose pull
 docker compose up -d
 ```
 
-Per passare a una versione nuova (per esempio da 0.7 a 0.8) leggi cosa cambia in [CHANGELOG.md](CHANGELOG.md), fai una copia dei dati (vedi sotto), poi cambia il numero nel `docker-compose.yml` (`galactic-feed:0.8`) e ripeti i due comandi. Il database si aggiorna da solo all'avvio. La versione in uso è scritta in fondo alle Impostazioni.
+Per passare a una versione nuova (per esempio da 0.7 a 0.8) leggi cosa cambia in [CHANGELOG.md](CHANGELOG.md), fai una copia dei dati (vedi sotto), poi cambia il numero nel `docker-compose.yml` (`galactic-feed:0.8`) e ripeti i due comandi. Il database si aggiorna da solo all'avvio. La versione in uso è in Impostazioni → Informazioni; l'app installata sui telefoni passa da sola alla versione nuova (vedi «Installare l'app sul telefono»).
 
 ## Versioni e aggiornamenti
 
@@ -233,7 +233,9 @@ In Pangolin si fa con le regole della risorsa: una regola "Bypass Auth" per cias
 2. Tocca il pulsante Condividi, poi **Aggiungi alla schermata Home**, poi **Aggiungi**.
 3. Apri Galactic Feed dall'icona: si apre a schermo intero, come un'app.
 
-L'icona è nera, nello stile delle icone Apple, e sta bene sia con la schermata Home chiara sia con quella scura. iOS la salva **quando aggiungi l'app** e poi non la cambia più: per vedere un'icona nuova dopo un aggiornamento togli l'app dalla schermata Home e aggiungila di nuovo. Account e dati restano sul server.
+L'icona è nera, nello stile delle icone Apple, e sta bene sia con la schermata Home chiara sia con quella scura.
+
+**Aggiornamenti dell'app installata.** Quello che cambia nell'app (schermate, pulsanti, correzioni) arriva da solo: l'app cerca la versione nuova quando la riapri e ogni ora mentre è aperta. Se la trova appena riaperta e non stai leggendo, si ricarica da sola; altrimenti in basso compare «È disponibile una nuova versione» con il pulsante **Aggiorna**. La versione in uso, e il pulsante **Cerca aggiornamenti**, sono in Impostazioni → Informazioni. Solo **icona e nome** sulla schermata Home restano quelli del momento in cui hai aggiunto l'app, perché iOS li salva allora e non li ricontrolla: per vederli cambiati togli l'app dalla schermata Home e aggiungila di nuovo. Account e dati restano sul server.
 
 Su iPhone l'app non si aggiorna in background: le notizie le scarica sempre il server, e l'app le prende quando la apri. I salvati e gli ultimi 300 articoli letti restano leggibili anche offline. Quello che segni o salvi senza rete parte quando la rete torna.
 

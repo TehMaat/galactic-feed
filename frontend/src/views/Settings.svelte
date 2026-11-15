@@ -7,6 +7,7 @@
   import { folderColor } from "../lib/format.js";
   import { disablePush, enablePush, isIos, isStandalone, syncPush, testPush as sendTestPush } from "../lib/push.js";
   import { api } from "../lib/api.js";
+  import { APP_VERSION, applyUpdate, checkForUpdate, pwa } from "../lib/pwa.svelte.js";
   import { ACCENTS, DARK_STYLES, LIGHT_STYLES, FONTS, READ_FONTS, SIZES, countryName, initials, timeAgoLong } from "../lib/format.js";
   import { ask, data, editionConfigs, loadEditionConfigs, logout, openPage, openSheet, savePrefs, session, setEditionConfigs, setFilter, toast, ui } from "../lib/store.svelte.js";
 
@@ -32,6 +33,7 @@
     ["aspetto", "sliders", "Aspetto"],
     ["lettura", "eye-off", "Lettura"],
     ["server", "devices", "Server e dati"],
+    ["info", "refresh", "Informazioni"],
   ];
   let section = $state("account");
   async function jump(key) {
@@ -413,7 +415,25 @@
       <div class="set-label">Dati</div>
       <div class="set-group"><a class="link-row" href="/api/opml/export" download><Icon name="download" />Esporta le fonti (OPML)</a></div>
       <p class="set-note">Sola lettura: niente commenti né voti, solo il link all'articolo originale.</p>
-      {#if session.version}<p class="app-version">Galactic Feed <span>versione {session.version}</span></p>{/if}
+      <div class="set-label" id="set-info">Informazioni</div>
+      <div class="set-group">
+        <div class="set-row"><span>Versione dell'app</span><span class="val">{APP_VERSION || "—"}</span></div>
+        {#if session.version && session.version !== APP_VERSION}
+          <div class="set-row"><span>Versione del server</span><span class="val">{session.version}</span></div>
+        {/if}
+        {#if pwa.ready}
+          <button type="button" class="link-row" onclick={applyUpdate}><Icon name="refresh" />Aggiorna alla nuova versione</button>
+        {:else}
+          <button type="button" class="link-row" disabled={pwa.checking} onclick={() => checkForUpdate(true)}><Icon name="refresh" />{pwa.checking ? "Cerco aggiornamenti…" : "Cerca aggiornamenti"}</button>
+        {/if}
+      </div>
+      <p class="set-note">
+        {pwa.ready
+          ? "La nuova versione è già scaricata: con «Aggiorna» l'app si ricarica e la usa subito."
+          : pwa.checked && !pwa.checking
+            ? "L'app è aggiornata. Le versioni nuove arrivano da sole: l'app le cerca quando la riapri e ogni ora."
+            : "Le versioni nuove arrivano da sole: l'app le cerca quando la riapri e ogni ora. Solo icona e nome sulla schermata Home restano quelli dell'installazione: per cambiarli togli l'app dalla Home e aggiungila di nuovo."}
+      </p>
     {:else if page === "password"}
       <form class="form-stack" onsubmit={changePassword}>
         {#if !identities || identities.has_password}

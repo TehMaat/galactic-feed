@@ -482,9 +482,10 @@ test("icone delle fonti, logo, «Ricordami» e aspetto", async ({ browser }) => 
 
   // Colore e font: si vedono subito e restano dopo aver ricaricato la pagina.
   await page.getByRole("button", { name: "Impostazioni" }).click();
-  // In fondo alle Impostazioni c'è la versione in uso (dal file VERSION).
+  // In fondo alle Impostazioni c'è la versione in uso (dal file VERSION), uguale per app e server.
   const version = fs.readFileSync(path.join(path.dirname(new URL(import.meta.url).pathname), "..", "..", "VERSION"), "utf8").trim();
-  await expect(page.locator(`${SETTINGS} .app-version`)).toHaveText(`Galactic Feed versione ${version}`);
+  await expect(page.locator(SETTINGS).locator(".set-row", { hasText: "Versione dell'app" })).toContainText(version);
+  await expect(page.locator(SETTINGS).locator(".set-row", { hasText: "Versione del server" })).toHaveCount(0);
   // Si aspetta che ogni scelta arrivi al server prima di ricaricare la pagina.
   const saved = () => page.waitForResponse((r) => r.url().endsWith("/api/me") && r.request().method() === "PATCH");
   let save = saved();
@@ -882,4 +883,43 @@ test("telefono: swipe tra Edizione e Flusso, senza toccare la cronologia (#29)",
   expect(page.url()).toBe(url);
   expect(await page.evaluate(() => history.length)).toBeLessThanOrEqual(historyLength + 1);
   await ctx.close();
+});
+
+test("aggiornamenti: la versione nuova si annuncia e si attiva con «Aggiorna» (#41)", async ({ page }) => {
+  const sw = path.join(path.dirname(new URL(import.meta.url).pathname), "..", "dist", "sw.js");
+  const original = fs.readFileSync(sw, "utf8");
+  await page.setViewportSize(PHONE);
+  await page.goto("/");
+  await page.getByLabel("Nome utente").fill("anna");
+  await page.getByLabel("Password").fill(PASSWORD);
+  await page.getByRole("button", { name: "Entra" }).click();
+  await expect(page.locator("section[aria-label='Oggi']")).toBeVisible();
+  await page.waitForFunction(() => navigator.serviceWorker.controller !== null);
+
+  // In Impostazioni → Informazioni c'è la versione dell'app.
+  await page.getByRole("button", { name: "Impostazioni" }).click();
+  const pkg = JSON.parse(fs.readFileSync(path.join(path.dirname(sw), "..", "package.json"), "utf8"));
+  await expect(page.locator(SETTINGS).locator(".set-row", { hasText: "Versione dell'app" })).toContainText(pkg.version);
+  await page.locator(SETTINGS).getByRole("button", { name: "Cerca aggiornamenti" }).click();
+  await expect(page.locator(SETTINGS)).toContainText("L'app è aggiornata");
+  await expect(page.locator(".update-bar")).toHaveCount(0);
+
+  try {
+    // Esce una versione nuova: la si trova cercando gli aggiornamenti, ma aspetta il tuo «Aggiorna».
+    fs.writeFileSync(sw, `${original}\n// e2e: versione nuova ${Date.now()}\n`);
+    await page.evaluate(() => (window.__primaDellAggiornamento = true));
+    await page.locator(SETTINGS).getByRole("button", { name: "Cerca aggiornamenti" }).click();
+    await expect(page.locator(".update-bar")).toContainText("È disponibile una nuova versione");
+    expect(await page.evaluate(() => navigator.serviceWorker.getRegistration().then((r) => Boolean(r.waiting)))).toBe(true);
+    expect(await page.evaluate(() => window.__primaDellAggiornamento)).toBe(true);
+
+    // «Aggiorna»: la versione nuova si attiva e la pagina si ricarica da sola.
+    await page.locator(".update-bar").getByRole("button", { name: "Aggiorna" }).click();
+    await page.waitForFunction(() => window.__primaDellAggiornamento === undefined);
+    await expect(page.locator(SETTINGS)).toBeVisible();
+    await expect(page.locator(".update-bar")).toHaveCount(0);
+    expect(await page.evaluate(() => navigator.serviceWorker.getRegistration().then((r) => Boolean(r.waiting)))).toBe(false);
+  } finally {
+    fs.writeFileSync(sw, original);
+  }
 });

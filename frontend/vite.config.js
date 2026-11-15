@@ -1,18 +1,24 @@
+import fs from "node:fs";
 import { defineConfig } from "vite";
 import { svelte } from "@sveltejs/vite-plugin-svelte";
 import { VitePWA } from "vite-plugin-pwa";
 
 // In sviluppo (npm run dev) le chiamate /api vanno al backend su localhost:8080.
 const backend = process.env.BACKEND_URL || "http://localhost:8080";
+// Versione dell'interfaccia, scritta nel JS: le Impostazioni la mostrano accanto a quella del server.
+// Si legge da package.json (scripts/release.py la tiene uguale a VERSION): nella build Docker
+// c'è solo la cartella frontend/.
+const { version } = JSON.parse(fs.readFileSync(new URL("./package.json", import.meta.url), "utf8"));
 
 export default defineConfig({
+  define: { __APP_VERSION__: JSON.stringify(version) },
   plugins: [
     svelte(),
     VitePWA({
       strategies: "injectManifest",
       srcDir: "src",
       filename: "sw.js",
-      registerType: "prompt",
+      // Il service worker lo registra e lo aggiorna src/lib/pwa.svelte.js.
       injectRegister: false,
       manifestFilename: "manifest.webmanifest",
       includeAssets: ["icons/*.png", "icons/*.svg"],

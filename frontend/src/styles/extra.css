@@ -216,8 +216,6 @@ img.src-av.is-icon { padding: 3px; }
 .icon-actions .btn-secondary { flex: 1 1 auto; width: auto; }
 
 /* Versione in fondo alle Impostazioni: piccola ma leggibile (--ink-2 ha contrasto AA). */
-.app-version { margin: 24px 0 4px; text-align: center; font-size: 13px; color: var(--ink-2); }
-.app-version span { display: block; margin-top: 2px; font-family: var(--font-mono); font-size: 12px; }
 
 /* ---------- Pannello di amministrazione ---------- */
 .admin-entry { display: flex; align-items: center; gap: 12px; min-width: 0; text-align: left; }
@@ -398,4 +396,40 @@ a.oidc-btn { text-decoration: none; }
 }
 @media (prefers-reduced-motion: reduce) {
   .mode-pane.is-settling, .mode-pane[data-enter] { transition: none; animation: none; }
+}
+
+/* ---------- Versione nuova dell'app (#41) ---------- */
+.update-bar {
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--tabbar-h) + 16px);
+  z-index: 79;
+  width: max-content;
+  max-width: calc(100% - 32px);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 6px 6px 16px;
+  border-radius: 20px;
+  background: var(--ink);
+  color: var(--app-bg);
+  font-size: 14px;
+  font-weight: 600;
+  transform: translateX(-50%);
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+  animation: fade-in 0.25s ease both;
+}
+.update-bar span { min-width: 0; }
+.update-go { flex: none; height: 34px; padding: 0 14px; border-radius: 999px; background: var(--accent); color: var(--on-accent); font-weight: 700; }
+.update-bar .icon-btn { flex: none; width: 34px; height: 34px; color: inherit; }
+.update-bar .icon-btn:hover { background: color-mix(in srgb, var(--app-bg) 16%, transparent); }
+.toast.above-update { bottom: calc(var(--tabbar-h) + 72px); }
+@media (max-width: 699.98px) {
+  .update-bar { position: fixed; transition: bottom 0.28s cubic-bezier(0.2, 0.8, 0.2, 1); }
+  .app[data-bars="hidden"] .update-bar { bottom: calc(var(--dock-gap) + 8px); }
+  .app[data-bars="hidden"] .toast.above-update { bottom: calc(var(--dock-gap) + 64px); }
+}
+@container app (min-width: 700px) {
+  .update-bar { bottom: 24px; }
+  .toast.above-update { bottom: 80px; }
 }
