@@ -8,7 +8,7 @@
   import { disablePush, enablePush, isIos, isStandalone, syncPush, testPush as sendTestPush } from "../lib/push.js";
   import { api } from "../lib/api.js";
   import { ACCENTS, DARK_STYLES, LIGHT_STYLES, FONTS, READ_FONTS, SIZES, countryName, initials, timeAgoLong } from "../lib/format.js";
-  import { ask, data, editionConfigs, loadEditionConfigs, logout, openPage, openSheet, savePrefs, session, setEditionConfigs, setFilter, toast, ui } from "../lib/store.svelte.js";
+  import { ask, data, editionConfigs, loadEditionConfigs, logout, openPage, openSheet, savePrefs, session, setEditionConfigs, setFilter, systemAccentState, toast, ui } from "../lib/store.svelte.js";
 
   let { active } = $props();
   let page = $state("main"); // main · password · sessions · identities
@@ -165,7 +165,12 @@
   })();
   const theme = $derived(me?.prefs?.theme || "auto");
   const accent = $derived(me?.prefs?.accent || "galassia");
-  const systemAccent = typeof CSS !== "undefined" && CSS.supports?.("color", "AccentColor");
+  const systemAccent = systemAccentState();
+  const SYSTEM_NOTES = {
+    vero: "Colore del sistema, come lo dà il browser: è quello nel campione. In chiaro e in scuro viene scurito o schiarito quanto basta perché si legga bene.",
+    fisso: "Questo browser non fa conoscere il colore del sistema e dà sempre lo stesso blu (succede con Chrome, Edge e sui telefoni Android). Per un altro colore sceglilo dalla tavolozza.",
+    no: "Questo browser non fa conoscere il colore del sistema: resta il colore Galassia.",
+  };
   // Ogni scelta di font è scritta nel suo font, così si vede subito com'è (FONTS in format.js).
   const font = $derived(me?.prefs?.font || "galactic");
   const fontRead = $derived(me?.prefs?.font_read || "serif");
@@ -389,10 +394,8 @@
       </div>
       <p class="set-note">
         {accent === "system"
-          ? systemAccent
-            ? "Colore del sistema: lo prende dalle impostazioni del dispositivo."
-            : "Questo browser non fa conoscere il colore del sistema (succede su iPhone, iPad e Android): resta il colore Galassia."
-          : "Tema, colore, font e dimensione del testo valgono su tutti i tuoi dispositivi. La variante «Scuro» vale con il tema Scuro e con Auto quando il dispositivo è in modo scuro; «Nero» spegne i pixel degli schermi OLED. «Galactic» usa Unbounded per i titoli; «Sistema» il font del dispositivo."}
+          ? SYSTEM_NOTES[systemAccent]
+          : "Tema, colore, font e dimensione del testo valgono su tutti i tuoi dispositivi. La variante «Scuro» vale con il tema Scuro e con Auto quando il dispositivo è in modo scuro; «Nero» spegne i pixel degli schermi OLED. «Galactic» usa Unbounded per i titoli e il font del dispositivo per il resto; «Sistema» il font del dispositivo anche per i titoli. Sui telefoni Android il browser usa Roboto: i font scelti nelle impostazioni del telefono non arrivano alle app web."}
       </p>
 
       <div class="set-label" id="set-lettura">Lettura</div>
