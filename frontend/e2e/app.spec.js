@@ -504,6 +504,45 @@ test("icone delle fonti, logo, «Ricordami» e aspetto", async ({ browser }) => 
   await expect.poll(look).toEqual({ accent: "viola", font: "sistema", ok: true });
   await page.reload();
   expect(await look()).toEqual({ accent: "viola", font: "sistema", ok: true });
+
+  // Font «Sistema» (#46): system-ui nell'interfaccia e nei titoli.
+  const fonts = () => page.evaluate(() => ({
+    body: getComputedStyle(document.body).fontFamily.split(",")[0].trim().replaceAll('"', ""),
+    title: getComputedStyle(document.querySelector("section[aria-label='Impostazioni'] h2") || document.body).fontFamily.split(",")[0].trim().replaceAll('"', ""),
+  }));
+  await expect(page.locator(`${SETTINGS} h2`)).toBeVisible();
+  await expect.poll(fonts).toEqual({ body: "system-ui", title: "system-ui" });
+
+  // Colore del sistema (#46): Chromium dà sempre il suo blu, e la nota lo dice. Il colore usato
+  // è quel blu, scurito in chiaro (luminosità OKLCH al massimo 0,45) e schiarito in scuro (almeno
+  // 0,8), con la saturazione limitata: così ha il contrasto AA.
+  save = saved();
+  await page.locator(SETTINGS).getByRole("button", { name: "Colore del sistema" }).click();
+  await save;
+  await expect(page.locator(SETTINGS)).toContainText("dà sempre questo blu");
+  const systemColor = () => page.evaluate(() => {
+    const probe = document.createElement("span");
+    probe.style.color = "var(--accent)";
+    document.body.append(probe);
+    const value = getComputedStyle(probe).color;
+    probe.remove();
+    return value;
+  });
+  const dark = await page.evaluate(() => {
+    const root = document.documentElement;
+    return root.dataset.theme === "dark" || (root.dataset.theme !== "light" && matchMedia("(prefers-color-scheme: dark)").matches);
+  });
+  await expect.poll(systemColor).toMatch(dark ? /^oklch\(0\.8 0\.15 258/ : /^oklch\(0\.45 0\.18 258/);
+  // Il campione mostra lo stesso colore, non l'arcobaleno.
+  const swatch = page.locator(SETTINGS).getByRole("button", { name: "Colore del sistema" });
+  await expect(swatch).not.toHaveClass(/is-system/);
+  expect(await swatch.evaluate((el) => getComputedStyle(el).backgroundColor)).toBe(await systemColor());
+
+  // «Galactic»: titoli in Unbounded, il resto nel font del sistema (anche su Linux).
+  save = saved();
+  await page.getByRole("group", { name: "Font", exact: true }).getByRole("button", { name: "Galactic" }).click();
+  await save;
+  await expect.poll(fonts).toEqual({ body: "system-ui", title: "Unbounded" });
   await ctx.close();
 });
 

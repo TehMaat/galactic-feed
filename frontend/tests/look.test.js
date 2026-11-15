@@ -94,3 +94,59 @@ describe("varianti dei temi", () => {
     });
   }
 });
+
+// Colore del sistema (#46): AccentColor può essere qualsiasi colore, quindi base.css ne limita
+// luminosità e saturazione in OKLCH. Si provano tutte le tinte e saturazioni, con il colore
+// riportato nello spazio sRGB tagliando i canali (il caso peggiore: chi riduce la saturazione
+// mantiene la luminosità e va meglio).
+function oklchToRgb(L, C, h) {
+  const a = C * Math.cos((h * Math.PI) / 180);
+  const b = C * Math.sin((h * Math.PI) / 180);
+  const l = (L + 0.3963377774 * a + 0.2158037573 * b) ** 3;
+  const m = (L - 0.1055613458 * a - 0.0638541728 * b) ** 3;
+  const s = (L - 0.0894841775 * a - 1.291485548 * b) ** 3;
+  const linear = [
+    4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,
+    -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
+    -0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s,
+  ];
+  const enc = (v) => (v <= 0.0031308 ? 12.92 * v : 1.055 * v ** (1 / 2.4) - 0.055);
+  return linear.map((v) => Math.round(enc(Math.min(1, Math.max(0, v))) * 255));
+}
+
+describe("colore del sistema", () => {
+  const v = vars(block(':root[data-accent="system"]'));
+  const caps = (value) => {
+    const m = value.match(/oklch\(from AccentColor (min|max)\(l, ([\d.]+)\) min\(c, ([\d.]+)\) h\)/);
+    return { op: m[1], l: Number(m[2]), c: Number(m[3]) };
+  };
+
+  it("parte da AccentColor e ne limita luminosità e saturazione", () => {
+    expect(caps(v["acc-l"]).op).toBe("min");
+    expect(caps(v["acc-d"]).op).toBe("max");
+  });
+
+  for (const [mode, key, on, alpha, backgrounds] of [
+    ["chiaro", "acc-l", "acc-on-l", 0.12, ["#FFFFFF", "#F4F5F9", "#F8F5EE", "#FBF8F2"]],
+    ["scuro", "acc-d", "acc-on-d", 0.14, ["#0C0F1C", "#151A2D", "#1C2238", "#18181B", "#232327", "#2C2C31", "#000000", "#121214", "#1C1C1F"]],
+  ]) {
+    it(`contrasto AA in ${mode} con qualsiasi colore del sistema`, () => {
+      const { op, l: lCap, c: cCap } = caps(v[key]);
+      let worst = Infinity;
+      let where = "";
+      for (let h = 0; h < 360; h += 3) {
+        for (let c = 0; c <= 0.37; c += 0.02) {
+          for (let l = 0; l <= 1; l += 0.05) {
+            const L = op === "min" ? Math.min(l, lCap) : Math.max(l, lCap);
+            const color = oklchToRgb(L, Math.min(c, cCap), h);
+            const checks = [contrast(rgb(v[on]), color)];
+            for (const bg of backgrounds) checks.push(contrast(color, rgb(bg)), contrast(color, over(color, rgb(bg), alpha)));
+            const min = Math.min(...checks);
+            if (min < worst) [worst, where] = [min, `oklch(${L.toFixed(2)} ${c.toFixed(2)} ${h})`];
+          }
+        }
+      }
+      expect(worst, `peggiore: ${where}`).toBeGreaterThanOrEqual(4.5);
+    });
+  }
+});
