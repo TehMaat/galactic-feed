@@ -1,4 +1,4 @@
-// Barre a scomparsa sul telefono (#36): scorrendo verso il basso la barra in alto e la Dock
+// Barre a scomparsa su telefono e tablet (#36): scorrendo verso il basso la barra in alto e la Dock
 // escono dallo schermo, tornando su (anche di poco) rientrano.
 
 export const BARS = {

@@ -1,5 +1,5 @@
 <script>
-  // Lettura di un articolo. Sul telefono scorre sopra l'elenco; sul computer sta nella
+  // Lettura di un articolo. Su telefono e tablet scorre sopra l'elenco; sul computer sta nella
   // terza colonna, sempre visibile (come nel mockup).
   import { api } from "../lib/api.js";
   import { explainDedupe } from "../lib/help.js";

@@ -7,6 +7,8 @@ Per aggiornare basta scaricare la nuova immagine: le modifiche al database si ap
 ## [Da pubblicare]
 
 ### Novità
+- **Barra di navigazione in alto sul computer**: il nome dell'app, le sezioni e, a destra, Impostazioni e Amministrazione stanno in un'unica barra in alto, al posto della colonna a sinistra. La lista e l'articolo si allargano.
+- **Il tablet è come il telefono**: barra in alto con il nome dell'app e le Impostazioni, Dock fluttuante in basso con le sezioni, e le due barre escono dallo schermo scorrendo verso il basso (#36). Scorre la pagina, così nel browser si riduce anche la barra degli indirizzi (#38). L'Amministrazione si apre dalle Impostazioni, come sul telefono.
 - **Come funzionano i doppioni**: un cerchio con la «i», accanto a «Unisci i doppioni» in Interessi e accanto ad «Anche su» nell'articolo, spiega quando due articoli sono la stessa notizia, quale si vede (il primo pubblicato tra quelli che passano i filtri) e che letto e non letto valgono per tutte le versioni.
 ### Correzioni
 - **Colore del sistema** (#46): il campione in Impostazioni → Aspetto mostra il colore che arriva davvero, e la nota dice la verità. Chrome, Edge e i telefoni Android non fanno conoscere il colore del sistema e danno sempre lo stesso blu; prima la nota diceva che il colore veniva dalle impostazioni del dispositivo. Il colore del sistema ora viene scurito in chiaro e schiarito in scuro quanto basta perché testo e pulsanti si leggano bene (contrasto AA, come gli altri colori); prima si usava così com'era, anche dove non si leggeva.
