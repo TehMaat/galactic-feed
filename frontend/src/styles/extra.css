@@ -378,3 +378,24 @@ a.oidc-btn { text-decoration: none; }
 .theme-preview i:first-child { position: absolute; left: 8px; right: 8px; top: 8px; height: 22px; border-radius: 6px; background: var(--ts-card); }
 .theme-preview i:last-child { position: absolute; left: 14px; width: 40%; top: 15px; height: 4px; border-radius: 2px; background: var(--ts-ink); opacity: 0.8; }
 .edition-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 4px 0 12px; }
+
+/* ---------- Swipe in Oggi tra Edizione e Flusso (#29) ----------
+   pan-y: lo scorrimento verticale resta del browser, quello orizzontale arriva allo swipe.
+   Le chip scorrono in orizzontale per conto loro. overscroll-behavior-x: sul computer lo swipe a
+   due dita del trackpad non fa tornare indietro il browser. */
+.oggi-view { overscroll-behavior-x: none; }
+.oggi-view.can-swipe { touch-action: pan-y; }
+.oggi-view.can-swipe .chips { touch-action: pan-x pan-y; }
+.mode-pane.is-dragging { will-change: transform; user-select: none; -webkit-user-select: none; }
+.mode-pane.is-settling { transition: transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.mode-pane[data-enter="right"] { animation: mode-from-right 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.mode-pane[data-enter="left"] { animation: mode-from-left 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+@keyframes mode-from-right { from { opacity: 0.2; transform: translate3d(45%, 0, 0); } }
+@keyframes mode-from-left { from { opacity: 0.2; transform: translate3d(-45%, 0, 0); } }
+@container app (min-width: 700px) {
+  /* Il contenuto che segue il dito non deve allargare la sezione. */
+  .oggi-view { overflow-x: hidden; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mode-pane.is-settling, .mode-pane[data-enter] { transition: none; animation: none; }
+}

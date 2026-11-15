@@ -1,12 +1,16 @@
 <script>
-  // Schermata «Oggi». Senza Edizione (arriva nella v2) mostra il Flusso, come nel mockup
-  // quando l'Edizione è spenta.
+  // Schermata «Oggi». Senza Edizione mostra il Flusso, come nel mockup quando l'Edizione è
+  // spenta. Con l'Edizione accesa si passa dall'una all'altro con il selettore o, sul touch,
+  // con uno swipe orizzontale (#29): verso sinistra il Flusso, verso destra l'Edizione. Lo
+  // swipe cambia solo ui.oggiMode, senza toccare l'indirizzo né la cronologia.
+  import { tick, untrack } from "svelte";
   import Card from "../components/Card.svelte";
   import Edition from "../components/Edition.svelte";
   import Icon from "../components/Icon.svelte";
   import { countryName, flag, folderColor } from "../lib/format.js";
   import { scrollViewTo, viewScrollTop } from "../lib/scroll.js";
-  import { data, editionOn, loadStream, markAllRead, openSheet, refreshAll, setFilter, stream, ui } from "../lib/store.svelte.js";
+  import { NO_SWIPE, canStart, lockAxis, offset, release } from "../lib/swipe.js";
+  import { confirmation, data, editionOn, loadStream, markAllRead, openSheet, refreshAll, setFilter, stream, ui } from "../lib/store.svelte.js";
 
   let { active } = $props();
   let query = $state(stream.q);
@@ -76,13 +80,109 @@
     return () => io.disconnect();
   });
 
+  // ---- Swipe tra Edizione e Flusso (#29) ----
+  let dragX = $state(0); // spostamento del contenuto mentre il dito si muove
+  let settling = $state(false); // il contenuto torna al suo posto, animato
+  let enterFrom = $state(""); // "left" · "right": da dove entra la modalità appena scelta
+  let gesture = null; // { id, x, y, t, axis, lastX, lastT, vx }
+  let swipedAt = 0;
+  const reduceMotion = typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const swipeOn = $derived(active && editionOn() && !noSources && !ui.reader && !ui.sheet && !confirmation.open);
+
+  function onPointerDown(e) {
+    if (!swipeOn || gesture || e.pointerType === "mouse" || !e.isPrimary) return;
+    if (!canStart(e.clientX, window.innerWidth) || e.target.closest?.(NO_SWIPE)) return;
+    gesture = { id: e.pointerId, x: e.clientX, y: e.clientY, t: e.timeStamp, axis: null, lastX: e.clientX, lastT: e.timeStamp, vx: 0 };
+  }
+
+  function onPointerMove(e) {
+    if (!gesture || e.pointerId !== gesture.id) return;
+    const dx = e.clientX - gesture.x;
+    const dy = e.clientY - gesture.y;
+    if (!gesture.axis) {
+      gesture.axis = lockAxis(dx, dy);
+      if (gesture.axis === "y") return (gesture = null); // scorre la pagina: non è uno swipe
+      if (!gesture.axis) return;
+      viewEl.setPointerCapture?.(e.pointerId);
+      settling = false;
+    }
+    const dt = e.timeStamp - gesture.lastT;
+    if (dt > 0) gesture.vx = 0.8 * ((e.clientX - gesture.lastX) / dt) + 0.2 * gesture.vx;
+    gesture.lastX = e.clientX;
+    gesture.lastT = e.timeStamp;
+    dragX = reduceMotion ? 0 : offset(ui.oggiMode, dx);
+  }
+
+  function onPointerUp(e) {
+    if (!gesture || e.pointerId !== gesture.id) return;
+    const g = gesture;
+    gesture = null;
+    if (g.axis !== "x") return;
+    swipedAt = performance.now();
+    const dx = e.clientX - g.x;
+    const next = release(ui.oggiMode, dx, g.vx, window.innerWidth);
+    if (next) {
+      enterFrom = reduceMotion ? "" : dx < 0 ? "right" : "left";
+      dragX = 0;
+      settling = false;
+      ui.oggiMode = next;
+    } else {
+      settling = !reduceMotion;
+      dragX = 0;
+    }
+  }
+
+  // Il sistema si è preso il gesto (per esempio il «indietro» dal bordo): si annulla tutto.
+  function onPointerCancel(e) {
+    if (!gesture || e.pointerId !== gesture.id) return;
+    gesture = null;
+    settling = !reduceMotion;
+    dragX = 0;
+  }
+
+  // Dopo uno swipe il dito si alza su una scheda: quel clic non deve aprire l'articolo.
+  function onClickCapture(e) {
+    if (performance.now() - swipedAt < 350) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  }
+
+  // Ogni modalità ricorda dove eri arrivato: passando avanti e indietro non si perde il punto.
+  const modeScroll = {};
+  let shownMode = ui.oggiMode;
+  $effect.pre(() => {
+    const mode = ui.oggiMode;
+    untrack(() => {
+      const from = shownMode;
+      shownMode = mode;
+      if (mode === from || !viewEl || !active) return;
+      modeScroll[from] = viewScrollTop(viewEl);
+      const y = modeScroll[mode] ?? 0;
+      tick().then(() => scrollViewTo(viewEl, { top: y }));
+    });
+  });
+
   const today = new Intl.DateTimeFormat("it-IT", { weekday: "long", day: "numeric", month: "long" }).format(new Date()).replace(/^./, (c) => c.toUpperCase());
   const showEdition = $derived(editionOn() && ui.oggiMode === "edizione");
   const noSources = $derived(data.loaded && data.sources.length === 0);
   const filtering = $derived(stream.q || stream.view !== "tutti" || stream.folder || stream.source || stream.tag || stream.country);
 </script>
 
-<section class="view" bind:this={viewEl} class:is-entering={active} hidden={!active} aria-label="Oggi">
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<section
+  class="view oggi-view"
+  class:can-swipe={swipeOn}
+  bind:this={viewEl}
+  class:is-entering={active}
+  hidden={!active}
+  aria-label="Oggi"
+  onpointerdown={onPointerDown}
+  onpointermove={onPointerMove}
+  onpointerup={onPointerUp}
+  onpointercancel={onPointerCancel}
+  onclickcapture={onClickCapture}
+>
   <header class="large-title">
     <div><h2>Oggi</h2><p class="subtitle">{today}</p></div>
     <div class="topbar-actions">
@@ -101,14 +201,24 @@
   {:else}
     {#if editionOn()}
       <div class="segmented mode-switch" role="tablist" aria-label="Modalità di lettura">
-        <button type="button" role="tab" aria-selected={ui.oggiMode === "edizione"} onclick={() => (ui.oggiMode = "edizione")}>Edizione</button>
-        <button type="button" role="tab" aria-selected={ui.oggiMode === "flusso"} onclick={() => (ui.oggiMode = "flusso")}>Flusso</button>
+        <button type="button" role="tab" aria-selected={ui.oggiMode === "edizione"} onclick={() => { enterFrom = ""; ui.oggiMode = "edizione"; }}>Edizione</button>
+        <button type="button" role="tab" aria-selected={ui.oggiMode === "flusso"} onclick={() => { enterFrom = ""; ui.oggiMode = "flusso"; }}>Flusso</button>
       </div>
     {/if}
   {/if}
-  {#if !noSources && showEdition}
+  {#if !noSources}
+  <div
+    class="mode-pane"
+    class:is-dragging={dragX !== 0}
+    class:is-settling={settling}
+    data-enter={enterFrom || undefined}
+    style:transform={dragX ? `translate3d(${dragX}px, 0, 0)` : undefined}
+    ontransitionend={() => (settling = false)}
+    onanimationend={() => (enterFrom = "")}
+  >
+  {#if showEdition}
     <Edition />
-  {:else if !noSources}
+  {:else}
     <label class="search">
       <Icon name="search" />
       <input type="search" placeholder="Cerca negli articoli e nelle fonti" autocomplete="off" aria-label="Cerca" value={query} oninput={onSearch} />
@@ -172,5 +282,7 @@
         {/if}
       </div>
     {/if}
+  {/if}
+  </div>
   {/if}
 </section>
