@@ -4,6 +4,21 @@ Tutte le versioni di Galactic Feed, dalla più recente. I numeri seguono [semver
 
 Per aggiornare basta scaricare la nuova immagine: le modifiche al database si applicano da sole all'avvio. Prima di saltare a una nuova versione minore conviene fare una copia del volume `/data` (vedi il README, «Versioni e aggiornamenti»).
 
+## [Da pubblicare]
+
+### Novità
+- **Swipe tra Edizione e Flusso** (#29): in Oggi, sul telefono e sul tablet, con l'Edizione accesa si passa al Flusso scorrendo il dito verso sinistra e si torna all'Edizione verso destra. Il contenuto segue il dito; uno swipe corto torna al suo posto. Il gesto «indietro» dal bordo dello schermo, lo scorrimento delle chip dei filtri e il tasto Indietro funzionano come prima, e ognuna delle due ricorda dove eri arrivato.
+- **L'app installata si aggiorna da sola** (#41): cerca la versione nuova quando la riapri e ogni ora. Se la trova appena riaperta e non stai leggendo, si ricarica da sola; altrimenti in basso compare «È disponibile una nuova versione» con **Aggiorna**. Non serve più togliere e riaggiungere l'app alla schermata Home (serve solo per vedere icona e nome nuovi).
+- **Impostazioni → Informazioni**: versione dell'app (e del server, se diversa) e «Cerca aggiornamenti».
+
+### Correzioni
+- «Colore del sistema» (#46): il colore si adatta in chiaro e in scuro e ha sempre un contrasto sufficiente, anche se nel sistema è giallo chiaro o blu scuro. Il campione mostra il colore che arriva davvero e la nota dice quando il browser dà sempre lo stesso blu (Chrome, Edge, Android, iPhone) invece di quello scelto nel sistema.
+- Font «Galactic» e «Sistema» (#46): l'interfaccia usa il font del sistema anche su Linux e ChromeOS. Le Impostazioni spiegano la differenza (Unbounded nei titoli) e che su Android i font scelti nel telefono non arrivano alle pagine web.
+
+### Da sapere per aggiornare
+- Nessuna migrazione del database.
+- Il passaggio a questa versione è l'ultimo che può richiedere di chiudere del tutto e riaprire l'app installata; dalle successive arriva l'avviso «Aggiorna».
+
 ## [0.8.0] – 2026-11-15
 
 ### Novità
