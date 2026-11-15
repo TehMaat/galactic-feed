@@ -120,3 +120,21 @@ def test_users_cannot_end_others_sessions(admin, app):
     bruno = invite_user(admin, app, "bruno")
     anna_session = admin.get("/api/me/sessions").json()["sessions"][0]["id"]
     assert bruno.delete(f"/api/me/sessions/{anna_session}").status_code == 404
+
+
+def test_prefs_saved_together_do_not_overwrite_each_other(admin, app):
+    """Due PATCH quasi insieme: la seconda parte dai valori salvati, non da quelli letti prima."""
+    from app.deps import current_user, user_from_row
+
+    db = app.state.ctx.db
+    with db.session() as conn:
+        stale = user_from_row(conn.execute("SELECT * FROM users WHERE username = 'anna'").fetchone())
+    assert admin.patch("/api/me", json={"prefs": {"theme": "dark"}}).status_code == 200
+    # La seconda richiesta ha letto l'utente prima che la prima salvasse.
+    app.dependency_overrides[current_user] = lambda: stale
+    try:
+        r = admin.patch("/api/me", json={"prefs": {"text_size": 1.12}})
+    finally:
+        app.dependency_overrides.pop(current_user)
+    assert r.json()["user"]["prefs"]["theme"] == "dark"
+    assert admin.get("/api/me").json()["user"]["prefs"]["theme"] == "dark"

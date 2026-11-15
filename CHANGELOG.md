@@ -11,6 +11,9 @@ Per aggiornare basta scaricare la nuova immagine: le modifiche al database si ap
 - **L'app installata si aggiorna da sola** (#41): cerca la versione nuova quando la riapri e ogni ora. Se la trova appena riaperta e non stai leggendo, si ricarica da sola; altrimenti in basso compare «È disponibile una nuova versione» con **Aggiorna**. Non serve più togliere e riaggiungere l'app alla schermata Home (serve solo per vedere icona e nome nuovi).
 - **Impostazioni → Informazioni**: versione dell'app (e del server, se diversa) e «Cerca aggiornamenti».
 
+### Correzioni
+- Due impostazioni cambiate una subito dopo l'altra (per esempio «AI» e poi «Salva la descrizione» negli Interessi) potevano annullarsi: la seconda riportava la prima al valore di prima. Ora si salvano tutte e due.
+
 ### Da sapere per aggiornare
 - Nessuna migrazione del database.
 - Il `docker-compose.yml` d'esempio ora usa `:0.10`: chi ha `:0.9` deve cambiare il numero per ricevere le novità (con `:0.9` arrivano solo le correzioni della 0.9).
