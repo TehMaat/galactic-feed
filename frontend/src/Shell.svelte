@@ -1,13 +1,13 @@
 <script>
   // L'app vera e propria: viste, barra di navigazione, lettore, schede e avvisi.
-  // Il layout cambia con la larghezza (container query in app.css, come nel mockup):
-  // barra in basso sul telefono, barra laterale sul tablet, tre colonne sul computer.
-  // Il nome dell'app sta nella barra in alto sul telefono e in cima alla barra laterale
-  // altrove; le Impostazioni in fondo alla barra laterale (in alto a destra sul telefono).
+  // Il layout cambia con la larghezza (media query in app.css): su telefono e tablet una barra
+  // in alto con il nome dell'app e le Impostazioni e la Dock in basso con le sezioni; sul
+  // computer un'unica barra in alto (nome, sezioni, Impostazioni e Amministrazione a destra)
+  // sopra lista e lettore affiancati.
   // Impostazioni e Amministrazione sono pagine (/impostazioni, /amministrazione), non finestre.
   // Toccando il nome dell'app si torna a Oggi.
-  // Sul telefono scorre il documento, così nel browser anche la barra degli indirizzi si riduce
-  // (#38); le barre dell'app escono dallo schermo scorrendo giù e rientrano tornando su (#36).
+  // Su telefono e tablet scorre il documento, così nel browser anche la barra degli indirizzi si
+  // riduce (#38); le barre dell'app escono dallo schermo scorrendo giù e rientrano tornando su (#36).
   import { tick, untrack } from "svelte";
   import Confirm from "./components/Confirm.svelte";
   import Icon from "./components/Icon.svelte";
@@ -21,7 +21,7 @@
   import TagsSheet from "./sheets/TagsSheet.svelte";
   import { barsAfterScroll } from "./lib/bars.js";
   import { applyUpdate, pwa } from "./lib/pwa.svelte.js";
-  import { PHONE_QUERY } from "./lib/scroll.js";
+  import { COMPACT_QUERY } from "./lib/scroll.js";
   import { closeReader, closeSheet, confirmation, data, goHome, openPage, session, switchTab, ui } from "./lib/store.svelte.js";
   import Fonti from "./views/Fonti.svelte";
   import Interessi from "./views/Interessi.svelte";
@@ -38,13 +38,13 @@
   let scrimVisible = $state(false);
   let barsHidden = $state(false);
   let barsRef = 0; // posizione di riferimento per le barre
-  // Sul telefono scorre il documento (#38); su tablet e computer ogni sezione ha il suo scroll.
-  const phone = window.matchMedia(PHONE_QUERY);
-  let docMode = $state(phone.matches);
+  // Su telefono e tablet scorre il documento (#38); sul computer ogni sezione ha il suo scroll.
+  const compact = window.matchMedia(COMPACT_QUERY);
+  let docMode = $state(compact.matches);
   $effect(() => {
-    const sync = () => (docMode = phone.matches);
-    phone.addEventListener("change", sync);
-    return () => phone.removeEventListener("change", sync);
+    const sync = () => (docMode = compact.matches);
+    compact.addEventListener("change", sync);
+    return () => compact.removeEventListener("change", sync);
   });
   // Le posizioni le gestisce l'app (per sezione), non il browser tornando indietro nella cronologia.
   history.scrollRestoration = "manual";
@@ -100,7 +100,7 @@
     barsHidden = false;
   });
 
-  // Barre a scomparsa (#36), solo sul telefono: su tablet e computer la barra è laterale.
+  // Barre a scomparsa (#36), su telefono e tablet: sul computer la barra in alto resta ferma.
   function onWindowScroll() {
     if (!docMode || document.documentElement.classList.contains("gf-lock")) return;
     // Con il focus da tastiera su una barra il browser fa scorrere la pagina per mostrarla: quello
@@ -182,7 +182,7 @@
       <Icon name="sliders" /><span>Impostazioni</span>
     </button>
     {#if session.user?.is_admin}
-      <!-- Solo per gli amministratori; sul telefono si apre dalle Impostazioni. -->
+      <!-- Solo per gli amministratori; su telefono e tablet si apre dalle Impostazioni. -->
       <button type="button" class="nav-admin" aria-current={ui.tab === "amministrazione" ? "page" : undefined} onclick={() => openPage("amministrazione")}>
         <Icon name="shield" /><span>Amministrazione</span>
       </button>

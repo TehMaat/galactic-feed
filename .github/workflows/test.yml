@@ -6,6 +6,37 @@ on:
   pull_request:
 
 jobs:
+  # Ogni PR che cambia l'app è una versione nuova: deve cambiare anche VERSION
+  # (scripts/release.py bump minor|patch). PR di soli test, documenti o workflow no.
+  versione:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Se cambia l'app, cambia anche VERSION
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          app="$(git diff --name-only "$BASE" HEAD -- backend/app frontend/src frontend/public frontend/index.html Dockerfile backend/requirements.txt frontend/package.json)"
+          if [ -z "$app" ]; then
+            echo "La PR non cambia l'app: nessuna versione nuova."
+            exit 0
+          fi
+          before="$(git show "$BASE:VERSION")"
+          after="$(cat VERSION)"
+          if [ "$before" = "$after" ]; then
+            echo "::error::La PR cambia l'app ma VERSION resta $after. Usa «python3 scripts/release.py bump minor» (novità) o «bump patch» (solo correzioni)."
+            echo "$app"
+            exit 1
+          fi
+          if git ls-remote --exit-code --tags origin "refs/tags/v${after}" > /dev/null; then
+            echo "::error::La versione $after è già stata pubblicata: aggiorna il ramo con main e rifai il bump."
+            exit 1
+          fi
+          echo "Versione $before → $after."
+
   backend:
     runs-on: ubuntu-latest
     defaults:

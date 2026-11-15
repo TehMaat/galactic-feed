@@ -85,7 +85,7 @@
   let settling = $state(false); // il contenuto torna al suo posto, animato
   let enterFrom = $state(""); // "left" · "right": da dove entra la modalità appena scelta
   let gesture = null; // { id, x, y, t, axis, lastX, lastT, vx }
-  let swipedAt = 0;
+  let swipedAt = -Infinity; // performance.now() riparte da 0 a ogni caricamento: nessuno swipe finché non c'è
   const reduceMotion = typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const swipeOn = $derived(active && editionOn() && !noSources && !ui.reader && !ui.sheet && !confirmation.open);
 

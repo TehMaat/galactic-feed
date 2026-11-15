@@ -94,6 +94,14 @@ test("primo avvio, fonti, interessi, lettura e salvati sul telefono", async ({ p
   await page.getByLabel("Nuova parola da silenziare").press("Enter");
   await expect(page.locator(".panel .tag", { hasText: "oroscopo" })).toBeVisible();
 
+  // Il cerchio con la «i» spiega come funzionano i doppioni.
+  await page.getByRole("button", { name: "Come funzionano i doppioni" }).click();
+  const help = page.getByRole("alertdialog", { name: "Come funzionano i doppioni" });
+  await expect(help).toContainText("pubblicato per primo");
+  await expect(help.getByRole("button", { name: "Annulla" })).toHaveCount(0);
+  await help.getByRole("button", { name: "Ho capito" }).click();
+  await expect(help).toBeHidden();
+
   // Flusso: per te, nascosti, ricerca.
   await tab(page, "Oggi");
   await expect(page.locator("section[aria-label='Oggi'] .card")).toHaveCount(4);
@@ -180,17 +188,20 @@ test("accesso e tre colonne sul computer", async ({ page }) => {
   await page.getByRole("button", { name: "Entra" }).click();
 
   await expect(page.locator(".reader-empty")).toContainText("Scegli un articolo");
+  // La barra di navigazione è in alto, a tutta larghezza; sotto, la lista e il lettore.
   const nav = await page.locator(".tabbar").boundingBox();
   const list = await page.locator(".views").boundingBox();
   const reader = await page.locator(".reader").boundingBox();
-  expect(nav.width).toBe(220);
-  expect(list.x).toBe(220);
-  expect(reader.x).toBeGreaterThanOrEqual(640);
-  // Il nome dell'app in cima alla barra laterale, le Impostazioni in basso a sinistra.
+  expect(nav).toMatchObject({ x: 0, y: 0, width: 1440, height: 64 });
+  expect(list).toMatchObject({ x: 0, y: 64, width: 460 });
+  expect(reader.x).toBeGreaterThanOrEqual(460);
+  expect(reader.y).toBe(64);
+  // Il nome dell'app a sinistra nella barra, le Impostazioni in alto a destra.
+  await expect(page.locator(".appbar")).toBeHidden();
   await expect(page.locator(".tabbar .nav-brand")).toHaveText("galactic feed");
   const settings = await page.getByRole("button", { name: "Impostazioni" }).boundingBox();
-  expect(settings.x + settings.width).toBeLessThanOrEqual(220);
-  expect(settings.y + settings.height).toBeGreaterThan(900 - 80);
+  expect(settings.x).toBeGreaterThan(1440 / 2);
+  expect(settings.y + settings.height).toBeLessThanOrEqual(64);
   await page.locator("section[aria-label='Oggi'] .card").first().click();
   await expect(page.locator(".reader .reader-title")).toBeVisible();
   await expect(page.locator("section[aria-label='Oggi'] .card").first()).toHaveClass(/is-current/);
@@ -505,44 +516,34 @@ test("icone delle fonti, logo, «Ricordami» e aspetto", async ({ browser }) => 
   await page.reload();
   expect(await look()).toEqual({ accent: "viola", font: "sistema", ok: true });
 
-  // Font «Sistema» (#46): system-ui nell'interfaccia e nei titoli.
-  const fonts = () => page.evaluate(() => ({
-    body: getComputedStyle(document.body).fontFamily.split(",")[0].trim().replaceAll('"', ""),
-    title: getComputedStyle(document.querySelector("section[aria-label='Impostazioni'] h2") || document.body).fontFamily.split(",")[0].trim().replaceAll('"', ""),
-  }));
-  await expect(page.locator(`${SETTINGS} h2`)).toBeVisible();
-  await expect.poll(fonts).toEqual({ body: "system-ui", title: "system-ui" });
+  // Font «Sistema»: system-ui per l'interfaccia e anche per i titoli.
+  const fonts = () => page.evaluate(() => {
+    const s = getComputedStyle(document.documentElement);
+    return [s.getPropertyValue("--font-ui").trim().split(",")[0], s.getPropertyValue("--font-display").trim().split(",")[0]];
+  });
+  expect(await fonts()).toEqual(["system-ui", "system-ui"]);
 
-  // Colore del sistema (#46): Chromium dà sempre il suo blu, e la nota lo dice. Il colore usato
-  // è quel blu, scurito in chiaro (luminosità OKLCH al massimo 0,45) e schiarito in scuro (almeno
-  // 0,8), con la saturazione limitata: così ha il contrasto AA.
+  // Colore del sistema (#46): Chromium dà sempre il suo blu (#0075FF) e la nota lo dice. Il colore
+  // usato ne tiene la tinta, scurita in chiaro e schiarita in scuro perché si legga.
   save = saved();
   await page.locator(SETTINGS).getByRole("button", { name: "Colore del sistema" }).click();
   await save;
-  await expect(page.locator(SETTINGS)).toContainText("dà sempre questo blu");
+  await expect(page.locator(SETTINGS)).toContainText("dà sempre lo stesso blu");
   const systemColor = () => page.evaluate(() => {
-    const probe = document.createElement("span");
+    const root = document.documentElement;
+    const dark = root.dataset.theme === "dark" || (root.dataset.theme !== "light" && matchMedia("(prefers-color-scheme: dark)").matches);
+    const probe = document.createElement("i");
     probe.style.color = "var(--accent)";
     document.body.append(probe);
-    const value = getComputedStyle(probe).color;
+    const color = getComputedStyle(probe).color;
     probe.remove();
-    return value;
+    return { accent: root.dataset.accent, lightness: Number(color.match(/^oklch\(([\d.]+) /)?.[1]), dark };
   });
-  const dark = await page.evaluate(() => {
-    const root = document.documentElement;
-    return root.dataset.theme === "dark" || (root.dataset.theme !== "light" && matchMedia("(prefers-color-scheme: dark)").matches);
-  });
-  await expect.poll(systemColor).toMatch(dark ? /^oklch\(0\.8 0\.15 258/ : /^oklch\(0\.45 0\.18 258/);
-  // Il campione mostra lo stesso colore, non l'arcobaleno.
-  const swatch = page.locator(SETTINGS).getByRole("button", { name: "Colore del sistema" });
-  await expect(swatch).not.toHaveClass(/is-system/);
-  expect(await swatch.evaluate((el) => getComputedStyle(el).backgroundColor)).toBe(await systemColor());
-
-  // «Galactic»: titoli in Unbounded, il resto nel font del sistema (anche su Linux).
-  save = saved();
-  await page.getByRole("group", { name: "Font", exact: true }).getByRole("button", { name: "Galactic" }).click();
-  await save;
-  await expect.poll(fonts).toEqual({ body: "system-ui", title: "Unbounded" });
+  const sys = await systemColor();
+  expect(sys.accent).toBe("system");
+  expect(sys.lightness).toBe(sys.dark ? 0.78 : 0.45);
+  await page.reload();
+  expect(await systemColor()).toEqual(sys);
   await ctx.close();
 });
 
@@ -553,11 +554,12 @@ test("pannello di amministrazione: impostazioni dell'istanza e predefiniti", asy
   await page.getByLabel("Password").fill(PASSWORD);
   await page.getByRole("button", { name: "Entra" }).click();
 
-  // Sul computer la voce è nella barra laterale, sotto Impostazioni.
+  // Sul computer la voce è nella barra in alto, a destra di Impostazioni.
   const nav = page.locator(".tabbar");
   const settingsBox = await nav.getByRole("button", { name: "Impostazioni" }).boundingBox();
   const adminBox = await nav.getByRole("button", { name: "Amministrazione" }).boundingBox();
-  expect(adminBox.y).toBeGreaterThan(settingsBox.y);
+  expect(adminBox.x).toBeGreaterThan(settingsBox.x);
+  expect(adminBox.y).toBe(settingsBox.y);
   await nav.getByRole("button", { name: "Amministrazione" }).click();
   // Sul computer è una pagina larga, con l'indice delle sezioni a sinistra e senza il lettore.
   await expect(page.locator(".reader")).toBeHidden();
@@ -785,10 +787,23 @@ test("telefono: le barre escono scorrendo giù e rientrano tornando su (#36)", a
   await tab(page, "Fonti");
   await expect(app).not.toHaveAttribute("data-bars", "hidden");
 
-  // Su tablet e computer la barra laterale non si muove.
+  // Sul tablet le barre sono le stesse del telefono: barra in alto e Dock, che escono scorrendo.
   await page.setViewportSize({ width: 1024, height: 520 });
   await tab(page, "Oggi");
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await expect(page.locator(".appbar")).toBeVisible();
+  await expect(page.locator(".tabbar .nav-brand")).toBeHidden();
+  await expect.poll(async () => 520 - (await dock.boundingBox()).y).toBeLessThan(100);
   await page.mouse.move(500, 260);
+  await page.mouse.wheel(0, 200);
+  await expect(app).toHaveAttribute("data-bars", "hidden");
+  await page.mouse.wheel(0, -40);
+  await expect(app).not.toHaveAttribute("data-bars", "hidden");
+
+  // Sul computer la barra in alto non si muove.
+  await page.setViewportSize({ width: 1440, height: 520 });
+  await tab(page, "Oggi");
+  await page.mouse.move(200, 300);
   await page.mouse.wheel(0, 300);
   await expect(app).not.toHaveAttribute("data-bars", "hidden");
 });
@@ -834,9 +849,17 @@ test("telefono: scorre la pagina, e ogni sezione ricorda dove eri arrivato (#38)
   await barClick(page.locator(".appbar").getByRole("link", { name: /vai a Oggi/ }));
   await expect.poll(scrollY).toBe(0);
 
-  // Su tablet e computer scorre la sezione, come prima.
+  // Sul tablet scorre ancora il documento.
   await page.setViewportSize({ width: 1024, height: 520 });
   await page.mouse.move(500, 260);
+  await page.mouse.wheel(0, 250);
+  await expect.poll(scrollY).toBeGreaterThan(100);
+  expect(await oggi.evaluate((v) => v.scrollTop)).toBe(0);
+
+  // Sul computer scorre la sezione, perché lista e lettore stanno affiancati.
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.setViewportSize({ width: 1440, height: 520 });
+  await page.mouse.move(200, 300);
   await page.mouse.wheel(0, 250);
   await expect.poll(() => oggi.evaluate((v) => v.scrollTop)).toBeGreaterThan(100);
   expect(await scrollY()).toBe(0);

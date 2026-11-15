@@ -1,7 +1,8 @@
 <script>
-  // Lettura di un articolo. Sul telefono scorre sopra l'elenco; sul computer sta nella
+  // Lettura di un articolo. Su telefono e tablet scorre sopra l'elenco; sul computer sta nella
   // terza colonna, sempre visibile (come nel mockup).
   import { api } from "../lib/api.js";
+  import { explainDedupe } from "../lib/help.js";
   import { isAvailableOffline, overlay } from "../lib/offline.js";
   import { matchLabel, sourceColor, timeAgoLong } from "../lib/format.js";
   import { TEXT_SIZES, closeReader, foldersById, savePrefs, session, setRead, setSaved, stream, saved, ui, toast } from "../lib/store.svelte.js";
@@ -157,7 +158,8 @@
         {#each byline as part, i}{#if i}<span class="sep"></span>{/if}<span>{part}</span>{/each}
       </div>
       {#if article.also_on.length}
-        <p class="also-on">Anche su: {article.also_on.map((o) => o.title).join(", ")}</p>
+        <p class="also-on">Anche su: {article.also_on.map((o) => o.title).join(", ")}
+          <button type="button" class="info-btn" aria-label="Come funzionano i doppioni" onclick={explainDedupe}><Icon name="info" /></button></p>
       {/if}
       {#if summary.points}
         <div class="ai-summary"><div class="lbl"><Icon name="spark" />Riassunto automatico</div>

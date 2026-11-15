@@ -41,7 +41,7 @@ Il codice cambia a ogni riavvio finché non esiste un account. Serve solo a evit
 
 ### Aggiornare
 
-Le correzioni della versione che usi (per esempio da 0.8.0 a 0.8.1) arrivano con:
+Le correzioni della versione che usi (per esempio da 0.10.0 a 0.10.1) arrivano con:
 
 ```bash
 docker compose pull
@@ -51,7 +51,7 @@ docker compose pull
 docker compose up -d
 ```
 
-Per passare a una versione nuova (per esempio da 0.7 a 0.8) leggi cosa cambia in [CHANGELOG.md](CHANGELOG.md), fai una copia dei dati (vedi sotto), poi cambia il numero nel `docker-compose.yml` (`galactic-feed:0.8`) e ripeti i due comandi. Il database si aggiorna da solo all'avvio. La versione in uso è in Impostazioni → Informazioni; l'app installata sui telefoni passa da sola alla versione nuova (vedi «Installare l'app sul telefono»).
+Per passare a una versione nuova (per esempio da 0.9 a 0.10) leggi cosa cambia in [CHANGELOG.md](CHANGELOG.md), fai una copia dei dati (vedi sotto), poi cambia il numero nel `docker-compose.yml` (`galactic-feed:0.10`) e ripeti i due comandi. Il database si aggiorna da solo all'avvio. La versione in uso è in Impostazioni → Informazioni; l'app installata sui telefoni passa da sola alla versione nuova (vedi «Installare l'app sul telefono»).
 
 ## Versioni e aggiornamenti
 
@@ -59,8 +59,8 @@ Le versioni sono numerate `MAGGIORE.MINORE.CORRETTIVA` ([semver](https://semver.
 
 | Etichetta dell'immagine | Cosa ricevi |
 |---|---|
-| `0.8` (consigliata) | La versione 0.8 con tutte le sue correzioni |
-| `0.8.0` | Esattamente quella versione, senza aggiornamenti |
+| `0.10` (consigliata) | La versione 0.10 con tutte le sue correzioni |
+| `0.10.0` | Esattamente quella versione, senza aggiornamenti |
 | `latest` | L'ultima modifica del ramo principale, anche prima di una release |
 
 **Copia dei dati.** Gli aggiornamenti del database vanno solo in avanti: per tornare a una versione precedente serve la copia fatta prima. Con il volume del `docker-compose.yml`:
@@ -109,7 +109,7 @@ Se i permessi non vanno bene, il log lo dice con un messaggio chiaro e il comand
 
 ## Impostazioni
 
-Quasi tutto si configura dall'app. **Impostazioni** (`/impostazioni`) e **Amministrazione** (`/amministrazione`, solo per gli amministratori) sono pagine nella barra laterale; sul computer occupano tutta la larghezza, con l'indice delle sezioni a sinistra. Sul telefono le Impostazioni si aprono dall'icona in alto a destra e l'Amministrazione da lì. Le modifiche valgono subito, senza riavviare.
+Quasi tutto si configura dall'app. **Impostazioni** (`/impostazioni`) e **Amministrazione** (`/amministrazione`, solo per gli amministratori) sono pagine: sul computer si aprono dalla barra in alto, a destra, e occupano tutta la larghezza, con l'indice delle sezioni a sinistra. Su telefono e tablet le Impostazioni si aprono dall'icona in alto a destra e l'Amministrazione da lì. Le modifiche valgono subito, senza riavviare.
 
 - **Utenti e inviti**: inviti, nuove password, permessi, validità dei link; per ogni utente si vede se entra con la password, con il provider OIDC o con entrambi.
 - **Accesso con OIDC**: il pulsante «Entra con …» di un provider (vedi sotto).
@@ -146,8 +146,8 @@ In Impostazioni → Aspetto ognuno sceglie tema (automatico, chiaro, scuro), la 
 
 In Impostazioni → Lettura si possono nascondere gli articoli senza testo completo: quelli dei siti che nel feed danno solo un estratto e non lasciano leggere la pagina (paywall, blocchi). Non compaiono nel Flusso, nell'Edizione e nelle notifiche; i salvati restano. Nel Flusso un avviso dice quanti sono e li mostra con un tocco; nella scheda della fonte c'è scritto «Spesso solo estratto».
 
-- Il **colore del sistema** funziona solo dove il browser lo fa conoscere, soprattutto sui computer: su iPhone, iPad e Android una web app non può leggere i colori del sistema (per esempio Material You), quindi resta il colore predefinito.
-- Il font **Sistema** usa quello del dispositivo (San Francisco su iPhone e Mac, Roboto su Android). Inter e Alta leggibilità (Atkinson Hyperlegible) sono inclusi nell'app e funzionano anche offline.
+- Il **colore del sistema** funziona solo dove il browser lo fa conoscere, soprattutto Firefox sui computer. Chrome, Edge e i telefoni Android danno sempre lo stesso blu, e una web app non può leggere i colori di Material You: il campione in Impostazioni mostra il colore che arriva davvero. Il colore viene scurito in chiaro e schiarito in scuro quanto basta perché si legga (contrasto AA).
+- Il font **Sistema** usa quello del dispositivo anche per i titoli (San Francisco su iPhone e Mac, Segoe UI su Windows); **Galactic** lo usa per tutto tranne i titoli, in Unbounded. Sui telefoni Android il browser usa Roboto: i font scelti nelle impostazioni del telefono non arrivano alle web app. Inter e Alta leggibilità (Atkinson Hyperlegible) sono inclusi nell'app e funzionano anche offline.
 
 Accanto a ogni fonte compare l'icona del sito o l'avatar del canale YouTube, trovata in automatico. Dalla scheda della fonte la puoi aggiornare, sostituire con un'altra immagine o togliere per tornare alle iniziali.
 
@@ -247,7 +247,7 @@ Su iPhone l'app non si aggiorna in background: le notizie le scarica sempre il s
 
 Le immagini sono su GitHub Container Registry: `ghcr.io/tehmaat/galactic-feed`.
 
-- `0.8` e `0.8.0`: le versioni pubblicate (vedi «Versioni e aggiornamenti»);
+- `0.10` e `0.10.0`: le versioni pubblicate (vedi «Versioni e aggiornamenti»);
 - `latest`: l'ultima versione del ramo principale;
 - `sha-xxxxxxx`: un commit preciso.
 
@@ -281,15 +281,16 @@ cd frontend && npm run build && npx playwright test
 
 ### Pubblicare una versione
 
-Il numero di versione sta solo nel file [`VERSION`](VERSION); lo script lo copia nei pacchetti e i test controllano che coincidano. Le novità si scrivono via via nella sezione «Da pubblicare» di `CHANGELOG.md`.
+Il numero di versione sta solo nel file [`VERSION`](VERSION); lo script lo copia nei pacchetti e i test controllano che coincidano. **Ogni PR che cambia l'app è una versione nuova**: il job «versione» del workflow Test fallisce se la PR tocca il codice dell'app e non cambia `VERSION` (le PR di soli test, documenti o workflow no). Le istruzioni per Claude sono in [`CLAUDE.md`](CLAUDE.md).
 
-1. Nella PR che chiude il lavoro, prepara la versione: la sezione «Da pubblicare» prende il numero nuovo.
+1. Nella PR scrivi le modifiche nella sezione «Da pubblicare» di `CHANGELOG.md`, poi prepara la versione: la sezione prende il numero nuovo.
 
    ```bash
-   python3 scripts/release.py bump 0.7.0
+   python3 scripts/release.py bump minor   # novità: 0.8.0 → 0.9.0
+   python3 scripts/release.py bump patch   # solo correzioni: 0.8.0 → 0.8.1
    ```
 
-2. Fai il merge della PR su `main`. Il workflow vede che `v0.7.0` non esiste ancora: pubblica le immagini `:0.7.0` e `:0.7`, poi crea il tag e la release con le note del `CHANGELOG.md`. Nessun tag a mano.
+2. Fai il merge della PR su `main`. Il workflow vede che il tag della versione (per esempio `v0.9.0`) non esiste ancora: pubblica le immagini `:0.9.0` e `:0.9`, poi crea il tag e la release con le note del `CHANGELOG.md`. Nessun tag a mano.
 
 Una versione come `0.7.0-rc.1` diventa una versione di prova: solo `:0.7.0-rc.1`, segnata come pre-release.
 

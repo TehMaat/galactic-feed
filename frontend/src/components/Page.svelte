@@ -1,5 +1,5 @@
 <script>
-  // Pagina a tutto schermo per le Impostazioni e l'Amministrazione: sul telefono come le altre
+  // Pagina a tutto schermo per le Impostazioni e l'Amministrazione: su telefono e tablet come le altre
   // sezioni, sul computer larga, con l'indice delle sezioni a sinistra (nav) e il contenuto a destra.
   import Icon from "./Icon.svelte";
   import { docScroll } from "../lib/scroll.js";
@@ -7,7 +7,7 @@
   let { label, title, active, back = null, nav = null, current = null, onnav = null, scrollKey = "", children } = $props();
   let el = $state();
 
-  // Cambiando sottopagina si torna in cima. Sul telefono scorre il documento (#38): lo si sposta
+  // Cambiando sottopagina si torna in cima. Su telefono e tablet scorre il documento (#38): lo si sposta
   // solo se questa pagina è quella visibile.
   $effect(() => {
     scrollKey;

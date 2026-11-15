@@ -9,7 +9,7 @@
   import { api } from "../lib/api.js";
   import { APP_VERSION, applyUpdate, checkForUpdate, pwa } from "../lib/pwa.svelte.js";
   import { ACCENTS, DARK_STYLES, LIGHT_STYLES, FONTS, READ_FONTS, SIZES, countryName, initials, timeAgoLong } from "../lib/format.js";
-  import { ask, data, editionConfigs, loadEditionConfigs, logout, openPage, openSheet, savePrefs, session, setEditionConfigs, setFilter, toast, ui } from "../lib/store.svelte.js";
+  import { ask, data, editionConfigs, loadEditionConfigs, logout, openPage, openSheet, savePrefs, session, setEditionConfigs, setFilter, systemAccentState, toast, ui } from "../lib/store.svelte.js";
 
   let { active } = $props();
   let page = $state("main"); // main · password · sessions · identities
@@ -167,36 +167,12 @@
   })();
   const theme = $derived(me?.prefs?.theme || "auto");
   const accent = $derived(me?.prefs?.accent || "galassia");
-  // Colore del sistema (#46): il browser sa adattarlo (colori relativi)? E che colore dà davvero?
-  // Chrome, Edge e Android danno sempre il loro blu (#0075FF), per non far riconoscere il dispositivo.
-  const SYSTEM_L = "oklch(from AccentColor min(l, 0.45) min(c, 0.18) h)";
-  const SYSTEM_D = "oklch(from AccentColor max(l, 0.8) min(c, 0.15) h)";
-  const systemAccent = typeof CSS !== "undefined" && CSS.supports?.("color", "oklch(from AccentColor l c h)");
-  const systemRaw = (() => {
-    if (!systemAccent) return "";
-    const probe = document.createElement("span");
-    probe.style.color = "AccentColor";
-    document.body.append(probe);
-    const value = getComputedStyle(probe).color;
-    probe.remove();
-    return value;
-  })();
-  const systemNote = $derived(
-    !systemAccent
-      ? "Questo browser non sa adattare il colore del sistema: resta il colore Galassia."
-      : isIos()
-        ? "Su iPhone e iPad il browser dà sempre il blu di iOS, anche se nelle impostazioni hai scelto un altro colore."
-        : systemRaw.replace(/\s/g, "") === "rgb(0,117,255)"
-          ? "Questo browser (Chrome, Edge e i browser di Android fanno così) non fa conoscere il colore scelto nel sistema e dà sempre questo blu. Firefox su computer invece usa quello vero."
-          : "Il colore scelto nel sistema operativo, un po' più scuro in chiaro e più chiaro in scuro per leggersi bene.",
-  );
-  const fontNote = $derived(
-    font === "sistema"
-      ? "«Sistema»: il font del sistema anche nei titoli (San Francisco su iPhone e Mac, Segoe UI su Windows). Su Android è Roboto: i font scelti nelle impostazioni del telefono non arrivano alle pagine web."
-      : font === "galactic"
-        ? "«Galactic»: Unbounded nei titoli e il font del sistema nel resto."
-        : "",
-  );
+  const systemAccent = systemAccentState();
+  const SYSTEM_NOTES = {
+    vero: "Colore del sistema, come lo dà il browser: è quello nel campione. In chiaro e in scuro viene scurito o schiarito quanto basta perché si legga bene.",
+    fisso: "Questo browser non fa conoscere il colore del sistema e dà sempre lo stesso blu (succede con Chrome, Edge e sui telefoni Android). Per un altro colore sceglilo dalla tavolozza.",
+    no: "Questo browser non fa conoscere il colore del sistema: resta il colore Galassia.",
+  };
   // Ogni scelta di font è scritta nel suo font, così si vede subito com'è (FONTS in format.js).
   const font = $derived(me?.prefs?.font || "galactic");
   const fontRead = $derived(me?.prefs?.font_read || "serif");
@@ -391,8 +367,7 @@
             {#each ACCENTS as c (c.key)}
               <button type="button" class="swatch" style="--sw-l:{c.light};--sw-d:{c.dark}" aria-pressed={accent === c.key} aria-label={c.name} title={c.name} onclick={() => savePrefs({ accent: c.key })}><Icon name="check" /></button>
             {/each}
-            <!-- Il campione mostra il colore che arriva davvero; l'arcobaleno solo se il browser non lo sa adattare. -->
-            <button type="button" class="swatch" class:is-system={!systemAccent} style={systemAccent ? `--sw-l:${SYSTEM_L};--sw-d:${SYSTEM_D}` : undefined} aria-pressed={accent === "system"} aria-label="Colore del sistema" title="Colore del sistema" onclick={() => savePrefs({ accent: "system" })}><Icon name="check" /></button>
+            <button type="button" class="swatch is-system" aria-pressed={accent === "system"} aria-label="Colore del sistema" title="Colore del sistema" onclick={() => savePrefs({ accent: "system" })}><Icon name="check" /></button>
           </div>
         </div>
         <div class="set-block">
@@ -420,8 +395,9 @@
         </div>
       </div>
       <p class="set-note">
-        {accent === "system" ? `${systemNote} ` : ""}{fontNote}
-        Tema, colore, font e dimensione del testo valgono su tutti i tuoi dispositivi. La variante «Scuro» vale con il tema Scuro e con Auto quando il dispositivo è in modo scuro; «Nero» spegne i pixel degli schermi OLED.
+        {accent === "system"
+          ? SYSTEM_NOTES[systemAccent]
+          : "Tema, colore, font e dimensione del testo valgono su tutti i tuoi dispositivi. La variante «Scuro» vale con il tema Scuro e con Auto quando il dispositivo è in modo scuro; «Nero» spegne i pixel degli schermi OLED. «Galactic» usa Unbounded per i titoli e il font del dispositivo per il resto; «Sistema» il font del dispositivo anche per i titoli. Sui telefoni Android il browser usa Roboto: i font scelti nelle impostazioni del telefono non arrivano alle app web."}
       </p>
 
       <div class="set-label" id="set-lettura">Lettura</div>
