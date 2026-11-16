@@ -4,6 +4,15 @@ Tutte le versioni di Galactic Feed, dalla più recente. I numeri seguono [semver
 
 Per aggiornare basta scaricare la nuova immagine: le modifiche al database si applicano da sole all'avvio. Prima di saltare a una nuova versione minore conviene fare una copia del volume `/data` (vedi il README, «Versioni e aggiornamenti»).
 
+## [0.12.0] – 2026-11-16
+
+### Novità
+- **Dock con la sezione attiva evidenziata**: su telefono e tablet una capsula tenue nel colore principale sta sotto il tasto della sezione aperta e scivola, con un piccolo rimbalzo, quando cambi sezione. In Fonti, Impostazioni e Amministrazione non c'è.
+
+### Da sapere per aggiornare
+- Nessuna migrazione del database.
+- Il `docker-compose.yml` d'esempio ora usa `:0.12`: chi ha `:0.11` deve cambiare il numero per ricevere le novità (con `:0.11` arrivano solo le correzioni della 0.11).
+
 ## [0.11.0] – 2026-11-15
 
 ### Novità

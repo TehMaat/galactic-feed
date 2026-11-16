@@ -36,6 +36,10 @@
     ["interessi", "spark", "Interessi"],
     ["salvati", "bookmark", "Salvati"],
   ];
+  // La capsula sotto la sezione attiva nella Dock (telefono e tablet): posizione tra i tre tasti
+  // visibili, o nessuna fuori da quelle sezioni (Fonti, Impostazioni, Amministrazione).
+  const DOCK = ["oggi", "interessi", "salvati"];
+  const dockIndex = $derived(DOCK.indexOf(ui.tab));
   const ts = $derived(session.user?.prefs?.text_size ?? 1);
   let scrimVisible = $state(false);
   let barsHidden = $state(false);
@@ -174,6 +178,7 @@
 
   <nav class="tabbar" aria-label="Sezioni" onfocusin={showBars}>
     <a class="nav-brand wordmark" href="/" aria-label="galactic feed: vai a Oggi" title="Vai a Oggi" onclick={home}><Icon name="orbit" /><span>galactic feed</span></a>
+    <span class="tab-pill" class:is-off={dockIndex < 0} style="--i:{Math.max(dockIndex, 0)}" aria-hidden="true"></span>
     {#each TABS as [key, icon, label]}
       <button type="button" class:nav-wide-only={key === "fonti"} aria-current={ui.tab === key ? "page" : undefined} onclick={() => switchTab(key)}>
         <Icon name={icon} /><span>{label}</span>
