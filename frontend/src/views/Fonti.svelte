@@ -3,7 +3,7 @@
   import { api } from "../lib/api.js";
   import SourceIcon from "../components/SourceIcon.svelte";
   import { KIND_LABEL, countryName, flag, folderColor, intervalLabel, since, sourceColor } from "../lib/format.js";
-  import { data, foldersById, loadAll, openSheet, toast } from "../lib/store.svelte.js";
+  import { data, foldersById, loadAll, openPage, openSheet, toast } from "../lib/store.svelte.js";
 
   let { active } = $props();
   let fileInput = $state();
@@ -67,6 +67,8 @@
 </script>
 
 <section class="view" class:is-entering={active} hidden={!active} aria-label="Fonti">
+  <!-- Su telefono e tablet Fonti si apre dalle Impostazioni: si torna lì. -->
+  <button type="button" class="back-btn compact-only fonti-back" title="Torna alle Impostazioni" onclick={() => openPage("impostazioni")}><Icon name="back" /><span>Indietro</span></button>
   <header class="large-title">
     <div>
       <h2>Fonti</h2>

@@ -9,7 +9,7 @@
   import { api } from "../lib/api.js";
   import { APP_VERSION, applyUpdate, checkForUpdate, pwa } from "../lib/pwa.svelte.js";
   import { ACCENTS, DARK_STYLES, LIGHT_STYLES, FONTS, READ_FONTS, SIZES, countryName, initials, timeAgoLong } from "../lib/format.js";
-  import { ask, data, editionConfigs, loadEditionConfigs, logout, openPage, openSheet, savePrefs, session, setEditionConfigs, setFilter, systemAccentState, toast, ui } from "../lib/store.svelte.js";
+  import { ask, data, editionConfigs, loadEditionConfigs, logout, openPage, openSheet, savePrefs, session, setEditionConfigs, setFilter, switchTab, systemAccentState, toast, ui } from "../lib/store.svelte.js";
 
   let { active } = $props();
   let page = $state("main"); // main · password · sessions · identities
@@ -268,6 +268,15 @@
 <Page label="Impostazioni" title={TITLES[page]} {active} back={page === "main" ? null : () => go("main")} nav={NAV} current={page === "main" ? section : "account"} onnav={jump} scrollKey={page}>
   {#if me}
     {#if page === "main"}
+      <!-- Su telefono e tablet Fonti non sta nella Dock: si apre da qui (sul computer è nella barra in alto). -->
+      <div class="set-label compact-only" id="set-fonti">Fonti</div>
+      <div class="set-group compact-only">
+        <button type="button" class="set-row as-button" onclick={() => switchTab("fonti")}>
+          <span>Le tue fonti</span><span class="val">{data.sources.length === 1 ? "1 fonte" : `${data.sources.length} fonti`}</span>
+        </button>
+        <button type="button" class="link-row" onclick={() => openSheet("add")}><Icon name="plus" />Aggiungi una fonte</button>
+      </div>
+
       <div class="set-label" id="set-account">Account</div>
       <div class="set-group">
         <div class="set-row">
@@ -407,6 +416,16 @@
         </div>
       </div>
       <p class="set-note">Alcuni siti mettono nel feed solo un estratto e non lasciano leggere qui il resto. Con questa opzione i loro articoli non compaiono nel Flusso, nell'Edizione e nelle notifiche. Gli articoli salvati restano visibili e quelli appena arrivati si vedono subito, mentre il server prova a scaricare il testo completo.</p>
+      <div class="set-group">
+        <div class="set-row"><span>Articolo sul computer</span>
+          <div class="segmented" style="--cols:2" role="group" aria-label="Articolo sul computer">
+            {#each [["colonne", "Accanto"], ["pagina", "Pagina intera"]] as [k, l]}
+              <button type="button" aria-pressed={(me.prefs.reader_layout || "colonne") === k} onclick={() => savePrefs({ reader_layout: k })}>{l}</button>
+            {/each}
+          </div>
+        </div>
+      </div>
+      <p class="set-note">Sul computer l'articolo può stare accanto all'elenco, sempre visibile, oppure aprirsi a pagina intera sopra l'elenco, con più spazio per leggere; «Indietro» o Esc riportano all'elenco. Su telefono e tablet si apre sempre a pagina intera.</p>
 
       <div class="set-label" id="set-server">Server</div>
       <div class="set-group">

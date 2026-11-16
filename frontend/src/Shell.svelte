@@ -28,12 +28,18 @@
   import Oggi from "./views/Oggi.svelte";
   import Salvati from "./views/Salvati.svelte";
 
+  // Su telefono e tablet la Dock ha tre tasti: Fonti si apre dalle Impostazioni. Sul computer
+  // la barra in alto ha spazio anche per Fonti.
   const TABS = [
     ["oggi", "edition", "Oggi"],
     ["fonti", "rss", "Fonti"],
     ["interessi", "spark", "Interessi"],
     ["salvati", "bookmark", "Salvati"],
   ];
+  // La capsula sotto la sezione attiva nella Dock (telefono e tablet): posizione tra i tre tasti
+  // visibili, o nessuna fuori da quelle sezioni (Fonti, Impostazioni, Amministrazione).
+  const DOCK = ["oggi", "interessi", "salvati"];
+  const dockIndex = $derived(DOCK.indexOf(ui.tab));
   const ts = $derived(session.user?.prefs?.text_size ?? 1);
   let scrimVisible = $state(false);
   let barsHidden = $state(false);
@@ -155,7 +161,7 @@
 
 <svelte:window onkeydown={onKey} onscroll={onWindowScroll} />
 
-<div class="app" data-tab={ui.tab} data-bars={barsHidden ? "hidden" : undefined} style="--ts:{ts}">
+<div class="app" data-tab={ui.tab} data-reader={session.user?.prefs?.reader_layout === "pagina" ? "pagina" : "colonne"} data-bars={barsHidden ? "hidden" : undefined} style="--ts:{ts}">
   <main class="views" onfocusin={onViewFocus}>
     <Oggi active={ui.tab === "oggi"} />
     <Fonti active={ui.tab === "fonti"} />
@@ -167,13 +173,14 @@
 
   <header class="appbar" onfocusin={showBars}>
     <a class="wordmark" href="/" aria-label="galactic feed: vai a Oggi" title="Vai a Oggi" onclick={home}><Icon name="orbit" /><span>galactic feed</span></a>
-    <button type="button" class="icon-btn" aria-label="Impostazioni" aria-pressed={ui.tab === "impostazioni" || ui.tab === "amministrazione"} onclick={() => openPage("impostazioni")}><Icon name="sliders" /></button>
+    <button type="button" class="icon-btn" aria-label="Impostazioni" aria-pressed={ui.tab === "impostazioni" || ui.tab === "amministrazione" || ui.tab === "fonti"} onclick={() => openPage("impostazioni")}><Icon name="sliders" /></button>
   </header>
 
   <nav class="tabbar" aria-label="Sezioni" onfocusin={showBars}>
     <a class="nav-brand wordmark" href="/" aria-label="galactic feed: vai a Oggi" title="Vai a Oggi" onclick={home}><Icon name="orbit" /><span>galactic feed</span></a>
+    <span class="tab-pill" class:is-off={dockIndex < 0} style="--i:{Math.max(dockIndex, 0)}" aria-hidden="true"></span>
     {#each TABS as [key, icon, label]}
-      <button type="button" aria-current={ui.tab === key ? "page" : undefined} onclick={() => switchTab(key)}>
+      <button type="button" class:nav-wide-only={key === "fonti"} aria-current={ui.tab === key ? "page" : undefined} onclick={() => switchTab(key)}>
         <Icon name={icon} /><span>{label}</span>
         {#if key === "salvati" && data.counts.salvati}<b class="tab-badge">{data.counts.salvati}</b>{/if}
       </button>

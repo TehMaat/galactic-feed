@@ -84,6 +84,8 @@ class Prefs(BaseModel):
     font: Literal["galactic", "sistema", "inter", "leggibile"] = "galactic"
     font_read: Literal["serif", "sans", "sistema"] = "serif"
     text_size: float = Field(default=1.0, ge=0.85, le=1.3)
+    # Sul computer: articolo nella colonna accanto all'elenco o a tutta pagina sopra di esso (#9).
+    reader_layout: Literal["colonne", "pagina"] = "colonne"
     dedupe: bool = True
     # Nasconde gli articoli di cui il sito non lascia leggere il testo completo (solo l'estratto).
     hide_partial: bool = False

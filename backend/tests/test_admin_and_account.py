@@ -138,3 +138,11 @@ def test_prefs_saved_together_do_not_overwrite_each_other(admin, app):
         app.dependency_overrides.pop(current_user)
     assert r.json()["user"]["prefs"]["theme"] == "dark"
     assert admin.get("/api/me").json()["user"]["prefs"]["theme"] == "dark"
+
+
+def test_reader_layout_pref(admin):
+    """Sul computer l'articolo sta nella colonna accanto all'elenco o a tutta pagina (#9)."""
+    assert admin.get("/api/me").json()["user"]["prefs"]["reader_layout"] == "colonne"
+    r = admin.patch("/api/me", json={"prefs": {"reader_layout": "pagina"}})
+    assert r.json()["user"]["prefs"]["reader_layout"] == "pagina"
+    assert admin.patch("/api/me", json={"prefs": {"reader_layout": "finestra"}}).status_code == 422
