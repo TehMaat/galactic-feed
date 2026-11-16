@@ -4,6 +4,11 @@ Tutte le versioni di Galactic Feed, dalla più recente. I numeri seguono [semver
 
 Per aggiornare basta scaricare la nuova immagine: le modifiche al database si applicano da sole all'avvio. Prima di saltare a una nuova versione minore conviene fare una copia del volume `/data` (vedi [Aggiornare e backup](docs/aggiornare-e-backup.md)).
 
+## [0.12.1] – 2026-11-16
+
+### Correzioni
+- Il selettore **Edizione / Flusso** in Oggi è di nuovo allineato a ricerca, filtri e articoli. Sul computer con l'articolo a pagina intera e sul tablet in orizzontale partiva dal bordo sinistro invece di stare nella colonna centrata (#60).
+
 ## [0.12.0] – 2026-11-16
 
 ### Novità
