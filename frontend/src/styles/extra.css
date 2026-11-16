@@ -171,7 +171,9 @@ select.input { appearance: none; background-image: linear-gradient(45deg, transp
 }
 
 /* ---------- Edizione ---------- */
-.mode-switch { margin: 4px 0 14px; }
+/* Solo i margini sopra e sotto: quelli laterali restano «auto» (.view > *), così il selettore
+   sta centrato come ricerca e filtri sul tablet e con l'articolo a pagina intera (#60). */
+.mode-switch { margin-block: 4px 14px; }
 .time-add { display: inline-flex; align-items: center; gap: 6px; }
 .time-input { width: auto; min-height: 36px; padding: 4px 10px; font-family: var(--font-mono); font-size: 14px; }
 .form-ok {
