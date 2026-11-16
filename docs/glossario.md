@@ -15,9 +15,10 @@
 | **Nazione** | Il Paese di una fonte, dal dominio e dalla lingua. Serve ai filtri e alle regole delle Edizioni |
 | **Doppione** | La stessa notizia da più fonti: diventa una scheda sola |
 | **Testo completo** | Il testo intero dell'articolo, dal feed o estratto dalla pagina del sito |
+| **Dock** | La barra in basso su telefono e tablet: Oggi, Interessi, Salvati |
 | **Salvati** | Gli articoli che tieni: non si cancellano e sono leggibili offline |
 | **PWA** | Progressive Web App: l'app che si installa dal browser, senza store |
 | **Istanza** | Un server di Galactic Feed, con i suoi utenti e le sue impostazioni |
-| **Serie** | Le versioni con lo stesso `MAGGIORE.MINORE` (es. 0.10): l'etichetta dell'immagine che riceve da sola le correzioni |
+| **Serie** | Le versioni con lo stesso `MAGGIORE.MINORE` (es. 0.12): l'etichetta dell'immagine che riceve da sola le correzioni |
 | **OIDC** | OpenID Connect: entrare con l'account di un altro sistema di login (Authentik, Keycloak…) |
 | **Codice di primo avvio** | Sei cifre scritte nel log, che servono solo a creare il primo amministratore |

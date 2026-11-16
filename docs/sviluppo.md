@@ -109,7 +109,7 @@ e fallisce se:
 - un diagramma è cambiato senza rigenerare le sue immagini, o un'immagine non ha più il suo sorgente;
 - compaiono dati che sembrano veri: indirizzi IP fuori da quelli di documentazione (`192.0.2.x`, `198.51.100.x`, `203.0.113.x`; ammessi anche `127.0.0.1` e le reti di Docker `172.16.0.0/12`), email non `@example.org`, host di una rete di casa (`.lan`, `.local`, `.home`…);
 - manca il badge «Full Vibe Coded» nel README o in [docs/README.md](README.md);
-- la serie consigliata scritta nelle docs (`galactic-feed:0.10`, «`0.10` (consigliata)») non è quella di `VERSION`.
+- la serie consigliata scritta nelle docs (`galactic-feed:0.12`, «`0.12` (consigliata)») non è quella di `VERSION`.
 
 Negli esempi si usano sempre dati inventati: domini `example.org`, persone e testate di fantasia, chiavi palesemente false.
 
@@ -167,7 +167,7 @@ Il giro completo parte ogni lunedì notte. Lanciato a mano da **Actions → Puli
 
 Le immagini sono su GitHub Container Registry: `ghcr.io/tehmaat/galactic-feed`.
 
-- `0.10` e `0.10.0`: le versioni pubblicate (vedi [Aggiornare e backup](aggiornare-e-backup.md#versioni-e-serie));
+- `0.12` e `0.12.0`: le versioni pubblicate (vedi [Aggiornare e backup](aggiornare-e-backup.md#versioni-e-serie));
 - `latest`: l'ultima versione del ramo principale;
 - `sha-xxxxxxx`: un commit preciso.
 

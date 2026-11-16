@@ -30,6 +30,7 @@ class PrefsPatch(BaseModel):
     font: str | None = None
     font_read: str | None = None
     text_size: float | None = None
+    reader_layout: str | None = None
     dedupe: bool | None = None
     hide_partial: bool | None = None
     auto_tags: bool | None = None

@@ -23,8 +23,16 @@ async function barClick(button) {
   await button.click();
 }
 
+// Su telefono e tablet la Dock ha tre tasti: Fonti si apre dalle Impostazioni.
 async function tab(page, name) {
-  await barClick(page.locator(".tabbar").getByRole("button", { name }));
+  const button = page.locator(".tabbar").getByRole("button", { name });
+  if (name === "Fonti" && !(await button.isVisible())) {
+    await barClick(page.locator(".appbar").getByRole("button", { name: "Impostazioni" }));
+    await page.locator(SETTINGS).getByRole("button", { name: /Le tue fonti/ }).click();
+    await expect(page.locator("section[aria-label='Fonti']")).toBeVisible();
+    return;
+  }
+  await barClick(button);
 }
 
 async function sheetClick(page, text) {
@@ -63,8 +71,17 @@ test("primo avvio, fonti, interessi, lettura e salvati sul telefono", async ({ p
   await expect(page.locator(".toast")).toContainText("Orbita aggiunta a Spazio");
   await expect(page.locator("section[aria-label='Oggi'] .card")).toHaveCount(3);
 
-  // Seconda fonte, dal feed diretto.
-  await tab(page, "Fonti");
+  // Seconda fonte, dal feed diretto. Sul telefono la Dock ha tre tasti: Fonti è nelle Impostazioni.
+  await expect(page.locator(".tabbar button:visible")).toHaveText(["Oggi", "Interessi", "Salvati"]);
+  await barClick(page.locator(".appbar").getByRole("button", { name: "Impostazioni" }));
+  await page.locator(SETTINGS).getByRole("button", { name: /Le tue fonti/ }).click();
+  await expect(page).toHaveURL(/\/fonti$/);
+  // Fuori dalle tre sezioni della Dock la capsula non c'è.
+  await expect(page.locator(".tab-pill")).toHaveCSS("opacity", "0");
+  // «Indietro» riporta alle Impostazioni.
+  await page.locator("section[aria-label='Fonti']").getByRole("button", { name: "Indietro" }).click();
+  await expect(page).toHaveURL(/\/impostazioni$/);
+  await page.locator(SETTINGS).getByRole("button", { name: /Le tue fonti/ }).click();
   await page.getByRole("button", { name: "Aggiungi", exact: true }).click();
   await page.getByLabel("Indirizzo").fill("http://127.0.0.1:8098/bitebyte.xml");
   await sheetClick(page, "Cerca feed");
@@ -119,7 +136,16 @@ test("primo avvio, fonti, interessi, lettura e salvati sul telefono", async ({ p
   await page.locator("section[aria-label='Oggi'] .card", { hasText: "Le PWA su iPhone" }).click();
   const reader = page.locator(".reader.is-open");
   await expect(reader.locator(".reader-title")).toHaveText("Le PWA su iPhone: cosa possono fare davvero e cosa no");
-  await expect(reader.getByRole("button", { name: "Apri l'articolo originale" })).toBeVisible();
+  // Pulsanti essenziali (#9): in fondo un solo «Leggi su …», il resto nel menu «Altre azioni».
+  await expect(reader.getByRole("button", { name: "Leggi su Bit & Byte" })).toBeVisible();
+  await reader.getByRole("button", { name: "Altre azioni" }).click();
+  const menu = reader.getByRole("menu", { name: "Altre azioni" });
+  await expect(menu.getByRole("menuitem")).toContainText(["Apri l'originale", "Segna come non letto"]);
+  await menu.getByRole("menuitemradio", { name: "Testo grande" }).click();
+  await expect.poll(() => page.evaluate(() => getComputedStyle(document.querySelector(".app")).getPropertyValue("--ts").trim())).toBe("1.12");
+  await menu.getByRole("menuitemradio", { name: "Testo standard" }).click();
+  await reader.getByRole("button", { name: "Altre azioni" }).click();
+  await expect(menu).toHaveCount(0);
   await reader.getByRole("button", { name: "Salva" }).click();
   await expect(page.locator(".toast")).toContainText("Salvato");
   await reader.getByRole("button", { name: "Indietro" }).click();
@@ -128,6 +154,13 @@ test("primo avvio, fonti, interessi, lettura e salvati sul telefono", async ({ p
 
   await tab(page, "Salvati");
   await expect(page.locator("[aria-label='Salvati'] .card")).toHaveCount(1);
+  // Nella Dock una capsula tenue sta sotto la sezione aperta e la segue.
+  const pillUnder = async (name) => {
+    const pill = await page.locator(".tab-pill").boundingBox();
+    const button = await page.locator(".tabbar").getByRole("button", { name }).boundingBox();
+    return Math.round(Math.abs(pill.x + pill.width / 2 - (button.x + button.width / 2)));
+  };
+  await expect.poll(() => pillUnder("Salvati")).toBeLessThanOrEqual(2);
 
   // Il tasto Indietro del browser chiude l'articolo.
   await page.locator("[aria-label='Salvati'] .card").click();
@@ -206,9 +239,31 @@ test("accesso e tre colonne sul computer", async ({ page }) => {
   await expect(page.locator(".reader .reader-title")).toBeVisible();
   await expect(page.locator("section[aria-label='Oggi'] .card").first()).toHaveClass(/is-current/);
 
-  // Le Fonti occupano tutta la larghezza, senza il lettore.
+  // Le Fonti occupano tutta la larghezza, senza il lettore. Sul computer sono nella barra in alto.
   await tab(page, "Fonti");
   await expect(page.locator(".reader")).toBeHidden();
+  await expect(page.locator(".tabbar button:visible")).toContainText(["Oggi", "Fonti", "Interessi", "Salvati"]);
+
+  // Impostazioni → Lettura → «Pagina intera» (#9): l'elenco usa tutta la larghezza e l'articolo
+  // si apre sopra di esso; Indietro riporta all'elenco.
+  await page.getByRole("button", { name: "Impostazioni" }).click();
+  await page.locator(SETTINGS).getByRole("group", { name: "Articolo sul computer" }).getByRole("button", { name: "Pagina intera" }).click();
+  await expect(page.locator(".app")).toHaveAttribute("data-reader", "pagina");
+  await tab(page, "Oggi");
+  await expect(page.locator(".reader.is-open")).toHaveCount(0);
+  expect((await page.locator(".views").boundingBox()).width).toBe(1440);
+  await page.locator("section[aria-label='Oggi'] .card").first().click();
+  await expect(page.locator(".reader.is-open .reader-title")).toBeVisible();
+  await expect.poll(async () => (await page.locator(".reader").boundingBox()).x).toBe(0);
+  await page.locator(".reader.is-open").getByRole("button", { name: "Indietro" }).click();
+  await expect(page.locator(".reader.is-open")).toHaveCount(0);
+  await page.locator("section[aria-label='Oggi'] .card").first().click();
+  await page.keyboard.press("Escape");
+  await expect(page.locator(".reader.is-open")).toHaveCount(0);
+  // Di nuovo accanto all'elenco, per gli altri test.
+  await page.getByRole("button", { name: "Impostazioni" }).click();
+  await page.locator(SETTINGS).getByRole("group", { name: "Articolo sul computer" }).getByRole("button", { name: "Accanto" }).click();
+  await expect(page.locator(".app")).toHaveAttribute("data-reader", "colonne");
 });
 
 test("la PWA si può installare", async ({ request }) => {
@@ -651,8 +706,9 @@ test("tag delle fonti: assegnati dalla scheda e usati come filtro nel Flusso", a
   const oggi = page.locator("section[aria-label='Oggi']");
   if (await oggi.getByRole("tab", { name: "Flusso" }).count()) await oggi.getByRole("tab", { name: "Flusso" }).click();
   await oggi.getByRole("button", { name: /Astronomia/ }).click();
-  await expect(oggi.locator(".card").first()).toBeVisible();
-  for (const src of await oggi.locator(".card .meta .src").allTextContents()) expect(src).toBe("Orbita");
+  await expect(oggi.getByRole("button", { name: /Astronomia/ })).toHaveAttribute("aria-pressed", "true");
+  // Si aspetta l'elenco filtrato: subito dopo il tocco ci sono ancora le schede di prima.
+  await expect.poll(async () => [...new Set(await oggi.locator(".card .meta .src").allTextContents())]).toEqual(["Orbita"]);
 
   // Gestione dei tag: la chip si può togliere dal Flusso.
   await tab(page, "Fonti");

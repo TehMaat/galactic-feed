@@ -132,7 +132,7 @@ function writeLocation(push) {
 export function switchTab(tab) {
   ui.tab = tab;
   ui.sheet = null;
-  if (!isWide()) ui.reader = null;
+  if (!readerBeside()) ui.reader = null;
   writeLocation(true);
 }
 
@@ -160,6 +160,11 @@ export function goHome() {
 
 export function isWide() {
   return typeof window !== "undefined" && window.innerWidth >= 1100;
+}
+
+/** Sul computer l'articolo sta nella colonna accanto all'elenco (e resta aperto cambiando sezione)? (#9) */
+export function readerBeside() {
+  return isWide() && (session.user?.prefs?.reader_layout || "colonne") === "colonne";
 }
 
 // ---------- Avvio ----------
@@ -727,7 +732,7 @@ export function closeSheet() {
 export function showSource(source) {
   closeSheet();
   ui.tab = "oggi";
-  if (!isWide()) ui.reader = null;
+  if (!readerBeside()) ui.reader = null;
   writeLocation(true);
   setFilter({ view: "tutti", folder: null, tag: null, country: null, source: source.id, sourceTitle: source.title });
 }

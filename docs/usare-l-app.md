@@ -21,7 +21,7 @@ Se hai un'[Edizione](ai-edizioni-notifiche.md#edizioni) accesa, in alto c'è il 
 
 ## Fonti
 
-In **Fonti** aggiungi un sito, un feed o un canale YouTube:
+In **Fonti** aggiungi un sito, un feed o un canale YouTube. Sul computer Fonti è nella barra in alto; su telefono e tablet si apre da **Impostazioni → Fonti**, con «Indietro» per tornare.
 
 - **Basta l'indirizzo del sito**: il server cerca da solo il feed nella pagina. Se ne trova più d'uno (tutte le notizie, una categoria) scegli tu; i feed dei commenti non vengono proposti.
 - **YouTube**: il link del canale o `@nome` bastano, il server ricava il feed pubblico. Non serve un account.
@@ -63,7 +63,9 @@ In cima, il riquadro dice quante notizie delle ultime 24 ore sarebbero per te co
 - **Nascondere gli articoli senza testo completo**: in **Impostazioni → Lettura**. Non compaiono nel Flusso, nell'Edizione e nelle notifiche; i salvati restano. Nel Flusso un avviso dice quanti sono e li mostra con un tocco; nella scheda della fonte c'è scritto «Spesso solo estratto».
 - **Salvati**: restano finché non li togli, anche dopo il periodo di conservazione degli articoli e anche se smetti di seguire la fonte.
 - **Offline**: i salvati e gli ultimi 300 articoli letti restano leggibili senza rete, con le loro immagini. Quello che segni o salvi senza rete parte quando la rete torna.
-- Il link all'articolo originale è sempre in alto a destra. Niente commenti o voti: Galactic Feed è di sola lettura.
+- **Il lettore**: in alto ci sono solo Indietro, Salva e «⋯». Nel menu «⋯» trovi la dimensione del testo, Condividi (dove il dispositivo lo permette), Apri l'originale e Segna come non letto; in fondo all'articolo c'è «Leggi su …». Scorrendo verso il basso la barra esce dallo schermo e rientra tornando su; una riga sottile in alto mostra quanto hai letto.
+- **Sul computer** l'articolo può stare accanto all'elenco o aprirsi a pagina intera sopra di esso: si sceglie in **Impostazioni → Lettura**. «Indietro» o Esc riportano all'elenco.
+- Niente commenti o voti: Galactic Feed è di sola lettura. Il link all'originale c'è sempre.
 
 <p align="center">
   <img src="img/screenshot/articolo-telefono-chiaro.webp" width="280" alt="Un articolo aperto sul telefono, tema chiaro">
@@ -83,9 +85,9 @@ In **Impostazioni → Aspetto** ognuno sceglie tema (automatico, chiaro, scuro),
 
 ## Telefono, tablet e computer
 
-- **Telefono**: barra in basso con Oggi, Fonti, Interessi e Salvati; scorrendo le barre escono dallo schermo. Le Impostazioni si aprono dall'icona in alto a destra.
+- **Telefono**: la Dock in basso ha Oggi, Interessi e Salvati, con una capsula sotto la sezione aperta; scorrendo le barre escono dallo schermo. Impostazioni (e da lì Fonti e Amministrazione) si aprono dall'icona in alto a destra.
 - **Tablet**: navigazione in una barra laterale.
-- **Computer**: barra in alto, lista e lettura affiancate; Impostazioni e Amministrazione a destra.
+- **Computer**: barra in alto con Oggi, Fonti, Interessi e Salvati; elenco e lettura affiancati, o articolo a pagina intera; Impostazioni e Amministrazione a destra.
 
 <p align="center">
   <img src="img/screenshot/oggi-computer-chiaro.webp" width="720" alt="Sul computer: il Flusso a sinistra e l'articolo aperto a destra">
