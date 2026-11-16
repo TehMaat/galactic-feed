@@ -492,3 +492,25 @@ a.oidc-btn { text-decoration: none; }
   .app[data-reader="pagina"] .reader-bar .back-btn { visibility: visible; }
   .app[data-reader="pagina"] .is-current.card, .app[data-reader="pagina"] .is-current.row, .app[data-reader="pagina"] .is-current.hero { box-shadow: none; }
 }
+
+/* ---------- Dock: capsula sotto la sezione attiva ----------
+   Una capsula tenue nel colore principale sta sotto il tasto della sezione aperta e scivola, con
+   un piccolo rimbalzo, quando cambi sezione. Solo su telefono e tablet; sul computer la barra in
+   alto ha già lo sfondo sulla sezione attiva. */
+.tab-pill { display: none; }
+@media (max-width: 1099.98px) {
+  .tabbar button { z-index: 1; }
+  .tab-pill {
+    position: absolute;
+    top: 6px;
+    bottom: 6px;
+    left: 6px;
+    width: calc((100% - 12px) / 3);
+    display: block;
+    border-radius: 20px;
+    background: var(--accent-soft);
+    transform: translateX(calc(var(--i) * 100%));
+    transition: transform 0.42s cubic-bezier(0.3, 1.4, 0.5, 1), opacity 0.2s ease;
+  }
+  .tab-pill.is-off { opacity: 0; }
+}

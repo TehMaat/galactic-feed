@@ -76,6 +76,8 @@ test("primo avvio, fonti, interessi, lettura e salvati sul telefono", async ({ p
   await barClick(page.locator(".appbar").getByRole("button", { name: "Impostazioni" }));
   await page.locator(SETTINGS).getByRole("button", { name: /Le tue fonti/ }).click();
   await expect(page).toHaveURL(/\/fonti$/);
+  // Fuori dalle tre sezioni della Dock la capsula non c'è.
+  await expect(page.locator(".tab-pill")).toHaveCSS("opacity", "0");
   // «Indietro» riporta alle Impostazioni.
   await page.locator("section[aria-label='Fonti']").getByRole("button", { name: "Indietro" }).click();
   await expect(page).toHaveURL(/\/impostazioni$/);
@@ -152,6 +154,13 @@ test("primo avvio, fonti, interessi, lettura e salvati sul telefono", async ({ p
 
   await tab(page, "Salvati");
   await expect(page.locator("[aria-label='Salvati'] .card")).toHaveCount(1);
+  // Nella Dock una capsula tenue sta sotto la sezione aperta e la segue.
+  const pillUnder = async (name) => {
+    const pill = await page.locator(".tab-pill").boundingBox();
+    const button = await page.locator(".tabbar").getByRole("button", { name }).boundingBox();
+    return Math.round(Math.abs(pill.x + pill.width / 2 - (button.x + button.width / 2)));
+  };
+  await expect.poll(() => pillUnder("Salvati")).toBeLessThanOrEqual(2);
 
   // Il tasto Indietro del browser chiude l'articolo.
   await page.locator("[aria-label='Salvati'] .card").click();

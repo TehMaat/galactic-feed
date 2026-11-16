@@ -41,7 +41,7 @@ Il codice cambia a ogni riavvio finché non esiste un account. Serve solo a evit
 
 ### Aggiornare
 
-Le correzioni della versione che usi (per esempio da 0.11.0 a 0.11.1) arrivano con:
+Le correzioni della versione che usi (per esempio da 0.12.0 a 0.12.1) arrivano con:
 
 ```bash
 docker compose pull
@@ -51,7 +51,7 @@ docker compose pull
 docker compose up -d
 ```
 
-Per passare a una versione nuova (per esempio da 0.10 a 0.11) leggi cosa cambia in [CHANGELOG.md](CHANGELOG.md), fai una copia dei dati (vedi sotto), poi cambia il numero nel `docker-compose.yml` (`galactic-feed:0.11`) e ripeti i due comandi. Il database si aggiorna da solo all'avvio. La versione in uso è in Impostazioni → Informazioni; l'app installata sui telefoni passa da sola alla versione nuova (vedi «Installare l'app sul telefono»).
+Per passare a una versione nuova (per esempio da 0.11 a 0.12) leggi cosa cambia in [CHANGELOG.md](CHANGELOG.md), fai una copia dei dati (vedi sotto), poi cambia il numero nel `docker-compose.yml` (`galactic-feed:0.12`) e ripeti i due comandi. Il database si aggiorna da solo all'avvio. La versione in uso è in Impostazioni → Informazioni; l'app installata sui telefoni passa da sola alla versione nuova (vedi «Installare l'app sul telefono»).
 
 ## Versioni e aggiornamenti
 
@@ -59,8 +59,8 @@ Le versioni sono numerate `MAGGIORE.MINORE.CORRETTIVA` ([semver](https://semver.
 
 | Etichetta dell'immagine | Cosa ricevi |
 |---|---|
-| `0.11` (consigliata) | La versione 0.11 con tutte le sue correzioni |
-| `0.11.0` | Esattamente quella versione, senza aggiornamenti |
+| `0.12` (consigliata) | La versione 0.12 con tutte le sue correzioni |
+| `0.12.0` | Esattamente quella versione, senza aggiornamenti |
 | `latest` | L'ultima modifica del ramo principale, anche prima di una release |
 
 **Copia dei dati.** Gli aggiornamenti del database vanno solo in avanti: per tornare a una versione precedente serve la copia fatta prima. Con il volume del `docker-compose.yml`:
@@ -247,7 +247,7 @@ Su iPhone l'app non si aggiorna in background: le notizie le scarica sempre il s
 
 Le immagini sono su GitHub Container Registry: `ghcr.io/tehmaat/galactic-feed`.
 
-- `0.11` e `0.11.0`: le versioni pubblicate (vedi «Versioni e aggiornamenti»);
+- `0.12` e `0.12.0`: le versioni pubblicate (vedi «Versioni e aggiornamenti»);
 - `latest`: l'ultima versione del ramo principale;
 - `sha-xxxxxxx`: un commit preciso.
 
