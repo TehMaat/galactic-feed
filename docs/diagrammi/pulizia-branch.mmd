@@ -1,0 +1,15 @@
+flowchart TB
+  b(["Un branch"]) --> p{"Ramo principale,<br/>protetto o keep/*?"}
+  p -- sì --> resta1("Resta")
+  p -- no --> aperta{"Ha una PR aperta?"}
+  aperta -- sì --> resta2("Resta")
+  aperta -- no --> recente{"Commit negli<br/>ultimi 7 giorni?"}
+  recente -- sì --> resta3("Resta")
+  recente -- no --> merged{"PR mergiata, o tutto<br/>già in main?"}
+  merged -- sì --> via1("Si cancella")
+  merged -- no --> chiusa{"PR chiusa<br/>senza merge?"}
+  chiusa -- "da 14 giorni" --> via2("Si cancella")
+  chiusa -- "da meno" --> resta4("Resta")
+  chiusa -- "nessuna PR" --> vecchio{"Branch da lavoro<br/>fermo da 30 giorni?"}
+  vecchio -- sì --> via3("Si cancella")
+  vecchio -- no --> resta5("Resta")

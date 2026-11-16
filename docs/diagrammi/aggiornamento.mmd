@@ -1,0 +1,9 @@
+flowchart TB
+  q{"Che cosa cambia?"}
+  q -- "correzioni della stessa serie<br/>es. 0.10.0 → 0.10.1" --> pull("docker compose pull<br/>docker compose up -d")
+  q -- "serie nuova<br/>es. 0.9 → 0.10" --> leggi("Leggi il CHANGELOG<br/>e «Da sapere per aggiornare»")
+  leggi --> copia("Copia dei dati<br/>del volume /data")
+  copia --> tag("Cambia il numero<br/>nel docker-compose.yml")
+  tag --> pull
+  pull --> db("All'avvio il database<br/>si aggiorna da solo")
+  db --> pwa("Le app installate<br/>prendono la versione nuova")

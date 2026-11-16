@@ -1,0 +1,14 @@
+sequenceDiagram
+  actor U as Utente
+  participant A as Galactic Feed
+  participant P as Provider OIDC
+  U->>A: Tocca «Entra con …»
+  Note over A: Prepara state,<br/>nonce e PKCE
+  A->>P: Reindirizza alla pagina di accesso
+  U->>P: Entra con il suo account
+  P->>A: Torna con un codice monouso
+  A->>P: Scambia il codice (client secret + PKCE)
+  P-->>A: ID token firmato
+  Note over A: Verifica firma, issuer,<br/>audience e nonce
+  Note over A: Trova l'account,<br/>lo collega o lo crea
+  A-->>U: Sessione aperta

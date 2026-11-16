@@ -1,0 +1,5 @@
+flowchart LR
+  utente("Browser o PWA<br/>notizie.example.org") -- HTTPS --> proxy("Reverse proxy<br/>certificato HTTPS")
+  proxy -- "HTTP · Host<br/>X-Forwarded-Proto<br/>X-Forwarded-For" --> app("galactic-feed:8080")
+  proxy -. "se il proxy chiede un login,<br/>lascia sempre aperti" .-> aperti("/manifest.webmanifest<br/>/sw.js<br/>/icons/*")
+  aperti -.-> app

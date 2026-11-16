@@ -1,0 +1,9 @@
+flowchart LR
+  pr("Una PR cambia l'app") --> regole("CLAUDE.md:<br/>docs nella stessa PR")
+  regole --> job{"Job «documenti»"}
+  job --> v("Variabili del codice<br/>= tabella delle docs")
+  job --> l("Link e immagini<br/>che esistono")
+  job --> d("Diagrammi rigenerati<br/>dai sorgenti")
+  job --> a("Solo dati inventati")
+  job --> s("Serie consigliata<br/>= VERSION")
+  pr -. "al merge, se cambia<br/>l'interfaccia" .-> foto("Workflow screenshot<br/>apre una PR")

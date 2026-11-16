@@ -4,6 +4,9 @@ on:
   push:
     branches: [main]
   pull_request:
+  # Lo lanciano anche i workflow Screenshot e Diagrammi dopo aver aggiunto un commit a un branch:
+  # i commit fatti da un workflow non fanno partire gli altri workflow da soli.
+  workflow_dispatch:
 
 jobs:
   # Ogni PR che cambia l'app è una versione nuova: deve cambiare anche VERSION
@@ -36,6 +39,18 @@ jobs:
             exit 1
           fi
           echo "Versione $before → $after."
+
+  # La documentazione non resta indietro (#55): variabili, link, diagrammi, dati inventati, badge,
+  # serie consigliata. Vedi docs/sviluppo.md, «Documentazione sempre aggiornata».
+  documenti:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Documentazione in ordine
+        run: python scripts/docs.py check
 
   backend:
     runs-on: ubuntu-latest

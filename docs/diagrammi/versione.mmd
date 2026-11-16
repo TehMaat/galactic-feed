@@ -1,0 +1,9 @@
+flowchart LR
+  issue("Issue") --> ramo("Branch e PR<br/>scritti con l'AI")
+  ramo --> controlli{"Test · versione<br/>documenti"}
+  controlli -- "qualcosa non va" --> ramo
+  controlli -- "tutto verde" --> merge("Merge su main")
+  merge --> immagini("Immagini Docker<br/>:X.Y.Z · :X.Y · latest")
+  immagini --> release("Tag vX.Y.Z<br/>e release su GitHub")
+  merge --> foto("Screenshot nuovi<br/>se cambia l'interfaccia")
+  merge --> pulizia("Il branch<br/>si cancella")

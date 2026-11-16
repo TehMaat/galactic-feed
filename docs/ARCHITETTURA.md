@@ -1,47 +1,49 @@
-# Galactic Feed · architettura della prima versione
+# Galactic Feed · architettura
 
-Proposta approvata il 31/10/2026. Descrive come è fatto il codice; i requisiti sono in [ANALISI.md](ANALISI.md).
+Descrive come è fatto il codice. La proposta di partenza è stata approvata il 31/10/2026; i requisiti iniziali sono in [storia/ANALISI.md](storia/ANALISI.md). Come avviare, provare e pubblicare è in [Sviluppo](sviluppo.md).
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="img/diagrammi/architettura-scuro.svg">
+  <img alt="Dispositivi, reverse proxy, container di Galactic Feed con API e PWA, scheduler, fetcher, filtri, Edizioni, Web Push e SQLite, e i servizi su Internet" src="img/diagrammi/architettura-chiaro.svg">
+</picture>
 
 ## Struttura del repository
 
-```
-backend/                  Server Python (FastAPI)
-  app/
-    main.py               avvio: API, PWA, scheduler
-    healthcheck.py        controllo di salute usato dal container (python -m app.healthcheck)
-    config.py             variabili d'ambiente (PUBLIC_URL, TZ, …) e versione (dal file VERSION)
-    instance.py           impostazioni dell'istanza scelte dall'amministratore (GUI → variabile d'ambiente → predefinito)
-    secretbox.py          segreti cifrati nel database (chiave dell'AI, client secret OIDC) con data/secret.key
-    oidc.py               accesso con un provider OpenID Connect: configurazione, discovery, verifica dei token
-    emergency.py          accesso d'emergenza: riaccende il login con password (python -m app.emergency)
-    db.py + migrations/   SQLite, schema versionato con file .sql numerati
-    security.py           password argon2, sessioni, protezione CSRF
-    api/                  un file per area: auth, admin, folders, sources, opml, articles, interests, images
-    feeds/                discovery, fetcher, parser, youtube, extract (testo completo), icons, geo (nazione e lingua), sanitize, scheduler
-    reading/              matching (interessi e silenziati), presets (gruppi pronti), tagging (tag proposti), dedupe (doppioni), query, edition e schedule (Edizioni)
-    ai/                   configurazione, fornitori (Ollama/OpenAI, Anthropic), filtro AI, riassunti
-    push/                 Web Push (VAPID, cifratura) e regole delle notifiche
-    hooks.py              agganci tra le parti: nuovi articoli, Edizione pronta
-  tests/                  pytest, con feed e siti finti: nessuna chiamata a Internet
-frontend/                 PWA Svelte + Vite
-  src/
-    styles/               base.css e app.css presi dal mockup
-    lib/                  client API, stato, copertine generative, coda offline
-    views/                Oggi, Fonti, Interessi, Salvati, Impostazioni, Amministrazione, Accesso, Primo avvio, Invito
-    components/           Card, Row, Reader, Sheet, Page (pagine con indice), Confirm (conferme dell'app), TabBar, Chips, Toast
-    sw.js                 service worker
-  public/icons/            icone dell'app; apple-touch-icon.png (nera, una sola) per iOS
-  icons-src/              sorgenti SVG delle icone per iOS (npm run icons → public/icons/)
-  scripts/icons.mjs       genera le PNG da icons-src/ con il Chromium di Playwright
-  tests/                  vitest (logica) + Playwright (prova nel browser)
-Dockerfile                build in più fasi: PWA → dipendenze Python → immagine finale (utente non root, uid 1000)
-docker-compose.yml
-VERSION                   numero di versione (l'unico: lo legge il server, lo controllano test e workflow)
-CHANGELOG.md              novità di ogni versione, usate anche per le note delle release
-scripts/release.py        nuova versione (bump), controllo (check), note della release (notes)
-.github/workflows/        test, build multi-architettura, release sui tag v*
-docs/  mockup/  README.md
-```
+| Percorso | Cosa contiene |
+|---|---|
+| `backend/app/main.py` | Avvio: API, PWA, scheduler |
+| `backend/app/healthcheck.py` | Controllo di salute usato dal container (`python -m app.healthcheck`) |
+| `backend/app/config.py` | Variabili d'ambiente (`PUBLIC_URL`, `TZ`, …) e versione (dal file `VERSION`) |
+| `backend/app/instance.py` | Impostazioni dell'istanza scelte dall'amministratore (GUI → variabile d'ambiente → predefinito) |
+| `backend/app/secretbox.py` | Segreti cifrati nel database (chiave dell'AI, client secret OIDC) con `data/secret.key` |
+| `backend/app/oidc.py` | Accesso con un provider OpenID Connect: configurazione, discovery, verifica dei token |
+| `backend/app/emergency.py` | Accesso d'emergenza: riaccende il login con password (`python -m app.emergency`) |
+| `backend/app/db.py`, `migrations/` | SQLite, schema versionato con file `.sql` numerati |
+| `backend/app/security.py` | Password argon2, sessioni, protezione CSRF |
+| `backend/app/api/` | Un file per area: auth, admin, folders, sources, opml, articles, interests, images… |
+| `backend/app/feeds/` | discovery, fetcher, parser, youtube, extract (testo completo), icons, geo (nazione e lingua), sanitize, scheduler |
+| `backend/app/reading/` | matching (interessi e silenziati), presets (gruppi pronti), tagging (tag proposti), dedupe (doppioni), query, edition e schedule (Edizioni) |
+| `backend/app/ai/` | Configurazione, fornitori (Ollama/OpenAI, Anthropic), filtro AI, riassunti |
+| `backend/app/push/` | Web Push (VAPID, cifratura) e regole delle notifiche |
+| `backend/app/hooks.py` | Agganci tra le parti: nuovi articoli, Edizione pronta |
+| `backend/tests/` | pytest, con feed e siti finti: nessuna chiamata a Internet |
+| `frontend/src/styles/` | `base.css` e `app.css` presi dal mockup |
+| `frontend/src/lib/` | Client API, stato, copertine generative, coda offline |
+| `frontend/src/views/` | Oggi, Fonti, Interessi, Salvati, Impostazioni, Amministrazione, Accesso, Primo avvio, Invito |
+| `frontend/src/components/` | Card, Row, Reader, Sheet, Page (pagine con indice), Confirm (conferme dell'app), TabBar, Chips, Toast |
+| `frontend/src/sw.js` | Service worker |
+| `frontend/public/icons/` | Icone dell'app; `apple-touch-icon.png` (nera, una sola) per iOS |
+| `frontend/icons-src/`, `frontend/scripts/icons.mjs` | Sorgenti SVG delle icone per iOS e lo script che genera le PNG (`npm run icons`) con il Chromium di Playwright |
+| `frontend/tests/`, `frontend/e2e/` | vitest (logica) e Playwright (prova nel browser con il server vero) |
+| `frontend/screenshots/` | Screenshot della documentazione con dati inventati (vedi [Sviluppo](sviluppo.md#screenshot)) |
+| `Dockerfile` | Build in più fasi: PWA → dipendenze Python → immagine finale (utente non root, uid 1000) |
+| `docker-compose.yml` | L'esempio per l'installazione |
+| `VERSION` | Numero di versione (l'unico: lo legge il server, lo controllano test e workflow) |
+| `CHANGELOG.md` | Novità di ogni versione, usate anche per le note delle release |
+| `scripts/release.py` | Nuova versione (`bump`), controllo (`check`), note della release (`notes`) |
+| `scripts/docs.py` | Diagrammi della documentazione e controlli delle docs |
+| `.github/workflows/` | Test, immagine Docker e release, screenshot, pulizia dei branch |
+| `docs/`, `mockup/`, `README.md` | Documentazione e prototipo della GUI |
 
 Scelte:
 
@@ -50,6 +52,13 @@ Scelte:
 - **La PWA compilata è servita dallo stesso server** sulla porta 8080.
 - **Svelte 5 senza librerie di routing**: poche righe bastano per gestire gli indirizzi.
 - **Orari nel database in secondi UTC**; l'API li restituisce in formato ISO 8601 e la PWA li mostra nel fuso del dispositivo.
+
+## Vita di un articolo
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="img/diagrammi/articolo-scuro.svg">
+  <img alt="Lo scheduler sceglie le fonti, scarica il feed una volta, estrae il testo se serve, unisce i doppioni e per ogni utente applica interessi, parole silenziate e AI: per te, nel Flusso o silenziato; poi notifica ed Edizione" src="img/diagrammi/articolo-chiaro.svg">
+</picture>
 
 ## Schema del database
 
@@ -153,18 +162,4 @@ Fuori da `/api`: la PWA, `/manifest.webmanifest`, `/sw.js`, `/icons/*`. Devono r
 
 ## Variabili d'ambiente
 
-«Solo all'avvio»: si leggono quando il server parte e non si cambiano dal pannello. Le altre sono il valore iniziale di un'impostazione che l'amministratore può cambiare da GUI.
-
-| Variabile | Predefinito | A cosa serve |
-|---|---|---|
-| `PUBLIC_URL` | `http://localhost:8080` | Indirizzo pubblico dell'app (link d'invito, manifest, user agent). Solo all'avvio |
-| `DATA_DIR` | `/data` | Cartella del database e di `secret.key`. Solo all'avvio |
-| `LOG_LEVEL` | `info` | Dettaglio del log. Solo all'avvio |
-| `FORWARDED_ALLOW_IPS` | `*` | Da quali indirizzi accettare gli header `X-Forwarded-*`. Solo all'avvio |
-| `TZ` | `Europe/Rome` | Fuso orario del log e valore iniziale del fuso dell'istanza |
-| `RETENTION_DAYS` | `90` | Giorni dopo cui si cancellano gli articoli non salvati |
-| `BLOCK_PRIVATE_NETWORKS` | `false` | Vieta fonti su indirizzi della rete locale |
-| `REMEMBER_DAYS` | `90` | Giorni di una sessione con «Ricordami» |
-| `SESSION_HOURS` | `12` | Ore senza utilizzo dopo cui chiude una sessione senza «Ricordami» |
-| `INVITE_HOURS` | `48` | Ore di validità dei link d'invito e di reimpostazione della password |
-| `EMERGENCY_PASSWORD_LOGIN` | `false` | Tiene acceso l'accesso con password anche se spento dal pannello (emergenza OIDC) |
+L'elenco completo, con i predefiniti e quali valgono solo all'avvio, è in [Configurazione](configurazione.md#variabili-dambiente). I test controllano che quella tabella e le variabili lette dal codice coincidano.

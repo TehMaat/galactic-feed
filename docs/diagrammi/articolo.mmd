@@ -1,0 +1,28 @@
+flowchart TB
+  start(["Ogni minuto lo scheduler<br/>sceglie le fonti da controllare"])
+  scarica("Scarica il feed una volta<br/>anche se lo seguono in tanti")
+  nuovi{"Articoli nuovi?"}
+  fine(["Fino al prossimo controllo"])
+  testo{"Il feed ha<br/>il testo completo?"}
+  estrai("Estrae il testo<br/>dalla pagina del sito")
+  doppi("Unisce i doppioni<br/>stesso link o titolo simile")
+  utenti("Per ogni utente<br/>che segue la fonte")
+  regole{"Interessi,<br/>parole silenziate, AI"}
+  perte("Per te")
+  flusso("Nel Flusso")
+  zitto("Silenziato")
+  notifica("Notifica<br/>se la cartella è importante")
+  edizione("Nella prossima Edizione")
+
+  start --> scarica --> nuovi
+  nuovi -- no --> fine
+  nuovi -- sì --> testo
+  testo -- sì --> doppi
+  testo -- no --> estrai --> doppi
+  doppi --> utenti --> regole
+  regole -- tocca un interesse --> perte
+  regole -- nessuna regola --> flusso
+  regole -- parola silenziata --> zitto
+  perte --> notifica
+  perte --> edizione
+  flusso --> edizione

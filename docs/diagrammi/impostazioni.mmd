@@ -1,0 +1,5 @@
+flowchart LR
+  q1{"Scelto in<br/>Amministrazione?"} -- sì --> p("Vale quello del pannello")
+  q1 -- no --> q2{"C'è la variabile<br/>d'ambiente?"}
+  q2 -- sì --> e("Vale la variabile")
+  q2 -- no --> d("Vale il predefinito")
