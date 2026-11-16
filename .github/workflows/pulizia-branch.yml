@@ -1,0 +1,158 @@
+name: Pulizia dei branch
+
+# Cancella i branch che non servono più (#54). Le regole sono in docs/sviluppo.md:
+# - PR mergiata: il branch si cancella subito, al merge;
+# - PR chiusa senza merge: dopo GIORNI_CHIUSA giorni dalla chiusura;
+# - nessuna PR e nessun commit da GIORNI_ABBANDONATO giorni: si cancella (solo i prefissi da lavoro);
+# - mai toccati: il ramo principale, i branch protetti, «keep/*», quelli con una PR aperta
+#   e quelli con un commit negli ultimi GIORNI_RECENTE giorni (può esserci qualcuno al lavoro).
+# Lanciato a mano parte in prova: scrive nel riepilogo cosa cancellerebbe, senza cancellare.
+
+on:
+  pull_request:
+    types: [closed]
+  schedule:
+    - cron: "17 3 * * 1" # ogni lunedì notte (UTC)
+  workflow_dispatch:
+    inputs:
+      prova:
+        description: "Solo prova: elenca cosa cancellerebbe, senza cancellare"
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+  pull-requests: read
+
+concurrency:
+  group: pulizia-branch
+  cancel-in-progress: false
+
+env:
+  GIORNI_CHIUSA: "14"
+  GIORNI_ABBANDONATO: "30"
+  GIORNI_RECENTE: "7"
+  # Prefissi dei branch da lavoro che si possono cancellare anche senza PR.
+  PREFISSI: "claude/ feature/ fix/ docs/ chore/"
+  # Prefisso dei branch da tenere sempre.
+  TIENI: "keep/"
+
+jobs:
+  # Al merge di una PR: via il suo branch.
+  dopo-il-merge:
+    if: github.event_name == 'pull_request' && github.event.pull_request.merged && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const pr = context.payload.pull_request;
+            const name = pr.head.ref;
+            const { data: info } = await github.rest.repos.get({ owner, repo });
+            if (name === info.default_branch || name.startsWith(process.env.TIENI)) {
+              core.notice(`${name}: non si tocca.`);
+              return;
+            }
+            let branch;
+            try {
+              ({ data: branch } = await github.rest.repos.getBranch({ owner, repo, branch: name }));
+            } catch (e) {
+              if (e.status === 404) return core.notice(`${name}: già cancellato.`);
+              throw e;
+            }
+            if (branch.protected) return core.notice(`${name}: protetto, resta.`);
+            if (branch.commit.sha !== pr.head.sha) {
+              return core.notice(`${name}: ha commit dopo il merge della PR #${pr.number}, resta.`);
+            }
+            const { data: open } = await github.rest.pulls.list({ owner, repo, state: "open", head: `${owner}:${name}` });
+            if (open.length) return core.notice(`${name}: ha ancora una PR aperta (#${open[0].number}), resta.`);
+            await github.rest.git.deleteRef({ owner, repo, ref: `heads/${name}` });
+            core.notice(`${name}: cancellato dopo il merge della PR #${pr.number}.`);
+
+  # Ogni settimana (o a mano): applica tutte le regole.
+  giro:
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        env:
+          PROVA: ${{ github.event_name == 'workflow_dispatch' && inputs.prova || 'false' }}
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const prova = process.env.PROVA === "true";
+            const day = 86400e3;
+            const now = Date.now();
+            const giorni = (d) => Math.floor((now - new Date(d).getTime()) / day);
+            const chiusa = Number(process.env.GIORNI_CHIUSA);
+            const abbandonato = Number(process.env.GIORNI_ABBANDONATO);
+            const recente = Number(process.env.GIORNI_RECENTE);
+            const prefissi = process.env.PREFISSI.split(/\s+/).filter(Boolean);
+            const tieni = process.env.TIENI;
+
+            const { data: info } = await github.rest.repos.get({ owner, repo });
+            const branches = await github.paginate(github.rest.repos.listBranches, { owner, repo, per_page: 100 });
+            const pulls = await github.paginate(github.rest.pulls.list, { owner, repo, state: "all", per_page: 100 });
+            const byHead = new Map();
+            for (const pr of pulls) {
+              if (pr.head.repo?.full_name !== `${owner}/${repo}`) continue;
+              if (!byHead.has(pr.head.ref)) byHead.set(pr.head.ref, []);
+              byHead.get(pr.head.ref).push(pr);
+            }
+
+            const rows = [];
+            const decide = async (b) => {
+              const name = b.name;
+              if (name === info.default_branch) return ["resta", "ramo principale"];
+              if (b.protected) return ["resta", "protetto"];
+              if (name.startsWith(tieni)) return ["resta", `prefisso ${tieni}`];
+              const prs = byHead.get(name) || [];
+              const open = prs.find((p) => p.state === "open");
+              if (open) return ["resta", `PR aperta #${open.number}`];
+              const { data: commit } = await github.rest.repos.getCommit({ owner, repo, ref: b.commit.sha });
+              const age = giorni(commit.commit.committer.date);
+              if (age < recente) return ["resta", `ultimo commit ${age} giorni fa`];
+              // Una PR mergiata o chiusa conta solo se il branch è fermo al suo ultimo commit.
+              const same = prs.filter((p) => p.head.sha === b.commit.sha);
+              const merged = same.find((p) => p.merged_at);
+              if (merged) return ["cancella", `PR #${merged.number} mergiata`];
+              const { data: cmp } = await github.rest.repos.compareCommits({ owner, repo, base: info.default_branch, head: b.commit.sha });
+              if (cmp.ahead_by === 0) return ["cancella", `già tutto in ${info.default_branch}`];
+              const closed = same.find((p) => p.state === "closed");
+              if (closed) {
+                const d = giorni(closed.closed_at);
+                return d >= chiusa
+                  ? ["cancella", `PR #${closed.number} chiusa senza merge ${d} giorni fa`]
+                  : ["resta", `PR #${closed.number} chiusa ${d} giorni fa (si cancella dopo ${chiusa})`];
+              }
+              if (!prefissi.some((p) => name.startsWith(p))) return ["resta", "prefisso non da lavoro"];
+              if (age >= abbandonato) return ["cancella", `nessuna PR e nessun commit da ${age} giorni`];
+              return ["resta", `ultimo commit ${age} giorni fa (si cancella dopo ${abbandonato})`];
+            };
+
+            for (const b of branches) {
+              const [what, why] = await decide(b);
+              let done = what;
+              if (what === "cancella") {
+                if (prova) done = "da cancellare (prova)";
+                else {
+                  try {
+                    await github.rest.git.deleteRef({ owner, repo, ref: `heads/${b.name}` });
+                    done = "cancellato";
+                  } catch (e) {
+                    done = `errore: ${e.message}`;
+                  }
+                }
+              }
+              rows.push([b.name, done, why]);
+            }
+
+            const order = (r) => (r[1] === "resta" ? 1 : 0);
+            rows.sort((a, b) => order(a) - order(b) || a[0].localeCompare(b[0]));
+            const gone = rows.filter((r) => r[1] !== "resta").length;
+            await core.summary
+              .addHeading(prova ? "Pulizia dei branch · prova" : "Pulizia dei branch")
+              .addRaw(prova ? `In prova: ${gone} branch da cancellare, nessuno cancellato.` : `${gone} branch cancellati.`, true)
+              .addTable([[{ data: "Branch", header: true }, { data: "Esito", header: true }, { data: "Perché", header: true }], ...rows])
+              .write();

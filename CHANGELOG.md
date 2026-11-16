@@ -2,7 +2,7 @@
 
 Tutte le versioni di Galactic Feed, dalla più recente. I numeri seguono [semver](https://semver.org/lang/it/): `MAGGIORE.MINORE.CORRETTIVA`. Finché la versione comincia con `0.` l'app è giovane: le novità arrivano con le versioni minori (0.4, 0.5…), le correzioni con le correttive (0.3.1).
 
-Per aggiornare basta scaricare la nuova immagine: le modifiche al database si applicano da sole all'avvio. Prima di saltare a una nuova versione minore conviene fare una copia del volume `/data` (vedi il README, «Versioni e aggiornamenti»).
+Per aggiornare basta scaricare la nuova immagine: le modifiche al database si applicano da sole all'avvio. Prima di saltare a una nuova versione minore conviene fare una copia del volume `/data` (vedi [Aggiornare e backup](docs/aggiornare-e-backup.md)).
 
 ## [0.10.0] – 2026-11-15
 

@@ -1,5 +1,7 @@
 # Galactic Feed · analisi
 
+> **Documento d'archivio.** L'analisi da cui è partito il progetto, a ottobre 2026. Alcune decisioni sono cambiate dopo (per esempio l'accesso con OIDC); com'è fatta l'app oggi è in [Architettura](../ARCHITETTURA.md) e nel resto della [documentazione](../README.md).
+
 Stato: **requisiti confermati il 31/10/2026**, dopo le risposte alle domande della prima bozza. La strada scelta è la **A: tutto su misura**.
 
 ## Obiettivo
@@ -29,40 +31,28 @@ Un lettore di notizie self-hosted, multiutente e di sola lettura:
 | Notifiche | Facoltative: l'utente sceglie le categorie importanti che le fanno partire |
 | Dispositivi | PWA responsive per telefono, tablet e desktop |
 | App nativa | Non ora. Vedi la postilla in fondo |
-| HTTPS | Lo fa il reverse proxy esistente (l'utente userà Pangolin, ma il progetto non dipende da uno specifico) |
+| HTTPS | Lo fa il reverse proxy esistente (qualunque: il progetto non dipende da uno specifico) |
 | Docker | Immagini per amd64 e arm64; armv7 se le dipendenze lo permettono |
 
 ## Architettura
 
 Il telefono non fa lavoro pesante: su iOS una PWA non può aggiornarsi in background. Il server scarica, filtra e compone; la PWA mostra il risultato e riceve le notifiche.
 
-```mermaid
-flowchart LR
-  subgraph Docker["Container galactic-feed"]
-    S[Scheduler] --> F[Fetcher<br/>RSS · Atom · YouTube]
-    F --> P[Parser + estrazione<br/>del testo completo]
-    P --> R[Filtri per utente<br/>parole chiave · AI · doppioni]
-    R --> DB[(SQLite<br/>+ ricerca full-text)]
-    DB --> API[API REST + login]
-    R --> E[Edizioni<br/>agli orari scelti]
-    R --> WP[Web Push]
-    AI[AI facoltativa<br/>Ollama o cloud] -.-> R
-  end
-  RP[Reverse proxy esistente<br/>HTTPS] --> API
-  PWA[PWA<br/>telefono · tablet · desktop] <--> RP
-  WP --> PWA
-```
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../img/diagrammi/architettura-scuro.svg">
+  <img alt="Architettura di Galactic Feed: dispositivi, reverse proxy, container e servizi su Internet" src="../img/diagrammi/architettura-chiaro.svg">
+</picture>
 
 Ogni feed viene scaricato **una volta sola** anche se lo seguono più utenti. Filtri, edizioni e notifiche invece sono calcolati per ogni utente.
 
 ## Stack
 
-L'utente non ha preferenze e non intende modificare il codice, quindi scelgo strumenti diffusi e ben mantenuti.
+Nessun vincolo sugli strumenti e nessuna intenzione di modificare il codice a mano, quindi strumenti diffusi e ben mantenuti.
 
 - **Backend**: Python 3.12 con FastAPI. Per i feed feedparser e httpx; per il testo completo trafilatura; scheduler interno.
 - **Database**: SQLite in modalità WAL con ricerca full-text FTS5, in un volume `/data`. Basta per una famiglia o un gruppo di amici; PostgreSQL resta un'opzione futura.
 - **Frontend**: Svelte con Vite e vite-plugin-pwa (service worker, manifest, cache offline). Interfaccia in italiano.
-- **Login**: account locali con password (hash argon2) e sessioni via cookie. Il primo utente creato è l'amministratore e invita gli altri. Login tramite il reverse proxy (SSO di Pangolin o header di autenticazione) da valutare in seguito.
+- **Login**: account locali con password (hash argon2) e sessioni via cookie. Il primo utente creato è l'amministratore e invita gli altri. Login tramite il reverse proxy (SSO del proxy o header di autenticazione) da valutare in seguito.
 - **Notifiche**: Web Push standard con chiavi VAPID generate al primo avvio.
 - **AI**: un'interfaccia unica con due tipi di fornitore: endpoint compatibile OpenAI (Ollama in locale) oppure API cloud. L'amministratore configura il fornitore; ogni utente decide se usarlo.
 - **Docker**: un solo container che serve API e PWA sulla porta 8080 in HTTP, con un volume `/data`. `docker compose up -d` e variabili d'ambiente come `PUBLIC_URL` e `TZ`.
@@ -132,7 +122,7 @@ Le stime contano 5 subreddit, 25 post per controllo e 30 giorni. I prezzi vengon
 
 ## Mockup
 
-La cartella [`mockup/`](../mockup) contiene il prototipo cliccabile della GUI, da provare così:
+La cartella [`mockup/`](../../mockup) contiene il prototipo cliccabile della GUI, da provare così:
 
 ```bash
 python3 -m http.server 8000 --directory mockup

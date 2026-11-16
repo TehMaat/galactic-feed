@@ -1,0 +1,3 @@
+flowchart LR
+  a("Copia<br/>docker-compose.yml") --> b("Scrivi<br/>PUBLIC_URL") --> c("docker compose up -d") --> d("Leggi il codice<br/>di primo avvio nel log") --> e("Apri l'app e crea<br/>l'amministratore") --> f("Invita gli altri<br/>utenti")
+  f -.-> g("Facoltativo:<br/>reverse proxy HTTPS,<br/>OIDC, AI, notifiche")

@@ -1,0 +1,80 @@
+name: Screenshot
+
+# Rifà gli screenshot della documentazione (#55) con i dati inventati di frontend/screenshots/
+# dopo ogni merge su main che cambia l'interfaccia, o a mano. Se le immagini sono cambiate apre
+# (o aggiorna) la PR «Screenshot aggiornati» dal branch docs/screenshot. È una PR di soli
+# documenti: nessuna versione nuova.
+#
+# Per aprire la PR serve, in Settings → Actions → General, «Allow GitHub Actions to create and
+# approve pull requests».
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - frontend/src/**
+      - frontend/public/**
+      - frontend/index.html
+      - frontend/screenshots/**
+      - frontend/playwright.screenshots.config.js
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: write
+
+concurrency:
+  group: screenshot
+  cancel-in-progress: true
+
+jobs:
+  screenshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements*.txt
+      - run: pip install -r backend/requirements.txt
+      - run: npm ci
+        working-directory: frontend
+      - run: npm run build
+        working-directory: frontend
+      - run: npx playwright install --with-deps chromium
+        working-directory: frontend
+      - name: Screenshot con dati inventati
+        run: npx playwright test -c playwright.screenshots.config.js
+        working-directory: frontend
+        env:
+          GF_PYTHON: python
+
+      - name: PR «Screenshot aggiornati»
+        id: pr
+        uses: peter-evans/create-pull-request@v7
+        with:
+          branch: docs/screenshot
+          add-paths: docs/img/screenshot/*.webp
+          commit-message: "Screenshot della documentazione aggiornati"
+          title: "Screenshot aggiornati"
+          body: |
+            Gli screenshot della documentazione rifatti dopo le ultime modifiche all'interfaccia (workflow «Screenshot», da ${{ github.sha }}).
+
+            Sono fatti con dati inventati (`frontend/screenshots/`). Controlla che le schermate siano quelle giuste, poi fai il merge. È una PR di soli documenti: nessuna versione nuova.
+          labels: documentation
+          delete-branch: true
+
+      - name: Test sulla PR
+        # I commit fatti da un workflow non fanno partire gli altri workflow: si lanciano a mano.
+        if: steps.pr.outputs.pull-request-operation == 'created' || steps.pr.outputs.pull-request-operation == 'updated'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run test.yml --repo "$GITHUB_REPOSITORY" --ref docs/screenshot

@@ -1,0 +1,35 @@
+flowchart TB
+  subgraph dispositivi["Dispositivi"]
+    direction LR
+    tel("Telefono e tablet<br/>PWA installata")
+    pc("Computer<br/>browser o PWA")
+  end
+
+  proxy("Reverse proxy · HTTPS<br/>Caddy, Traefik, Nginx…")
+
+  subgraph container["Container galactic-feed · porta 8080"]
+    direction TB
+    web("API REST e PWA<br/>account · sessioni · manifest · sw.js")
+    sched("Scheduler<br/>ogni minuto")
+    fetch("Fetcher<br/>RSS · Atom · YouTube")
+    filtri("Filtri per ogni utente<br/>parole chiave · AI · doppioni")
+    ediz("Edizioni<br/>agli orari scelti")
+    push("Web Push")
+    db[("SQLite + ricerca FTS5<br/>volume /data")]
+    sched --> fetch --> filtri --> db
+    filtri --> ediz
+    filtri --> push
+    web <--> db
+  end
+
+  subgraph internet["Internet"]
+    direction LR
+    siti("Siti e canali<br/>feed pubblici")
+    ai("AI facoltativa<br/>Ollama · Anthropic · OpenAI")
+    servizi("Servizi push<br/>dei browser")
+  end
+
+  dispositivi <--> proxy <--> web
+  fetch --> siti
+  filtri -.-> ai
+  push --> servizi
