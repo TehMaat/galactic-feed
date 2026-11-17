@@ -15,7 +15,7 @@ Questo non vuol dire «senza regole». Anzi: proprio perché il codice lo scrive
 
 ## Cosa lo rende affidabile
 
-- **Ogni modifica parte da una issue** e arriva come pull request: si vede sempre cosa cambia e perché.
+- **Ogni modifica parte da una issue** e arriva come pull request: si vede sempre cosa cambia e perché. Quando la persona propone qualcosa, è Claude ad aprire la issue prima di cominciare, e la PR la chiude.
 - **Test automatici** su ogni PR: pytest per il server (con feed e siti finti, senza chiamate a Internet), vitest per la logica della PWA, Playwright nel browser con il server vero, e una prova del container Docker.
 - **Ogni PR che cambia l'app è una versione nuova**, con le note nel [CHANGELOG](../CHANGELOG.md): il job «versione» fallisce se manca. Immagini, tag e release li pubblica solo il workflow, mai a mano.
 - **La documentazione cambia con l'app**, nella stessa PR, e il job «documenti» controlla che non resti indietro (vedi [Sviluppo](sviluppo.md#documentazione-sempre-aggiornata)).
