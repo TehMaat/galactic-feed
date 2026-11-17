@@ -56,6 +56,7 @@ Il workflow [Test](../.github/workflows/test.yml) li esegue su ogni PR, insieme 
 
 ## Regole delle pull request
 
+- **Ogni proposta diventa una issue**: quando chiedi a Claude una modifica, Claude apre prima una issue (o usa quella che c'è già) e la PR la chiude con `Closes #N`.
 - **Ogni PR che cambia l'app è una versione nuova**: `backend/app`, `frontend/src`, `frontend/public`, `frontend/index.html`, `Dockerfile` o le dipendenze. Il job «versione» fallisce se la PR tocca questi file e non cambia `VERSION`. Le PR di soli test, documenti o workflow no.
 - **La documentazione si aggiorna nella stessa PR** (vedi sotto).
 - Il titolo o la descrizione della PR dicono la versione.

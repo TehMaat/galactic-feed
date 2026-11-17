@@ -1,5 +1,15 @@
 # Galactic Feed · istruzioni per Claude
 
+## Ogni proposta diventa una issue
+
+Non aspettare che te lo chieda: quando l'utente propone una modifica, un'idea o segnala un problema, prima di metterti al lavoro apri una issue su GitHub (controlla prima che non ce ne sia già una aperta sullo stesso tema: in quel caso usa quella).
+
+- Titolo breve e in italiano; nel testo cosa si chiede e perché, ed eventualmente una lista di cose da fare. Dati inventati, come altrove.
+- Se la proposta contiene più cose indipendenti, una issue per ciascuna.
+- Dai all'utente il link della issue, poi lavora sul branch e nella PR scrivi `Closes #N` così la issue si chiude al merge. Il numero della issue va anche nella voce del `CHANGELOG.md`.
+- Se la proposta resta un'idea da fare più avanti, apri comunque la issue e fermati lì.
+- Domande e spiegazioni che non cambiano niente nel repository non hanno bisogno di una issue.
+
 ## Ogni PR che cambia l'app è una versione nuova
 
 Non aspettare che te lo chieda: in ogni PR che cambia l'app (`backend/app`, `frontend/src`, `frontend/public`, `frontend/index.html`, `Dockerfile`, dipendenze) fai tu il bump della versione, nello stesso ramo, prima di aprire o aggiornare la PR. Il job «versione» del workflow Test fallisce se te ne dimentichi.
