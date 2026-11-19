@@ -6,7 +6,7 @@ import re
 from typing import Any, Literal
 
 from fastapi import Request, Response
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from .. import instance
 from ..db import iso
@@ -68,7 +68,52 @@ def check_times(values: list[str]) -> list[str]:
 
 # Colori principali: una tavolozza con contrasto AA verificato in chiaro e in scuro
 # (frontend/src/styles/base.css), oppure «system», il colore di sistema dove il browser lo dà.
-ACCENTS = ("galassia", "indaco", "blu", "viola", "rosa", "arancio", "ambra", "verde", "system")
+ACCENTS = ("galassia", "indaco", "blu", "viola", "rosa", "arancio", "ambra", "verde", "system", "custom")
+HEX_RE = re.compile(r"^#[0-9A-Fa-f]{6}$")
+PRESET_ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,23}$")
+# Preset pronti del Notiziario (#68): non si salvano, li conosce l'app.
+BUILTIN_PRESETS = ("perte", "tutte", "nonletti")
+MAX_PRESETS = 20
+
+
+class FilterSpec(BaseModel):
+    """Un filtro del Notiziario: da dove partire, solo non letti, chiavi incluse ed escluse (#68)."""
+
+    scope: Literal["perte", "tutte"] = "perte"
+    unread: bool = False
+    inc: list[str] = Field(default_factory=list)
+    exc: list[str] = Field(default_factory=list)
+
+    @field_validator("inc", "exc")
+    @classmethod
+    def _keys(cls, values: list[str]) -> list[str]:
+        from ..reading.query import check_filter_keys
+
+        return check_filter_keys(values)
+
+
+class Preset(BaseModel):
+    id: str
+    name: str
+    filter: FilterSpec = Field(default_factory=FilterSpec)
+
+    @field_validator("id")
+    @classmethod
+    def _id(cls, v: str) -> str:
+        v = (v or "").strip().lower()
+        if not PRESET_ID_RE.match(v) or v in BUILTIN_PRESETS or v == "last":
+            raise ValueError("Preset non valido.")
+        return v
+
+    @field_validator("name")
+    @classmethod
+    def _name(cls, v: str) -> str:
+        v = " ".join((v or "").split())
+        if not v:
+            raise ValueError("Dai un nome al preset.")
+        if len(v) > 24:
+            raise ValueError("Il nome del preset può avere al massimo 24 caratteri.")
+        return v
 
 
 class Prefs(BaseModel):
@@ -76,12 +121,15 @@ class Prefs(BaseModel):
 
     theme: Literal["auto", "light", "dark"] = "auto"
     # Varianti dei due temi: scuro blu notte, grigio o nero (schermi OLED); chiaro neutro o carta.
-    dark_style: Literal["notte", "grigio", "nero"] = "notte"
-    light_style: Literal["neutro", "carta"] = "neutro"
+    # Solarized (#73) in tutti e due i temi.
+    dark_style: Literal["notte", "grigio", "nero", "solarized"] = "notte"
+    light_style: Literal["neutro", "carta", "solarized"] = "neutro"
     accent: Literal[ACCENTS] = "galassia"
-    # Font dell'interfaccia (galactic: titoli in Unbounded; sistema: quello del dispositivo;
-    # inter e leggibile: inclusi nell'app) e del testo degli articoli.
-    font: Literal["galactic", "sistema", "inter", "leggibile"] = "galactic"
+    # Colore scelto con il selettore, quando accent è «custom» (#74).
+    accent_custom: str = "#4F8CFF"
+    # Un solo font per interfaccia e articoli (#75): galactic (titoli Plus Jakarta Sans, articoli
+    # Newsreader), classico (serif), sistema, inter, leggibile. font_read resta per compatibilità.
+    font: Literal["galactic", "classico", "sistema", "inter", "leggibile"] = "galactic"
     font_read: Literal["serif", "sans", "sistema"] = "serif"
     text_size: float = Field(default=1.0, ge=0.85, le=1.3)
     # Sul computer: articolo nella colonna accanto all'elenco o a tutta pagina sopra di esso (#9).
@@ -103,6 +151,11 @@ class Prefs(BaseModel):
     notify_edition: bool = True
     # Fuso orario dell'utente per le Edizioni ("" = quello dell'istanza).
     timezone: str = ""
+    # Notiziario (#68, #69): preset dell'utente, quale usare all'apertura (uno pronto, uno dei
+    # suoi o «last») e l'ultimo filtro usato, esclusioni comprese.
+    presets: list[Preset] = Field(default_factory=list, max_length=MAX_PRESETS)
+    start_preset: str = "perte"
+    last_filter: FilterSpec | None = None
 
     _t = field_validator("edition_times")(check_times)
 
@@ -115,6 +168,32 @@ class Prefs(BaseModel):
         if value and not valid_timezone(value):
             raise ValueError("Fuso orario sconosciuto: scrivilo come Europe/Rome.")
         return value
+
+    @field_validator("accent_custom")
+    @classmethod
+    def _accent_custom(cls, value: str) -> str:
+        value = (value or "").strip()
+        if not HEX_RE.match(value):
+            raise ValueError("Colore non valido: scrivilo come #4F8CFF.")
+        return value.upper()
+
+    @field_validator("presets")
+    @classmethod
+    def _presets(cls, values: list[Preset]) -> list[Preset]:
+        seen = set()
+        for p in values:
+            if p.id in seen:
+                raise ValueError("Due preset con lo stesso id.")
+            seen.add(p.id)
+        return values
+
+    @model_validator(mode="after")
+    def _start(self) -> "Prefs":
+        # Se il preset all'apertura non c'è più (cancellato), si torna a «Per te».
+        ids = {*BUILTIN_PRESETS, "last", *(p.id for p in self.presets)}
+        if self.start_preset not in ids:
+            self.start_preset = "perte"
+        return self
 
     @field_validator("notify_folders")
     @classmethod
@@ -146,6 +225,9 @@ def user_payload(user: User) -> dict[str, Any]:
         "username": user.username,
         "display_name": user.display_name,
         "is_admin": user.is_admin,
+        # Avatar (#76): la foto, se c'è, oppure le iniziali su uno dei colori proposti.
+        "avatar": f"/api/avatars/{user.id}?v={user.avatar_v}" if user.avatar_v else None,
+        "avatar_color": user.avatar_color,
         "prefs": prefs_with_defaults(user.prefs),
         "created_at": iso(user.created_at),
     }

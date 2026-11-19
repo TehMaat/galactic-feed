@@ -7,8 +7,9 @@ poi, per ogni notizia, si tiene l'articolo pubblicato per primo.
 
 from __future__ import annotations
 
+import re
 import sqlite3
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 
 from .text import normalize
 
@@ -17,6 +18,50 @@ VIEWS = ("tutti", "perte", "nonletti", "video", "salvati")
 # (estrazione fallita, oppure saltata perché l'articolo era già vecchio all'arrivo).
 PARTIAL_SQL = "a.full_status IN ('failed', 'skipped')"
 MAX_SEARCH_WORDS = 8
+
+# Filtri a inclusione ed esclusione del Notiziario (#68). Ogni chiave è «tipo:valore»:
+#   t:<id> tag delle fonti, g:<id> gruppo di parole (interessi), f:<id>|f:none cartella,
+#   s:<id> fonte (abbonamento), c:<XX> nazione, v video.
+# Tag e gruppi sono entrambi «interessi»: tra quelli inclusi ne basta uno. Tra tipi diversi
+# devono valere tutti (per esempio un interesse e una fonte). Gli esclusi tolgono sempre.
+FILTER_KEY_RE = re.compile(r"^(?:[tgs]:\d{1,12}|f:(?:\d{1,12}|none)|c:[A-Z]{2}|v)$")
+MAX_FILTER_KEYS = 60
+_KIND = {"t": "interessi", "g": "interessi", "f": "cartelle", "s": "fonti", "c": "nazioni", "v": "tipo"}
+
+
+def check_filter_keys(values) -> list[str]:
+    """Le chiavi dei filtri, pulite e senza doppioni. ValueError se una non è valida."""
+    out: list[str] = []
+    for raw in values or []:
+        key = str(raw).strip()
+        if not key:
+            continue
+        if key.startswith("c:"):
+            key = key.upper().replace("C:", "c:", 1)
+        if not FILTER_KEY_RE.match(key):
+            raise ValueError(f"Filtro non valido: {key}")
+        if key not in out:
+            out.append(key)
+    if len(out) > MAX_FILTER_KEYS:
+        raise ValueError("Troppi filtri insieme.")
+    return out
+
+
+def _key_sql(key: str) -> tuple[str, list]:
+    kind, _, value = key.partition(":")
+    if kind == "t":
+        return "s.id IN (SELECT subscription_id FROM source_tags WHERE tag_id = ? AND origin != 'rejected')", [int(value)]
+    if kind == "g":
+        return "m.group_id = ?", [int(value)]
+    if kind == "f":
+        if value == "none":
+            return "(s.id IS NOT NULL AND s.folder_id IS NULL)", []
+        return "s.folder_id = ?", [int(value)]
+    if kind == "s":
+        return "s.id = ?", [int(value)]
+    if kind == "c":
+        return "COALESCE(s.country, f.country_admin, f.country) = ?", [value]
+    return "a.video_id IS NOT NULL", []
 
 
 @dataclass
@@ -35,6 +80,10 @@ class ArticleFilter:
     show_partial: bool = False
     before: int | None = None
     since: int | None = None
+    # Notiziario (#68): chiavi incluse ed escluse (vedi FILTER_KEY_RE) e «solo non letti».
+    include: list[str] = field(default_factory=list)
+    exclude: list[str] = field(default_factory=list)
+    unread: bool = False
 
     @property
     def sort_column(self) -> str:
@@ -85,6 +134,20 @@ def visible_cte(user_id: int, f: ArticleFilter, muted: bool | None = False) -> t
             clause = "a.id IN (SELECT rowid FROM articles_fts WHERE articles_fts MATCH ?) OR " + clause
             params.insert(len(params) - 2, match)
         where.append(f"({clause})")
+    if f.unread:
+        where.append("ua.read_at IS NULL")
+    if f.include:
+        kinds: dict[str, list[tuple[str, list]]] = {}
+        for key in f.include:
+            kinds.setdefault(_KIND[key[0]], []).append(_key_sql(key))
+        for parts in kinds.values():
+            where.append("(" + " OR ".join(sql for sql, _ in parts) + ")")
+            for _, p in parts:
+                params.extend(p)
+    for key in f.exclude:
+        sql, p = _key_sql(key)
+        where.append(f"NOT COALESCE(({sql}), 0)")
+        params.extend(p)
     if f.before is not None:
         where.append("a.published_at <= ?")
         params.append(f.before)
@@ -142,6 +205,16 @@ def list_page(
 def count(conn: sqlite3.Connection, user_id: int, f: ArticleFilter, muted: bool | None = False) -> int:
     cte, params = visible_cte(user_id, f, muted)
     return conn.execute(f"WITH {cte}, {ranked_sql(f)} SELECT COUNT(*) FROM ranked WHERE rn = 1", params).fetchone()[0]
+
+
+def tally(conn: sqlite3.Connection, user_id: int, f: ArticleFilter) -> dict:
+    """Quante notizie ha un filtro e quante sono ancora da leggere («X notizie · X da leggere», #66)."""
+    cte, params = visible_cte(user_id, f)
+    row = conn.execute(
+        f"WITH {cte}, {ranked_sql(f)} SELECT COUNT(*) AS total, COALESCE(SUM(read_at IS NULL), 0) AS unread FROM ranked WHERE rn = 1",
+        params,
+    ).fetchone()
+    return {"total": row["total"], "unread": row["unread"]}
 
 
 def partial_hidden(conn: sqlite3.Connection, user_id: int, f: ArticleFilter) -> int:
