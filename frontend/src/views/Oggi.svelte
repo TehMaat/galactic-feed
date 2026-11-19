@@ -37,9 +37,13 @@
     check();
     window.addEventListener("scroll", check, { passive: true });
     viewEl?.addEventListener("scroll", check, { passive: true });
+    // Anche quando cambia l'altezza sopra (per esempio arrivano le Edizioni), senza scorrere.
+    const ro = new ResizeObserver(check);
+    if (viewEl) ro.observe(viewEl.firstElementChild || viewEl);
     return () => {
       window.removeEventListener("scroll", check);
       viewEl?.removeEventListener("scroll", check);
+      ro.disconnect();
       ui.atNews = false;
     };
   });

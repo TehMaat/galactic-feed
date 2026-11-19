@@ -57,7 +57,7 @@ Scelte:
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="img/diagrammi/articolo-scuro.svg">
-  <img alt="Lo scheduler sceglie le fonti, scarica il feed una volta, estrae il testo se serve, unisce i doppioni e per ogni utente applica interessi, parole silenziate e AI: per te, nel Flusso o silenziato; poi notifica ed Edizione" src="img/diagrammi/articolo-chiaro.svg">
+  <img alt="Lo scheduler sceglie le fonti, scarica il feed una volta, estrae il testo se serve, unisce i doppioni e per ogni utente applica interessi, parole silenziate e AI: per te, nel Notiziario o silenziato; poi notifica ed Edizione" src="img/diagrammi/articolo-chiaro.svg">
 </picture>
 
 ## Schema del database
@@ -65,7 +65,7 @@ Scelte:
 I contenuti dei feed sono **condivisi**: un feed seguito da tre utenti si scarica una volta. Tutto ciò che è personale sta in tabelle **per utente**. Lo schema cresce con migrazioni numerate in `backend/app/migrations/`; la versione applicata è in `PRAGMA user_version`.
 
 **Account**
-- `users`: username (unico, senza distinzione tra maiuscole e minuscole), nome visualizzato, hash della password, amministratore (e se l'ha dato il gruppo del provider, `admin_via_group`), disattivato, preferenze (JSON: tema e varianti dello scuro e del chiaro, colore principale, font dell'interfaccia e degli articoli, dimensione del testo, unione dei doppioni, Edizione e orari, metodo e descrizione per l'AI, riassunti, cartelle importanti per le notifiche), creato il, ultimo accesso
+- `users`: username (unico, senza distinzione tra maiuscole e minuscole), nome visualizzato, hash della password, amministratore (e se l'ha dato il gruppo del provider, `admin_via_group`), disattivato, preferenze (JSON: tema e varianti dello scuro e del chiaro, colore principale o personalizzato, font, dimensione del testo, preset del Notiziario, preset all'apertura e ultimo filtro usato, unione dei doppioni, Edizione e orari, metodo e descrizione per l'AI, riassunti, cartelle importanti per le notifiche), avatar (foto piccola o colore delle iniziali), creato il, ultimo accesso
 - `sessions`: hash del token, utente, creata il, ultimo uso, scadenza, dispositivo
 - `user_identities`: account del provider OIDC collegati a un utente (issuer, subject, email, nome utente)
 - `oidc_states`: accessi in corso verso il provider (hash dello state, verificatore PKCE, nonce; 10 minuti, una volta sola)
@@ -80,19 +80,20 @@ I contenuti dei feed sono **condivisi**: un feed seguito da tre utenti si scaric
 - `articles` (condivisa): feed, guid, url, url normalizzato, titolo, autore, estratto, contenuto del feed, testo completo estratto, stato dell'estrazione, immagine, durata del video, pubblicato il, scaricato il, cluster dei doppioni
 - `articles_fts`: indice full-text su titolo, autore, estratto e testo, insensibile agli accenti
 - `user_articles` (per utente): letto il, salvato il. Nessuna riga vuol dire non letto
+- `reading_log` (per utente): gli articoli aperti, uno per articolo, con la fonte: servono alle statistiche del Profilo
 
 **Interessi**
 - `interests` (per utente): parola chiave, priorità (alta / media / spento)
 - `muted_words` (per utente): parola
 - `preset_groups` (condivisa): gruppi di parole pronti, forniti con l'app (`builtin`, si nascondono soltanto) o aggiunti dall'amministratore
 - `word_groups` e `word_group_words` (per utente): gruppi di parole propri o copiati da un gruppo pronto, spenti, accesi come interesse (con priorità) o come silenziatore
-- `tags` (per utente): nome, colore, posizione, chip nel Flusso sì/no
+- `tags` (per utente): nome, colore, posizione, tra gli interessi dei Filtri del Notiziario sì/no
 - `source_tags` (per utente, tramite la fonte): tag della fonte con `origin` = `auto` (proposto), `user` (scelto) o `rejected` (proposto e tolto: non torna)
 - `user_matches` (per utente): esito delle regole su ogni articolo (interesse o tema dell'AI e priorità, oppure silenziato; `source` dice se viene dalle parole o dall'AI; `group_id` il gruppo di parole che ha trovato l'articolo). Calcolato all'arrivo degli articoli, quando l'utente cambia le regole e quando l'AI valuta nuovi articoli, così filtri e contatori sono semplici query
 
 **Seconda versione**
 - `edition_configs` (per utente): le Edizioni, con nome, attiva sì/no, regole (tag, cartelle, nazioni, gruppi di parole), pianificazione (giornaliera, settimanale, mensile), numero massimo di notizie, periodo coperto, notifica
-- `editions` ed `edition_items` (per utente): le uscite, con l'Edizione (`config_id`) e il numero dentro di lei, orario, notizie e sezioni (si tengono le ultime 60 di ogni Edizione)
+- `editions` ed `edition_items` (per utente): le uscite, con l'Edizione (`config_id`) e il numero dentro di lei, orario, notizie e sezioni, quando è stata aperta la prima volta (si tengono le ultime 60 di ogni Edizione)
 - `app_settings`: configurazione dell'AI (fornitore, indirizzo, modello, chiave, tetto giornaliero, ultimo errore)
 - `ai_usage`: richieste e token al giorno
 - `ai_matches` (per utente): esito dell'AI per articolo, anche «non pertinente», così ogni articolo si valuta una volta sola
@@ -115,15 +116,15 @@ Tutti sotto `/api`; salvo `auth`, `invites` e `health` richiedono l'accesso. Gli
 |---|---|
 | Accesso | `GET auth/state` · `POST auth/setup` · `POST auth/login` · `POST auth/logout` · `GET auth/oidc/start` · `GET auth/oidc/callback` · `GET`/`DELETE me/identities[/{id}]` · `GET`/`PUT admin/oidc` · `POST admin/oidc/test` |
 | Inviti | `GET invites/{token}` · `POST invites/{token}/accept` (anche per il reset della password) |
-| Profilo | `GET`/`PATCH me` · `POST me/password` · `GET me/sessions` · `DELETE me/sessions/{id}` |
+| Profilo | `GET`/`PATCH me` · `POST me/password` · `GET me/sessions` · `DELETE me/sessions/{id}` · `PUT`/`DELETE me/avatar` · `GET avatars/{id}` · `GET me/stats?days=7` (o 30) |
 | Admin | `GET admin/users` · `PATCH`/`DELETE admin/users/{id}` · `POST admin/users/{id}/reset` · `GET`/`POST admin/invites` · `DELETE admin/invites/{id}` · `GET admin/status` · `GET`/`PATCH admin/settings` (impostazioni dell'istanza) · `GET`/`PUT admin/defaults` (preferenze dei nuovi utenti) |
 | Cartelle | `GET`/`POST folders` · `PATCH`/`DELETE folders/{id}` |
 | Fonti | `POST sources/discover` · `GET`/`POST sources` · `PATCH`/`DELETE sources/{id}` · `POST sources/{id}/refresh` · `POST sources/refresh` · `PUT sources/{id}/icon` · `POST sources/{id}/icon/refresh` |
 | OPML | `POST opml/import` · `GET opml/export` |
-| Articoli | `GET articles` (filtri `tutti`, `perte`, `nonletti`, `video`, `salvati`, cartella, fonte, ricerca, cursore) · `GET articles/counts` · `GET articles/{id}` · `PUT`/`DELETE articles/{id}/read` · `PUT`/`DELETE articles/{id}/saved` · `POST articles/mark-read` · `POST articles/sync` |
+| Articoli | `GET articles` (filtri `tutti`, `perte`, `nonletti`, `video`, `salvati`, cartella, fonte, ricerca, chiavi incluse `inc` ed escluse `exc`, `unread`, cursore) · `GET articles/counts` · `POST articles/tally` (notizie e da leggere per più filtri) · `GET articles/{id}` · `PUT`/`DELETE articles/{id}/read` · `PUT`/`DELETE articles/{id}/saved` · `POST articles/mark-read` · `POST articles/sync` |
 | Interessi | `GET interests` (con gruppi e gruppi pronti) · `POST`/`PATCH`/`DELETE interests/keywords[/{id}]` · `POST`/`DELETE interests/muted[/{id}]` · `GET interests/preview` · `POST groups` · `PATCH`/`DELETE groups/{id}` |
 | Tag | `GET`/`POST tags` · `PATCH`/`DELETE tags/{id}` · `PUT tags/order` · `POST tags/{id}/merge` · `PUT sources/{id}/tags` · `POST sources/{id}/tags/suggest` |
-| Edizioni | `GET`/`POST edition-configs` · `PATCH`/`DELETE edition-configs/{id}` · `POST edition-configs/{id}/duplicate` · `PUT edition-configs/order` · `POST edition-configs/preview` · `GET editions/latest[?config=]` · `GET`/`DELETE editions/{id}` · `POST editions` (componi adesso) |
+| Edizioni | `GET`/`POST edition-configs` · `PATCH`/`DELETE edition-configs/{id}` · `POST edition-configs/{id}/duplicate` · `PUT edition-configs/order` · `POST edition-configs/preview` · `GET editions/latest[?config=]` · `GET editions/today` (le Edizioni di Oggi) · `GET`/`DELETE editions/{id}` · `POST editions` (componi adesso) |
 | Admin (2) | `GET`/`POST admin/presets` · `PATCH`/`DELETE admin/presets/{id}` (gruppi pronti) · `GET admin/feeds` · `PATCH admin/feeds/{id}` (nazione dei feed) |
 | AI | `GET ai/status` · `GET`/`PUT admin/ai` · `POST admin/ai/test` · `POST articles/{id}/summary` |
 | Notifiche | `GET push/key` · `GET`/`POST`/`DELETE push/subscriptions` · `POST push/test` |

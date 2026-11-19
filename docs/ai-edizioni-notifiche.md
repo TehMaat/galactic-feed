@@ -8,10 +8,10 @@ Sono tutte facoltative e si accendono dalle Impostazioni. Senza nessuna delle tr
 
 ## Edizioni
 
-Un'Edizione è una selezione di notizie in stile giornale, composta dal server agli orari che scegli. Si trova in **Oggi → Edizione**, con un selettore se ne hai più d'una; il Flusso resta a un tocco (o a uno swipe sul telefono).
+Un'Edizione è una selezione di notizie in stile giornale, composta dal server agli orari che scegli. In **Oggi**, in alto, c'è l'ultima uscita di ogni Edizione accesa, con quante notizie ha; si apre con un tocco, come un articolo. Sotto c'è il Notiziario.
 
 <p align="center">
-  <img src="img/screenshot/edizione-telefono-chiaro.webp" width="300" alt="L'Edizione «Il Mattino» sul telefono: fonti, notizie nuove, per te, e la notizia in primo piano">
+  <img src="img/screenshot/edizione-telefono-chiaro.webp" width="300" alt="L'Edizione «Il Mattino» aperta sul telefono: fonti, notizie nuove, per te, e la notizia in primo piano">
 </p>
 
 In **Impostazioni → Edizioni** crei una o più Edizioni, ognuna con nome, regole e uscite proprie:

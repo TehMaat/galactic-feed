@@ -8,13 +8,13 @@
 Lettore di notizie self-hosted e multiutente. Il server raccoglie feed RSS/Atom e canali YouTube, sceglie le notizie che ti interessano con parole chiave o con l'AI e toglie i doppioni. Se vuoi, agli orari che scegli compone un'**Edizione** in stile giornale e ti avvisa con una notifica. Le leggi da una PWA per telefono, tablet e computer, anche offline.
 
 <p align="center">
-  <img src="docs/img/screenshot/oggi-telefono-chiaro.webp" width="230" alt="Il Flusso di Oggi sul telefono, tema chiaro">
+  <img src="docs/img/screenshot/oggi-telefono-chiaro.webp" width="230" alt="Oggi sul telefono, tema chiaro: un'Edizione e il Notiziario">
   <img src="docs/img/screenshot/edizione-telefono-chiaro.webp" width="230" alt="L'Edizione del mattino sul telefono">
   <img src="docs/img/screenshot/articolo-telefono-scuro.webp" width="230" alt="Un articolo aperto sul telefono, tema scuro">
 </p>
 
 <p align="center">
-  <img src="docs/img/screenshot/oggi-computer-scuro.webp" width="700" alt="Flusso e lettura affiancati sul computer, tema scuro">
+  <img src="docs/img/screenshot/oggi-computer-scuro.webp" width="700" alt="Notiziario e lettura affiancati sul computer, tema scuro">
 </p>
 
 <sub>Screenshot con dati inventati: testate, articoli e persone non esistono.</sub>
@@ -36,7 +36,7 @@ Interfaccia e documentazione in italiano.
 
 Serve Docker con il plugin Compose.
 
-1. Scarica il [`docker-compose.yml`](docker-compose.yml) in una cartella e cambia `PUBLIC_URL` con l'indirizzo da cui aprirai l'app (per esempio `https://notizie.example.org`). L'immagine è `ghcr.io/tehmaat/galactic-feed:0.12`.
+1. Scarica il [`docker-compose.yml`](docker-compose.yml) in una cartella e cambia `PUBLIC_URL` con l'indirizzo da cui aprirai l'app (per esempio `https://notizie.example.org`). L'immagine è `ghcr.io/tehmaat/galactic-feed:0.13`.
 2. Avvia e leggi il codice di primo avvio nel log:
 
    ```bash
