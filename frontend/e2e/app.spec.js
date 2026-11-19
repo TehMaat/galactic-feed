@@ -23,16 +23,28 @@ async function barClick(button) {
   await button.click();
 }
 
-// Su telefono e tablet la Dock ha tre tasti: Fonti si apre dalle Impostazioni.
+// Su telefono e tablet la Dock ha Oggi, Notiziario (con le Edizioni), Cerca e Profilo; Fonti,
+// Interessi, Salvati, Impostazioni e Amministrazione si aprono dal Profilo (#64). Sul computer
+// sono tutte nella barra in alto (#65).
 async function tab(page, name) {
-  const button = page.locator(".tabbar").getByRole("button", { name });
-  if (name === "Fonti" && !(await button.isVisible())) {
-    await barClick(page.locator(".appbar").getByRole("button", { name: "Impostazioni" }));
-    await page.locator(SETTINGS).getByRole("button", { name: /Le tue fonti/ }).click();
-    await expect(page.locator("section[aria-label='Fonti']")).toBeVisible();
-    return;
+  if ((page.viewportSize()?.width || 0) >= 1100) {
+    const nav = page.locator(".tabbar");
+    if (name === "Impostazioni") return nav.locator(".nav-settings").click();
+    if (name === "Amministrazione") return nav.locator(".nav-admin").click();
+    if (name === "Cerca") return nav.locator(".nav-search").click();
+    if (name === "Profilo") return nav.locator(".nav-me").click();
+    return nav.getByRole("button", { name: new RegExp(`^${name}`) }).click();
   }
-  await barClick(button);
+  const dock = page.locator(".dock");
+  if (["Oggi", "Notiziario", "Cerca", "Profilo"].includes(name)) return barClick(dock.getByRole("button", { name, exact: true }));
+  await barClick(dock.getByRole("button", { name: "Profilo", exact: true }));
+  await page.locator(".shortcuts").getByRole("button", { name: new RegExp(`^${name}`) }).click();
+}
+
+// Un preset del Notiziario (#68), dalla riga sopra le notizie.
+async function preset(page, name) {
+  await page.locator(".preset-row").getByRole("button", { name: new RegExp(`^${name}`) }).click();
+  await expect(page.locator(".preset-row").getByRole("button", { name: new RegExp(`^${name}`) })).toHaveAttribute("aria-pressed", "true");
 }
 
 async function sheetClick(page, text) {
@@ -69,19 +81,22 @@ test("primo avvio, fonti, interessi, lettura e salvati sul telefono", async ({ p
   await sheetClick(page, "Crea");
   await sheetClick(page, "Aggiungi fonte");
   await expect(page.locator(".toast")).toContainText("Orbita aggiunta a Spazio");
+  // Il Notiziario parte da «Per te» (#69): senza interessi è vuoto e lo dice; «Tutte» le mostra.
+  await expect(page.locator("section[aria-label='Oggi']")).toContainText("Ancora niente per te");
+  await preset(page, "Tutte");
   await expect(page.locator("section[aria-label='Oggi'] .card")).toHaveCount(3);
+  await expect(page.locator("#h-notiziario + .sec-sub")).toHaveText("3 notizie · 3 da leggere");
 
-  // Seconda fonte, dal feed diretto. Sul telefono la Dock ha tre tasti: Fonti è nelle Impostazioni.
-  await expect(page.locator(".tabbar button:visible")).toHaveText(["Oggi", "Interessi", "Salvati"]);
-  await barClick(page.locator(".appbar").getByRole("button", { name: "Impostazioni" }));
-  await page.locator(SETTINGS).getByRole("button", { name: /Le tue fonti/ }).click();
+  // Seconda fonte, dal feed diretto. Sul telefono la Dock ha Oggi, Cerca e Profilo (senza Edizioni
+  // niente «Notiziario»); Fonti si apre dal Profilo.
+  await expect.poll(() => page.locator(".dock button").evaluateAll((b) => b.map((x) => x.getAttribute("aria-label")))).toEqual(["Oggi", "Cerca", "Profilo"]);
+  await tab(page, "Fonti");
   await expect(page).toHaveURL(/\/fonti$/);
-  // Fuori dalle tre sezioni della Dock la capsula non c'è.
-  await expect(page.locator(".tab-pill")).toHaveCSS("opacity", "0");
-  // «Indietro» riporta alle Impostazioni.
+  await expect(page.locator(".dock").getByRole("button", { name: "Profilo" })).toHaveAttribute("aria-current", "page");
+  // «Indietro» riporta al Profilo.
   await page.locator("section[aria-label='Fonti']").getByRole("button", { name: "Indietro" }).click();
-  await expect(page).toHaveURL(/\/impostazioni$/);
-  await page.locator(SETTINGS).getByRole("button", { name: /Le tue fonti/ }).click();
+  await expect(page).toHaveURL(/\/profilo$/);
+  await page.locator(".shortcuts").getByRole("button", { name: /^Fonti/ }).click();
   await page.getByRole("button", { name: "Aggiungi", exact: true }).click();
   await page.getByLabel("Indirizzo").fill("http://127.0.0.1:8098/bitebyte.xml");
   await sheetClick(page, "Cerca feed");
@@ -119,17 +134,20 @@ test("primo avvio, fonti, interessi, lettura e salvati sul telefono", async ({ p
   await help.getByRole("button", { name: "Ho capito" }).click();
   await expect(help).toBeHidden();
 
-  // Flusso: per te, nascosti, ricerca.
+  // Notiziario: per te, nascosti; la ricerca è in Cerca.
   await tab(page, "Oggi");
   await expect(page.locator("section[aria-label='Oggi'] .card")).toHaveCount(4);
   await expect(page.locator(".hidden-note")).toContainText("1 articolo nascosto");
-  await page.locator(".chip", { hasText: "Per te" }).click();
+  await preset(page, "Per te");
   await expect(page.locator("section[aria-label='Oggi'] .card")).toHaveCount(1);
-  await expect(page.locator("section[aria-label='Oggi'] .card .match")).toHaveText("Luna");
-  await page.locator(".chip", { hasText: "Tutti" }).click();
-  await page.getByLabel("Cerca").fill("galassia");
-  await expect(page.locator("section[aria-label='Oggi'] .card")).toHaveCount(1);
-  await page.getByLabel("Cerca").fill("");
+  await expect(page.locator("section[aria-label='Oggi'] .card .card-title")).toContainText(/lun/i);
+  await preset(page, "Tutte");
+  await tab(page, "Cerca");
+  const cerca = page.locator("section[aria-label='Cerca']");
+  await cerca.getByLabel("Cerca negli articoli e nelle fonti").fill("galassia");
+  await expect(cerca.locator(".card")).toHaveCount(1);
+  await expect(cerca.locator(".sec-sub")).toHaveText("1 notizia · 1 da leggere");
+  await tab(page, "Oggi");
   await expect(page.locator("section[aria-label='Oggi'] .card")).toHaveCount(4);
 
   // Lettura con il testo completo e segnalibro.
@@ -150,17 +168,12 @@ test("primo avvio, fonti, interessi, lettura e salvati sul telefono", async ({ p
   await expect(page.locator(".toast")).toContainText("Salvato");
   await reader.getByRole("button", { name: "Indietro" }).click();
   await expect(page.locator("section[aria-label='Oggi'] .card", { hasText: "Le PWA su iPhone" })).toHaveClass(/is-read/);
-  await expect(page.locator(".tab-badge")).toHaveText("1");
+  await expect(page.locator("#h-notiziario + .sec-sub")).toHaveText("4 notizie · 3 da leggere");
 
-  await tab(page, "Salvati");
+  await tab(page, "Profilo");
+  await expect(page.locator(".shortcuts").getByRole("button", { name: /^Salvati/ })).toContainText("1");
+  await page.locator(".shortcuts").getByRole("button", { name: /^Salvati/ }).click();
   await expect(page.locator("[aria-label='Salvati'] .card")).toHaveCount(1);
-  // Nella Dock una capsula tenue sta sotto la sezione aperta e la segue.
-  const pillUnder = async (name) => {
-    const pill = await page.locator(".tab-pill").boundingBox();
-    const button = await page.locator(".tabbar").getByRole("button", { name }).boundingBox();
-    return Math.round(Math.abs(pill.x + pill.width / 2 - (button.x + button.width / 2)));
-  };
-  await expect.poll(() => pillUnder("Salvati")).toBeLessThanOrEqual(2);
 
   // Il tasto Indietro del browser chiude l'articolo.
   await page.locator("[aria-label='Salvati'] .card").click();
@@ -170,14 +183,20 @@ test("primo avvio, fonti, interessi, lettura e salvati sul telefono", async ({ p
 
   // Tema scuro e invito.
   await tab(page, "Oggi");
-  await page.getByRole("button", { name: "Impostazioni" }).click();
+  await tab(page, "Impostazioni");
   await expect(page).toHaveURL(/\/impostazioni$/);
   await page.locator(SETTINGS).getByRole("button", { name: "Scuro" }).click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
-  // Variante del tema scuro: grigio.
+  // Variante del tema scuro: Solarized (#73), poi grigio.
+  await page.locator(SETTINGS).getByRole("group", { name: "Variante del tema scuro" }).getByRole("button", { name: "Solarized" }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-dark", "solarized");
+  await expect.poll(() => page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--app-bg").trim().toUpperCase())).toBe("#002B36");
   await page.locator(SETTINGS).getByRole("group", { name: "Variante del tema scuro" }).getByRole("button", { name: "Grigio" }).click();
   await expect(page.locator("html")).toHaveAttribute("data-dark", "grigio");
   await expect.poll(() => page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--app-bg").trim().toUpperCase())).toBe("#18181B");
+  // Preset all'apertura (#69): da qui in poi si parte da «Tutte».
+  await page.locator(SETTINGS).getByRole("group", { name: "Preset all'apertura del Notiziario" }).getByRole("button", { name: "Tutte" }).click();
+  await expect(page.locator(SETTINGS).getByRole("group", { name: "Preset all'apertura del Notiziario" }).getByRole("button", { name: "Tutte" })).toHaveAttribute("aria-pressed", "true");
   // Utenti e inviti sono nell'Amministrazione, che sul telefono si apre dalle Impostazioni.
   await page.locator(SETTINGS).getByRole("button", { name: "Amministrazione", exact: true }).click();
   await expect(page).toHaveURL(/\/amministrazione$/);
@@ -229,10 +248,12 @@ test("accesso e tre colonne sul computer", async ({ page }) => {
   expect(list).toMatchObject({ x: 0, y: 64, width: 460 });
   expect(reader.x).toBeGreaterThanOrEqual(460);
   expect(reader.y).toBe(64);
-  // Il nome dell'app a sinistra nella barra, le Impostazioni in alto a destra.
+  // Il nome dell'app a sinistra nella barra; Cerca, Impostazioni e l'avatar in alto a destra.
   await expect(page.locator(".appbar")).toBeHidden();
+  await expect(page.locator(".dock")).toBeHidden();
   await expect(page.locator(".tabbar .nav-brand")).toHaveText("galactic feed");
-  const settings = await page.getByRole("button", { name: "Impostazioni" }).boundingBox();
+  await expect(page.locator(".tabbar .nav-me")).toBeVisible();
+  const settings = await page.locator(".tabbar .nav-settings").boundingBox();
   expect(settings.x).toBeGreaterThan(1440 / 2);
   expect(settings.y + settings.height).toBeLessThanOrEqual(64);
   await page.locator("section[aria-label='Oggi'] .card").first().click();
@@ -246,7 +267,7 @@ test("accesso e tre colonne sul computer", async ({ page }) => {
 
   // Impostazioni → Lettura → «Pagina intera» (#9): l'elenco usa tutta la larghezza e l'articolo
   // si apre sopra di esso; Indietro riporta all'elenco.
-  await page.getByRole("button", { name: "Impostazioni" }).click();
+  await tab(page, "Impostazioni");
   await page.locator(SETTINGS).getByRole("group", { name: "Articolo sul computer" }).getByRole("button", { name: "Pagina intera" }).click();
   await expect(page.locator(".app")).toHaveAttribute("data-reader", "pagina");
   await tab(page, "Oggi");
@@ -261,7 +282,7 @@ test("accesso e tre colonne sul computer", async ({ page }) => {
   await page.keyboard.press("Escape");
   await expect(page.locator(".reader.is-open")).toHaveCount(0);
   // Di nuovo accanto all'elenco, per gli altri test.
-  await page.getByRole("button", { name: "Impostazioni" }).click();
+  await tab(page, "Impostazioni");
   await page.locator(SETTINGS).getByRole("group", { name: "Articolo sul computer" }).getByRole("button", { name: "Accanto" }).click();
   await expect(page.locator(".app")).toHaveAttribute("data-reader", "colonne");
 });
@@ -361,7 +382,7 @@ test("Edizione: si accende dalle Impostazioni e si compone", async ({ page }) =>
   await expect(page.locator("section[aria-label='Oggi'] .card").first()).toBeVisible();
 
   // Impostazioni → Edizioni: «Crea la tua Edizione» apre la sua scheda (ogni giorno alle 07:30).
-  await page.getByRole("button", { name: "Impostazioni" }).click();
+  await tab(page, "Impostazioni");
   await page.locator(SETTINGS).getByRole("button", { name: "Crea la tua Edizione" }).click();
   const edSheet = page.locator(".sheet.is-open");
   await expect(edSheet.locator("h3")).toHaveText("La mia Edizione");
@@ -370,23 +391,29 @@ test("Edizione: si accende dalle Impostazioni e si compone", async ({ page }) =>
   await edSheet.getByRole("button", { name: "Orario", exact: true }).click();
   await expect(edSheet.locator(".tag.mono")).toHaveText(["07:30", "21:15"]);
   await expect(edSheet.locator(".preview")).toContainText("con queste regole");
-  await edSheet.getByRole("button", { name: "Chiudi" }).click();
-  await tab(page, "Oggi");
 
-  // La prima la compone il server al giro successivo; qui la chiediamo subito.
+  // La prima la compone il server al giro successivo; qui la chiediamo subito. Si apre come un
+  // articolo, sopra Oggi (#64).
+  await edSheet.getByRole("button", { name: "Componi adesso" }).click();
+  const reader = page.locator(".reader.is-open");
+  await expect(reader.locator(".masthead .mast-kicker")).toContainText("La mia Edizione");
+  await expect(reader.locator(".hero .hero-title")).toHaveText("Perché le prossime missioni lunari puntano tutte al polo sud");
+  await reader.locator(".hero").click();
+  await expect(reader.locator(".reader-title")).toHaveText("Perché le prossime missioni lunari puntano tutte al polo sud");
+  // Indietro: dall'articolo all'Edizione, poi a Oggi.
+  await reader.getByRole("button", { name: "Indietro" }).click();
+  await expect(reader.locator(".hero")).toHaveClass(/is-read/);
+  await reader.getByRole("button", { name: "Indietro" }).click();
+  await expect(page.locator(".reader.is-open")).toHaveCount(0);
+
+  // In Oggi la card dell'Edizione dice quante notizie ha; sotto c'è il Notiziario, e la Dock ha «Notiziario».
   const oggi = page.locator("section[aria-label='Oggi']");
-  await expect(oggi.getByRole("tab", { name: "Edizione" })).toHaveAttribute("aria-selected", "true");
-  const compose = oggi.getByRole("button", { name: "Componi adesso" });
-  if (await compose.isVisible()) await compose.click();
-  await expect(oggi.locator(".masthead")).toContainText("n. 1");
-  await expect(oggi.locator(".hero .hero-title")).toHaveText("Perché le prossime missioni lunari puntano tutte al polo sud");
-  await oggi.locator(".hero").click();
-  await expect(page.locator(".reader.is-open .reader-title")).toHaveText("Perché le prossime missioni lunari puntano tutte al polo sud");
-  await page.locator(".reader.is-open").getByRole("button", { name: "Indietro" }).click();
-  await expect(oggi.locator(".hero")).toHaveClass(/is-read/);
+  await expect(oggi.locator(".ed-card .ed-name")).toHaveText(["La mia Edizione"]);
+  await expect(oggi.locator(".ed-card .ed-meta")).toContainText(/\d+ notizi[ae]/);
+  await expect(page.locator(".dock").getByRole("button", { name: "Notiziario" })).toBeVisible();
 
-  // Una seconda Edizione, settimanale, con una regola: compare il selettore in Oggi.
-  await page.getByRole("button", { name: "Impostazioni" }).click();
+  // Una seconda Edizione, settimanale, con una regola.
+  await tab(page, "Impostazioni");
   await page.locator(SETTINGS).getByRole("button", { name: "Nuova Edizione" }).click();
   await edSheet.getByLabel("Nome").fill("Spazio del lunedì");
   await edSheet.getByLabel("Nome").press("Enter");
@@ -399,21 +426,21 @@ test("Edizione: si accende dalle Impostazioni e si compone", async ({ page }) =>
   await edSheet.getByRole("button", { name: "Spazio", exact: true }).click();
   await expect(edSheet.locator(".preview")).toContainText("con queste regole");
   await edSheet.getByRole("button", { name: "Componi adesso" }).click();
-  await expect(oggi.getByRole("tablist", { name: "Edizioni" }).getByRole("tab")).toHaveText(["Spazio del lunedì", "La mia Edizione"]);
-  await expect(oggi.locator(".masthead .mast-kicker")).toHaveText("Spazio del lunedì · n. 1");
-  await oggi.getByRole("tablist", { name: "Edizioni" }).getByRole("tab", { name: "La mia Edizione" }).click();
-  await expect(oggi.locator(".masthead .mast-kicker")).toHaveText("La mia Edizione · n. 1");
+  await expect(reader.locator(".masthead .mast-kicker")).toContainText("Spazio del lunedì");
+  await reader.getByRole("button", { name: "Indietro" }).click();
+  await expect(oggi.locator(".ed-card .ed-name")).toHaveText(["Spazio del lunedì", "La mia Edizione"]);
+  await expect(oggi.locator(".ed-card .ed-tag").first()).toHaveText("Spazio");
 
-  // Un'uscita si elimina da Oggi, un'Edizione dalle Impostazioni: con la conferma dell'app,
-  // non quella del browser (che alcune app installate non mostrano).
-  await oggi.getByRole("tablist", { name: "Edizioni" }).getByRole("tab", { name: "Spazio del lunedì" }).click();
-  await expect(oggi.locator(".masthead .mast-kicker")).toHaveText("Spazio del lunedì · n. 1");
-  await oggi.getByRole("button", { name: "Elimina questa uscita" }).click();
+  // Un'uscita si elimina dall'Edizione aperta, un'Edizione dalle Impostazioni: con la conferma
+  // dell'app, non quella del browser (che alcune app installate non mostrano).
+  await oggi.locator(".ed-card", { hasText: "Spazio del lunedì" }).click();
+  await reader.getByRole("button", { name: "Elimina questa uscita" }).click();
   await expect(page.getByRole("alertdialog")).toContainText("Eliminare «Spazio del lunedì» n. 1?");
   await page.getByRole("alertdialog").getByRole("button", { name: "Elimina" }).click();
   await expect(page.locator(".toast")).toContainText("Uscita eliminata");
-  await expect(oggi.locator(".masthead")).toHaveCount(0);
-  await page.getByRole("button", { name: "Impostazioni" }).click();
+  await expect(page.locator(".reader.is-open")).toHaveCount(0);
+  await expect(oggi.locator(".ed-card .ed-name")).toHaveText(["La mia Edizione"]);
+  await tab(page, "Impostazioni");
   await page.locator(SETTINGS).getByRole("button", { name: "Elimina l'Edizione Spazio del lunedì" }).click();
   await page.getByRole("alertdialog").getByRole("button", { name: "Annulla" }).click();
   await expect(page.locator(SETTINGS).locator(".preset-name b")).toHaveText(["La mia Edizione", "Spazio del lunedì"]);
@@ -421,12 +448,11 @@ test("Edizione: si accende dalle Impostazioni e si compone", async ({ page }) =>
   await page.getByRole("alertdialog").getByRole("button", { name: "Elimina" }).click();
   await expect(page.locator(".toast")).toContainText("«Spazio del lunedì» eliminata");
   await expect(page.locator(SETTINGS).locator(".preset-name b")).toHaveText(["La mia Edizione"]);
-  await tab(page, "Oggi");
-  await expect(oggi.locator(".masthead .mast-kicker")).toContainText("n. 1");
 
-  // Il Flusso resta a un tocco.
-  await oggi.getByRole("tab", { name: "Flusso" }).click();
-  await expect(oggi.locator(".card").first()).toBeVisible();
+  // «Notiziario» nella Dock scorre fino alle notizie e si accende.
+  await tab(page, "Notiziario");
+  await expect(page.locator(".dock").getByRole("button", { name: "Notiziario" })).toHaveAttribute("aria-current", "page");
+  await expect(oggi.locator(".card").first()).toBeInViewport();
 });
 
 test("AI: l'amministratore la configura, sceglie le notizie e scrive i riassunti", async ({ page }) => {
@@ -438,7 +464,7 @@ test("AI: l'amministratore la configura, sceglie le notizie e scrive i riassunti
   await expect(page.locator(".tabbar")).toBeVisible();
 
   // Impostazioni → AI → Fornitore apre l'AI del pannello Amministrazione: Ollama (qui un finto servizio sul sito di prova).
-  await page.getByRole("button", { name: "Impostazioni" }).click();
+  await tab(page, "Impostazioni");
   await page.locator(SETTINGS).getByRole("button", { name: /Fornitore/ }).click();
   const sheet = page.locator(ADMIN);
   await expect(sheet.locator("h2")).toHaveText("AI");
@@ -464,10 +490,9 @@ test("AI: l'amministratore la configura, sceglie le notizie e scrive i riassunti
 
   await tab(page, "Oggi");
   const oggi = page.locator("section[aria-label='Oggi']");
-  await oggi.getByRole("tab", { name: "Flusso" }).click();
-  await oggi.locator(".chip", { hasText: "Per te" }).click();
+  await preset(page, "Per te");
   await expect(oggi.locator(".card")).toHaveCount(1);
-  await expect(oggi.locator(".card .match")).toHaveText("astronomia");
+  await expect(oggi.locator(".card .card-title")).toHaveText("Come si misura la distanza di una galassia lontana");
 
   // Riassunto automatico in cima all'articolo.
   await oggi.locator(".card").click();
@@ -483,7 +508,7 @@ test("notifiche: il service worker riceve il messaggio push", async ({ page, con
   await page.waitForFunction(() => Boolean(navigator.serviceWorker.controller));
 
   // Le impostazioni delle notifiche ci sono; l'iscrizione vera richiede il servizio push di Google.
-  await page.getByRole("button", { name: "Impostazioni" }).click();
+  await tab(page, "Impostazioni");
   await expect(page.getByRole("switch", { name: "Notifiche su questo dispositivo" })).toBeVisible();
   await tab(page, "Oggi");
 
@@ -547,7 +572,7 @@ test("icone delle fonti, logo, «Ricordami» e aspetto", async ({ browser }) => 
   await expect(page.locator("section[aria-label='Oggi']")).toBeVisible();
 
   // Colore e font: si vedono subito e restano dopo aver ricaricato la pagina.
-  await page.getByRole("button", { name: "Impostazioni" }).click();
+  await tab(page, "Impostazioni");
   // In fondo alle Impostazioni c'è la versione in uso (dal file VERSION), uguale per app e server.
   const version = fs.readFileSync(path.join(path.dirname(new URL(import.meta.url).pathname), "..", "..", "VERSION"), "utf8").trim();
   await expect(page.locator(SETTINGS).locator(".set-row", { hasText: "Versione dell'app" })).toContainText(version);
@@ -558,7 +583,7 @@ test("icone delle fonti, logo, «Ricordami» e aspetto", async ({ browser }) => 
   await page.locator(SETTINGS).getByRole("button", { name: "Viola", exact: true }).click();
   await save;
   save = saved();
-  await page.getByRole("group", { name: "Font", exact: true }).getByRole("button", { name: "Sistema" }).click();
+  await page.getByRole("group", { name: "Font dell'interfaccia e degli articoli", exact: true }).getByRole("button", { name: "Sistema" }).click();
   await save;
   // Il colore vero dipende dal tema in uso: variante chiara o scura del viola.
   const look = () => page.evaluate(() => {
@@ -673,19 +698,23 @@ test("gruppi di parole: un gruppo pronto acceso come interesse con un tocco", as
   await interessi.getByLabel("Nuova parola per Scienza").fill("galassia");
   await interessi.getByLabel("Nuova parola per Scienza").press("Enter");
   await expect(page.locator(".toast")).toContainText("«galassia» aggiunta a Scienza");
-  // Nel Flusso «Per te» l'articolo mostra il gruppo e la parola trovata.
+  // Nel Notiziario «Per te» c'è l'articolo trovato dal gruppo.
   await tab(page, "Oggi");
   const oggi = page.locator("section[aria-label='Oggi']");
-  if (await oggi.getByRole("tab", { name: "Flusso" }).count()) await oggi.getByRole("tab", { name: "Flusso" }).click();
-  await oggi.getByRole("button", { name: /^Per te/ }).click();
-  await expect(oggi.locator(".card").filter({ hasText: "galassia lontana" }).locator(".match")).toContainText("Scienza · galassia");
+  await preset(page, "Per te");
+  await expect(oggi.locator(".card").filter({ hasText: "galassia lontana" })).toBeVisible();
+  // Il gruppo acceso è anche un interesse nel pannello Filtri (#68).
+  await page.locator(".filter-btn").click();
+  await expect(page.locator(".sheet.is-open").getByRole("radiogroup", { name: "Scienza" }).first()).toBeVisible();
+  await page.keyboard.press("Escape");
+  await preset(page, "Tutte");
   // Spento di nuovo, per non cambiare gli altri test.
   await tab(page, "Interessi");
   await interessi.getByRole("group", { name: "Gruppo Scienza" }).getByRole("button", { name: "Spento" }).click();
   await expect(page.locator(".toast")).toContainText("Scienza: spento");
 });
 
-test("tag delle fonti: assegnati dalla scheda e usati come filtro nel Flusso", async ({ page }) => {
+test("tag delle fonti: assegnati dalla scheda e usati come filtro nel Notiziario", async ({ page }) => {
   await page.setViewportSize(PHONE);
   await page.goto("/");
   await page.getByLabel("Nome utente").fill("anna");
@@ -701,20 +730,31 @@ test("tag delle fonti: assegnati dalla scheda e usati come filtro nel Flusso", a
   await page.keyboard.press("Escape");
   await expect(page.locator(".src-row").filter({ hasText: "Orbita" }).locator(".src-tag")).toHaveText(["Astronomia"]);
 
-  // Nel Flusso c'è la chip del tag: mostra solo gli articoli delle sue fonti.
+  // Nei Filtri del Notiziario il tag è un interesse: «solo questi» mostra solo le sue fonti,
+  // «nascondi» le toglie (#68).
   await tab(page, "Oggi");
   const oggi = page.locator("section[aria-label='Oggi']");
-  if (await oggi.getByRole("tab", { name: "Flusso" }).count()) await oggi.getByRole("tab", { name: "Flusso" }).click();
-  await oggi.getByRole("button", { name: /Astronomia/ }).click();
-  await expect(oggi.getByRole("button", { name: /Astronomia/ })).toHaveAttribute("aria-pressed", "true");
-  // Si aspetta l'elenco filtrato: subito dopo il tocco ci sono ancora le schede di prima.
-  await expect.poll(async () => [...new Set(await oggi.locator(".card .meta .src").allTextContents())]).toEqual(["Orbita"]);
+  const sources = async () => [...new Set(await oggi.locator(".card .src-pill > span:last-child").allTextContents())];
+  await page.locator(".filter-btn").click();
+  const filters = page.locator(".sheet.is-open");
+  await filters.getByRole("radio", { name: "Solo questi: Astronomia" }).click();
+  await expect.poll(sources).toEqual(["Orbita"]);
+  await filters.getByRole("radio", { name: "Nascondi: Astronomia" }).click();
+  await expect.poll(sources).toEqual(["Bit & Byte"]);
+  // Il filtro si salva come preset, con un nome; poi si torna a «Tutte».
+  await filters.getByLabel("Nome del preset").fill("Senza cielo");
+  await filters.getByRole("button", { name: "Salva", exact: true }).click();
+  await expect(page.locator(".toast")).toContainText("Preset «Senza cielo» salvato");
+  await page.keyboard.press("Escape");
+  await expect(page.locator(".preset-row").getByRole("button", { name: /^Senza cielo/ })).toHaveAttribute("aria-pressed", "true");
+  await preset(page, "Tutte");
+  await expect.poll(async () => (await sources()).length).toBe(2);
 
-  // Gestione dei tag: la chip si può togliere dal Flusso.
+  // Gestione dei tag: si può togliere dai Filtri del Notiziario.
   await tab(page, "Fonti");
   await page.getByRole("button", { name: /Tag delle fonti/ }).click();
-  await page.locator(".sheet.is-open").getByRole("switch", { name: "Mostra #Astronomia nel Flusso" }).click();
-  await expect(page.locator(".toast")).toContainText("#Astronomia non è più nel Flusso");
+  await page.locator(".sheet.is-open").getByRole("switch", { name: "Mostra #Astronomia nei Filtri del Notiziario" }).click();
+  await expect(page.locator(".toast")).toContainText("#Astronomia non è più nei Filtri");
 });
 
 test("accesso con un provider OIDC configurato dal pannello", async ({ page, browser }) => {
@@ -747,7 +787,7 @@ test("accesso con un provider OIDC configurato dal pannello", async ({ page, bro
   await other.getByRole("link", { name: "Entra con Prova" }).click();
   await expect(other.locator(".appbar")).toBeVisible();
   await expect(other).toHaveURL(/127\.0\.0\.1:8097\/$/);
-  await other.getByRole("button", { name: "Impostazioni" }).click();
+  await tab(other, "Impostazioni");
   await expect(other.locator(`${SETTINGS} .who`)).toContainText("Olivia Bianchi");
   await ctx.close();
 });
@@ -778,17 +818,16 @@ test("lettura: gli articoli senza testo completo si nascondono dalle Impostazion
   await page.keyboard.press("Escape");
 
   // Impostazioni → Lettura.
-  await page.getByRole("button", { name: "Impostazioni" }).click();
+  await tab(page, "Impostazioni");
   const settings = page.locator(SETTINGS);
   const toggle = settings.getByRole("switch", { name: "Nascondi gli articoli senza testo completo" });
   await expect(toggle).toHaveAttribute("aria-checked", "false");
   await toggle.click();
   await expect(toggle).toHaveAttribute("aria-checked", "true");
 
-  // Nel Flusso non ci sono più, ma si possono mostrare per una volta.
+  // Nel Notiziario non ci sono più, ma si possono mostrare per una volta.
   await tab(page, "Oggi");
   const oggi = page.locator("section[aria-label='Oggi']");
-  if (await oggi.getByRole("tab", { name: "Flusso" }).count()) await oggi.getByRole("tab", { name: "Flusso" }).click();
   await expect(oggi.locator(".card").first()).toBeVisible();
   await expect(oggi.locator(".card", { hasText: "Riservato agli abbonati" })).toHaveCount(0);
   const note = oggi.locator(".hidden-note", { hasText: "testo completo" });
@@ -797,7 +836,7 @@ test("lettura: gli articoli senza testo completo si nascondono dalle Impostazion
   await expect(oggi.locator(".card", { hasText: "Riservato agli abbonati" })).toHaveCount(3);
 
   // Spenta di nuovo, per non cambiare gli altri test.
-  await barClick(page.getByRole("button", { name: "Impostazioni" }));
+  await tab(page, "Impostazioni");
   await toggle.click();
   await expect(toggle).toHaveAttribute("aria-checked", "false");
 });
@@ -810,9 +849,6 @@ test("telefono: le barre escono scorrendo giù e rientrano tornando su (#36)", a
   await page.getByLabel("Password").fill(PASSWORD);
   await page.getByRole("button", { name: "Entra" }).click();
   const oggi = page.locator("section[aria-label='Oggi']");
-  // Con l'Edizione accesa (test precedenti) si passa al Flusso.
-  await expect(oggi.locator(".card, [role='tablist']").first()).toBeVisible();
-  if (await oggi.getByRole("tab", { name: "Flusso" }).count()) await oggi.getByRole("tab", { name: "Flusso" }).click();
   await expect(oggi.locator(".card").first()).toBeVisible();
   // Per cliccare un elemento che sta ancora entrando, Playwright può far scorrere la sezione:
   // si riparte dalla cima, dove le barre sono sempre visibili.
@@ -822,7 +858,7 @@ test("telefono: le barre escono scorrendo giù e rientrano tornando su (#36)", a
 
   // La Dock è staccata dal fondo e dai lati.
   // (si aspetta la fine dell'animazione con cui rientra)
-  const dock = page.locator(".tabbar");
+  const dock = page.locator(".dock");
   await expect.poll(async () => {
     const box = await dock.boundingBox();
     return 520 - (box.y + box.height);
@@ -832,7 +868,7 @@ test("telefono: le barre escono scorrendo giù e rientrano tornando su (#36)", a
   await page.mouse.move(195, 260);
   await page.mouse.wheel(0, 200);
   await expect(app).toHaveAttribute("data-bars", "hidden");
-  await expect.poll(async () => (await page.locator(".tabbar").boundingBox()).y).toBeGreaterThan(520);
+  await expect.poll(async () => (await page.locator(".dock").boundingBox()).y).toBeGreaterThan(520);
 
   await page.mouse.wheel(0, -40);
   await expect(app).not.toHaveAttribute("data-bars", "hidden");
@@ -871,8 +907,6 @@ test("telefono: scorre la pagina, e ogni sezione ricorda dove eri arrivato (#38)
   await page.getByLabel("Password").fill(PASSWORD);
   await page.getByRole("button", { name: "Entra" }).click();
   const oggi = page.locator("section[aria-label='Oggi']");
-  await expect(oggi.locator(".card, [role='tablist']").first()).toBeVisible();
-  if (await oggi.getByRole("tab", { name: "Flusso" }).count()) await oggi.getByRole("tab", { name: "Flusso" }).click();
   await expect(oggi.locator(".card").first()).toBeVisible();
   await page.evaluate(() => window.scrollTo(0, 0));
   const scrollY = () => page.evaluate(() => Math.round(window.scrollY));
@@ -892,7 +926,12 @@ test("telefono: scorre la pagina, e ogni sezione ricorda dove eri arrivato (#38)
   await expect.poll(scrollY).toBe(y);
 
   // Con il lettore aperto la lista sotto non scorre; chiudendolo (anche con Indietro) resta dov'era.
-  await oggi.locator(".card").nth(1).click();
+  // Si tocca una scheda già in vista, così la pagina non si sposta prima di aprirla.
+  const point = await oggi.locator(".card").evaluateAll((cards) => {
+    const c = cards.find((x) => x.getBoundingClientRect().top < 260 && x.getBoundingClientRect().bottom > 260);
+    return c ? { x: c.getBoundingClientRect().left + 40, y: 260 } : null;
+  });
+  await page.mouse.click(point.x, point.y);
   await expect(page.locator(".reader.is-open")).toBeVisible();
   await expect(page.locator("html")).toHaveClass(/gf-lock/);
   await page.mouse.wheel(0, 300);
@@ -921,86 +960,73 @@ test("telefono: scorre la pagina, e ogni sezione ricorda dove eri arrivato (#38)
   expect(await scrollY()).toBe(0);
 });
 
-// Uno swipe con il dito, come lo manda il touch screen: il browser lo trasforma in Pointer Events.
-async function swipe(page, from, to, { steps = 10 } = {}) {
-  const cdp = await page.context().newCDPSession(page);
-  await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: from.x, y: from.y }] });
-  for (let i = 1; i <= steps; i++) {
-    const x = from.x + ((to.x - from.x) * i) / steps;
-    const y = from.y + ((to.y - from.y) * i) / steps;
-    await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x, y }] });
-    await page.waitForTimeout(16);
-  }
-  await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
-  await cdp.detach();
-}
+// Una foto da 1 pixel, per l'avatar.
+const PNG = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
 
-test("telefono: swipe tra Edizione e Flusso, senza toccare la cronologia (#29)", async ({ browser }) => {
-  const ctx = await browser.newContext({ viewport: PHONE, hasTouch: true, isMobile: true });
-  const page = await ctx.newPage();
+test("profilo: statistiche, nome e avatar, ricerca nelle impostazioni e colore personalizzato", async ({ page }) => {
+  await page.setViewportSize(PHONE);
   await page.goto("/");
   await page.getByLabel("Nome utente").fill("anna");
   await page.getByLabel("Password").fill(PASSWORD);
   await page.getByRole("button", { name: "Entra" }).click();
-  const oggi = page.locator("section[aria-label='Oggi']");
-  const edizione = oggi.getByRole("tab", { name: "Edizione" });
-  const flusso = oggi.getByRole("tab", { name: "Flusso" });
-  // L'Edizione è accesa dai test precedenti.
-  await expect(edizione).toBeVisible();
-  await edizione.tap();
-  await expect(oggi.locator(".masthead")).toBeVisible();
-  const historyLength = await page.evaluate(() => history.length);
-  const url = page.url();
+  await expect(page.locator("section[aria-label='Oggi']")).toBeVisible();
 
-  // Verso sinistra: il Flusso. Il dito si alza su una scheda, ma l'articolo non si apre.
-  await swipe(page, { x: 320, y: 500 }, { x: 60, y: 510 });
-  await expect(flusso).toHaveAttribute("aria-selected", "true");
-  await expect(oggi.locator(".card").first()).toBeVisible();
-  await expect(page.locator(".reader.is-open")).toHaveCount(0);
+  // Statistiche (#78): gli articoli aperti nei test precedenti.
+  await tab(page, "Profilo");
+  const prof = page.locator("section[aria-label='Profilo']");
+  await expect(prof.locator(".tile").first()).toContainText("Letti");
+  await expect.poll(async () => Number(await prof.locator(".tile b").first().textContent())).toBeGreaterThan(0);
+  await prof.getByRole("group", { name: "Periodo" }).getByRole("button", { name: "30 giorni" }).click();
+  await expect(prof.locator(".bar-col")).toHaveCount(30);
 
-  // Agli estremi non cambia niente: già nel Flusso, verso sinistra si resta lì.
-  await swipe(page, { x: 320, y: 500 }, { x: 60, y: 500 });
-  await expect(flusso).toHaveAttribute("aria-selected", "true");
+  // Nome e avatar (#76).
+  await prof.getByRole("button", { name: "Cambia nome e avatar" }).click();
+  const sheet = page.locator(".sheet.is-open");
+  await sheet.getByLabel("Nome").fill("Anna Rossi");
+  await sheet.getByRole("radio", { name: "Colore 3" }).click();
+  await sheet.getByRole("button", { name: "Salva" }).click();
+  await expect(page.locator(".toast")).toContainText("Profilo aggiornato");
+  await expect(prof.locator(".me-text h1")).toHaveText("Anna Rossi");
+  await expect(prof.locator(".me-card span.avatar")).toHaveText("AR");
+  await prof.getByRole("button", { name: "Cambia nome e avatar" }).click();
+  await sheet.locator("input[type=file]").setInputFiles({ name: "foto.png", mimeType: "image/png", buffer: Buffer.from(PNG, "base64") });
+  await expect(sheet.locator("img.avatar")).toBeVisible();
+  await sheet.getByRole("button", { name: "Salva" }).click();
+  await expect(prof.locator(".me-card img.avatar")).toHaveAttribute("src", /\/api\/avatars\/\d+\?v=/);
+  await prof.getByRole("button", { name: "Cambia nome e avatar" }).click();
+  await sheet.getByRole("button", { name: "Usa le iniziali" }).click();
+  await sheet.getByLabel("Nome").fill("Anna");
+  await sheet.getByRole("button", { name: "Salva" }).click();
+  await expect(prof.locator(".me-card span.avatar")).toHaveText("A");
 
-  // Verso destra: l'Edizione.
-  await swipe(page, { x: 70, y: 500 }, { x: 340, y: 500 });
-  await expect(edizione).toHaveAttribute("aria-selected", "true");
+  // Ricerca nelle impostazioni (#67): dal Profilo si apre con il cursore nel campo.
+  await prof.getByRole("button", { name: "Cerca nelle impostazioni" }).click();
+  await expect(page).toHaveURL(/\/impostazioni$/);
+  const search = page.locator(".settings-search.main input");
+  await expect(search).toBeFocused();
+  await search.fill("dark");
+  const settings = page.locator(SETTINGS);
+  await expect(settings.getByRole("group", { name: "Tema", exact: true })).toBeVisible();
+  await expect(settings.locator("[data-via='dark']").first()).toBeVisible();
+  await expect(settings.getByText("Fuso orario")).toBeHidden();
+  await expect(page.locator(".search-count")).toContainText(/impostazion/);
+  await search.fill("password");
+  await expect(settings.getByRole("button", { name: /Cambia password/ })).toBeVisible();
+  await expect(settings.getByRole("switch", { name: "Nascondi gli articoli senza testo completo" })).toBeHidden();
+  await search.fill("zzz");
+  await expect(page.locator(".search-count")).toContainText("Nessuna impostazione");
+  await search.fill("");
+  await expect(settings.getByRole("switch", { name: "Nascondi gli articoli senza testo completo" })).toBeVisible();
 
-  // Uno swipe corto e lento torna al suo posto.
-  await swipe(page, { x: 250, y: 500 }, { x: 200, y: 500 }, { steps: 20 });
-  await expect(edizione).toHaveAttribute("aria-selected", "true");
-  await expect.poll(() => oggi.locator(".mode-pane").evaluate((el) => getComputedStyle(el).transform)).toBe("none");
-
-  // Dal bordo è il gesto «indietro» del sistema: lo swipe non parte.
-  await swipe(page, { x: 4, y: 500 }, { x: 300, y: 500 });
-  await expect(edizione).toHaveAttribute("aria-selected", "true");
-
-  // In verticale scorre la pagina, senza cambiare modalità.
-  await swipe(page, { x: 200, y: 700 }, { x: 230, y: 300 });
-  await expect(edizione).toHaveAttribute("aria-selected", "true");
-
-  // Le chip dei filtri scorrono in orizzontale per conto loro.
-  await flusso.tap();
-  const chips = oggi.locator(".chips");
-  await expect(chips).toBeVisible();
-  const chipBox = await chips.boundingBox();
-  await swipe(page, { x: 300, y: chipBox.y + chipBox.height / 2 }, { x: 80, y: chipBox.y + chipBox.height / 2 });
-  await expect(flusso).toHaveAttribute("aria-selected", "true");
-
-  // Con un articolo aperto lo swipe non cambia la modalità sotto.
-  await page.evaluate(() => window.scrollTo(0, 0));
-  await oggi.locator(".card").first().tap();
-  await expect(page.locator(".reader.is-open")).toBeVisible();
-  await swipe(page, { x: 70, y: 500 }, { x: 340, y: 500 });
-  await page.locator(".reader.is-open").getByRole("button", { name: "Indietro" }).tap();
-  await expect(page.locator(".reader.is-open")).toHaveCount(0);
-  await expect(flusso).toHaveAttribute("aria-selected", "true");
-
-  // Nessuna voce nuova nella cronologia: l'indirizzo è lo stesso (l'articolo aperto e chiuso
-  // ne ha aggiunta una, come sempre, ma lo swipe no).
-  expect(page.url()).toBe(url);
-  expect(await page.evaluate(() => history.length)).toBeLessThanOrEqual(historyLength + 1);
-  await ctx.close();
+  // Colore personalizzato (#74): l'ultimo pallino apre il selettore; l'app adatta il colore.
+  const saved = page.waitForResponse((r) => r.url().endsWith("/api/me") && r.request().method() === "PATCH" && r.request().postData().includes("accent_custom"));
+  await settings.getByLabel("Colore personalizzato").fill("#ff7a59");
+  await saved;
+  await expect(page.locator("html")).toHaveAttribute("data-accent", "custom");
+  await expect.poll(() => page.evaluate(() => document.documentElement.style.getPropertyValue("--acc-l"))).toMatch(/^#[0-9A-F]{6}$/);
+  await settings.getByRole("button", { name: "Galassia", exact: true }).click();
+  await expect(page.locator("html")).not.toHaveAttribute("data-accent", "custom");
+  await expect.poll(() => page.evaluate(() => document.documentElement.style.getPropertyValue("--acc-l"))).toBe("");
 });
 
 test("aggiornamenti: la versione nuova si annuncia e si attiva con «Aggiorna» (#41)", async ({ page }) => {
@@ -1015,7 +1041,7 @@ test("aggiornamenti: la versione nuova si annuncia e si attiva con «Aggiorna» 
   await page.waitForFunction(() => navigator.serviceWorker.controller !== null);
 
   // In Impostazioni → Informazioni c'è la versione dell'app.
-  await page.getByRole("button", { name: "Impostazioni" }).click();
+  await tab(page, "Impostazioni");
   const pkg = JSON.parse(fs.readFileSync(path.join(path.dirname(sw), "..", "package.json"), "utf8"));
   await expect(page.locator(SETTINGS).locator(".set-row", { hasText: "Versione dell'app" })).toContainText(pkg.version);
   await page.locator(SETTINGS).getByRole("button", { name: "Cerca aggiornamenti" }).click();

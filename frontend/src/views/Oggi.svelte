@@ -9,7 +9,7 @@
   import Icon from "../components/Icon.svelte";
   import { tallyText } from "../lib/filters.js";
   import { docScroll, scrollViewTo, viewScrollTop } from "../lib/scroll.js";
-  import { applyPreset, data, loadStream, openSheet, refreshAll, setFilter, stream, today, ui } from "../lib/store.svelte.js";
+  import { applyPreset, data, loadStream, openSheet, refreshAll, setFilter, stream, switchTab, today, ui } from "../lib/store.svelte.js";
 
   let { active } = $props();
   let sentinel = $state();
@@ -100,6 +100,16 @@
         {#if stream.error}
           <div class="empty"><Icon name="alert" /><h3>Non riesco a caricare gli articoli</h3><p>{stream.error}</p>
             <button type="button" class="btn-secondary small" onclick={() => loadStream(true)}>Riprova</button></div>
+        {:else if !stream.loading && stream.items.length === 0 && !filtering && stream.filter.scope === "perte" && stream.presetTally.tutte?.total}
+          <div class="empty">
+            <Icon name="spark" />
+            <h3>Ancora niente per te</h3>
+            <p>«Per te» mostra le notizie che corrispondono ai tuoi interessi. Scegline qualcuno, o guarda tutte le notizie.</p>
+            <div class="empty-actions">
+              <button type="button" class="btn-secondary small" onclick={() => applyPreset("tutte")}>Mostra tutte le notizie</button>
+              <button type="button" class="btn-secondary small" onclick={() => switchTab("interessi")}><Icon name="spark" />Scegli i tuoi interessi</button>
+            </div>
+          </div>
         {:else if !stream.loading && stream.items.length === 0}
           <div class="empty">
             <Icon name={filtering ? "filter" : "check"} />

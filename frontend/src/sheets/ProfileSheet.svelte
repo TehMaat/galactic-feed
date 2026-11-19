@@ -1,6 +1,7 @@
 <script>
   // Nome e avatar del profilo (#76): una foto (ridotta qui a 256 px prima di mandarla) oppure le
   // iniziali su un colore. Il nome utente per entrare non cambia.
+  import { untrack } from "svelte";
   import Avatar from "../components/Avatar.svelte";
   import Icon from "../components/Icon.svelte";
   import Sheet from "../components/Sheet.svelte";
@@ -12,12 +13,15 @@
   let photo = $state(null); // data: URL nuova, "" per togliere la foto, null se non cambia
   let busy = $state(false);
 
+  // Solo all'apertura: salvando il nome session.user cambia, e non deve riportare indietro la foto scelta.
   $effect(() => {
     if (ui.sheet === "profile") {
-      const u = session.user;
-      name = u.display_name || "";
-      color = u.avatar_color || 0;
-      photo = null;
+      untrack(() => {
+        const u = session.user;
+        name = u.display_name || "";
+        color = u.avatar_color || 0;
+        photo = null;
+      });
     }
   });
 
@@ -44,8 +48,9 @@
   async function save(e) {
     e.preventDefault();
     busy = true;
+    const newPhoto = photo;
     let ok = await saveProfile({ display_name: name, avatar_color: color });
-    if (ok && photo !== null) ok = await setAvatar(photo || null);
+    if (ok && newPhoto !== null) ok = await setAvatar(newPhoto || null);
     busy = false;
     if (ok) {
       toast("Profilo aggiornato");
