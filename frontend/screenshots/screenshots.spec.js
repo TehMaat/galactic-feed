@@ -97,6 +97,18 @@ test("primo avvio e dati demo", async ({ browser }) => {
   const config = created.configs.find((c) => c.name === "Il Mattino").id;
   await api(r, "POST", "/editions", { config_id: config });
 
+  // Profilo (#76) e preset del Notiziario (#68): un colore per le iniziali e due preset.
+  await api(r, "PATCH", "/me", {
+    avatar_color: 0,
+    prefs: { presets: [
+      { id: "mattina", name: "Mattina", filter: { scope: "perte", unread: true, inc: [], exc: [] } },
+      { id: "solo-spazio", name: "Solo spazio", filter: { scope: "tutte", unread: false, inc: [`f:${folders.Spazio}`], exc: [] } },
+    ] },
+  });
+  // Qualche articolo aperto, per le statistiche (#78).
+  const list = await api(r, "GET", "/articles?view=tutti");
+  for (const a of list.items.slice(2, 7)) await api(r, "PUT", `/articles/${a.id}/read`);
+
   // Un secondo utente, invitato dall'amministratrice.
   const invite = await api(r, "POST", "/admin/invites", { note: "Per Teo" });
   const token = invite.invite.url.split("/").pop();
@@ -114,38 +126,67 @@ for (const scheme of ["light", "dark"]) {
   test(`telefono, ${tone}`, async ({ browser }) => {
     const page = await newPage(browser, PHONE, scheme);
     await login(page);
-    if (scheme === "light") {
-      await page.getByRole("tab", { name: "Edizione" }).click().catch(() => {});
-      await page.waitForTimeout(500);
-      await shot(page, `edizione-telefono-${tone}`);
-    }
-    await page.getByRole("tab", { name: "Flusso" }).click().catch(() => {});
-    await expect(page.locator("section[aria-label='Oggi'] .card").first()).toBeVisible();
+    const oggi = page.locator("section[aria-label='Oggi']");
+    await expect(oggi.locator(".card").first()).toBeVisible();
+    await expect(oggi.locator(".ed-card").first()).toBeVisible();
     await shot(page, `oggi-telefono-${tone}`);
 
-    await page.locator("section[aria-label='Oggi'] .card").first().click();
+    if (scheme === "light") {
+      await oggi.locator(".ed-card").first().click();
+      await page.waitForTimeout(800);
+      await shot(page, "edizione-telefono-chiaro");
+      await page.keyboard.press("Escape");
+      await page.waitForTimeout(400);
+    }
+
+    await oggi.locator(".card").first().click();
     await page.waitForTimeout(800);
     await shot(page, `articolo-telefono-${tone}`);
+    await page.keyboard.press("Escape");
+    await page.waitForTimeout(400);
 
     if (scheme === "light") {
+      await page.getByRole("button", { name: "Notiziario" }).click();
+      await page.waitForTimeout(800);
+      await page.getByRole("button", { name: "Filtri", exact: true }).click();
+      await page.waitForTimeout(700);
+      await shot(page, "filtri-telefono-chiaro");
+      await page.keyboard.press("Escape");
+
       await page.goto("/fonti");
       await expect(page.locator(".src-row").first()).toBeVisible();
       await shot(page, "fonti-telefono-chiaro");
       await page.goto("/interessi");
       await page.waitForTimeout(800);
       await shot(page, "interessi-telefono-chiaro");
+      await page.goto("/impostazioni");
+      await page.locator(".settings-search.main input").fill("dark");
+      await page.waitForTimeout(600);
+      await shot(page, "impostazioni-ricerca-telefono-chiaro");
     }
+    await page.goto("/profilo");
+    await expect(page.locator(".stat-grid")).toBeVisible();
+    await page.waitForTimeout(500);
+    await shot(page, `profilo-telefono-${tone}`);
     await page.context().close();
   });
 
   test(`computer, ${tone}`, async ({ browser }) => {
     const page = await newPage(browser, COMPUTER, scheme);
     await login(page);
-    await page.getByRole("tab", { name: "Flusso" }).click().catch(() => {});
-    await expect(page.locator("section[aria-label='Oggi'] .card, section[aria-label='Oggi'] .row").first()).toBeVisible();
-    await page.locator("section[aria-label='Oggi'] .card, section[aria-label='Oggi'] .row").first().click();
+    await expect(page.locator("section[aria-label='Oggi'] .card").first()).toBeVisible();
+    await page.locator("section[aria-label='Oggi'] .card").first().click();
     await page.waitForTimeout(800);
     await shot(page, `oggi-computer-${tone}`);
+    if (scheme === "dark") {
+      await page.locator("section[aria-label='Oggi'] .ed-card").first().click();
+      await page.waitForTimeout(800);
+      await shot(page, "edizione-computer-scuro");
+    }
+    await page.goto("/profilo");
+    await expect(page.locator(".stat-grid")).toBeVisible();
+    await page.waitForTimeout(500);
+    await shot(page, `profilo-computer-${tone}`);
 
     if (scheme === "light") {
       await page.goto("/impostazioni");

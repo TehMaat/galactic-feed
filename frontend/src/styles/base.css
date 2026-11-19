@@ -48,9 +48,23 @@
      data-read, più sotto. */
   --font-brand: "Unbounded", "Arial Black", system-ui, sans-serif;
   --font-system: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --font-display: var(--font-brand);
-  --font-ui: var(--font-system);
-  --font-read: "Newsreader", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  --font-serif: "Newsreader", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  /* Galactic (#75): titoli in Plus Jakarta Sans, interfaccia in Inter, articoli in Newsreader. */
+  --font-display: "Plus Jakarta Sans Variable", "Plus Jakarta Sans", "Inter Variable", var(--font-system);
+  --font-ui: "Inter Variable", "Inter", var(--font-system);
+  --font-read: var(--font-serif);
+
+  /* Vetro (#64): superfici semitrasparenti e sfocate sopra tre aloni di colore sullo sfondo.
+     Le superfici derivano da --surface, così valgono per ogni tema e variante; gli aloni
+     (--orb-*) cambiano con il tema e la variante, più sotto. */
+  --glass-1: color-mix(in srgb, var(--surface) 64%, transparent);
+  --glass-2: color-mix(in srgb, var(--surface) 86%, transparent);
+  --glass-bd: color-mix(in srgb, var(--ink) 9%, transparent);
+  --glass-hl: rgba(255, 255, 255, 0.7);
+  --glass-shadow: 0 12px 30px -18px rgba(30, 40, 80, 0.32);
+  --orb-1: rgba(99, 102, 241, 0.22);
+  --orb-2: rgba(34, 211, 238, 0.16);
+  --orb-3: rgba(245, 158, 11, 0.13);
   --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 
   --fs-xs: 0.75rem;
@@ -93,6 +107,14 @@
     --c-ambra: #F2B35B;
     --c-azzurro: #5CC8E8;
     --c-grigio: #A8ACC3;
+    --glass-1: color-mix(in srgb, var(--surface) 52%, transparent);
+    --glass-2: color-mix(in srgb, var(--surface) 80%, transparent);
+    --glass-bd: rgba(255, 255, 255, 0.11);
+    --glass-hl: rgba(255, 255, 255, 0.10);
+    --glass-shadow: 0 14px 34px -16px rgba(0, 0, 0, 0.75);
+    --orb-1: rgba(99, 102, 241, 0.28);
+    --orb-2: rgba(34, 211, 238, 0.16);
+    --orb-3: rgba(245, 158, 11, 0.10);
     color-scheme: dark;
   }
 }
@@ -128,6 +150,14 @@
   --c-ambra: #F2B35B;
   --c-azzurro: #5CC8E8;
   --c-grigio: #A8ACC3;
+  --glass-1: color-mix(in srgb, var(--surface) 52%, transparent);
+  --glass-2: color-mix(in srgb, var(--surface) 80%, transparent);
+  --glass-bd: rgba(255, 255, 255, 0.11);
+  --glass-hl: rgba(255, 255, 255, 0.10);
+  --glass-shadow: 0 14px 34px -16px rgba(0, 0, 0, 0.75);
+  --orb-1: rgba(99, 102, 241, 0.28);
+  --orb-2: rgba(34, 211, 238, 0.16);
+  --orb-3: rgba(245, 158, 11, 0.10);
   color-scheme: dark;
 }
 
@@ -151,6 +181,9 @@
     --sky-2: #34343C;
     --glass: rgba(24, 24, 27, 0.84);
     --c-grigio: #B4B4BC;
+    --orb-1: rgba(148, 163, 184, 0.14);
+    --orb-2: rgba(100, 116, 139, 0.12);
+    --orb-3: rgba(203, 213, 225, 0.06);
   }
   :root:not([data-theme="light"])[data-dark="nero"] {
     --bg: #000000;
@@ -166,6 +199,9 @@
     --glass: rgba(0, 0, 0, 0.84);
     --shadow-card: 0 0 0 1px rgba(237, 237, 240, 0.06) inset;
     --c-grigio: #B4B4BC;
+    --orb-1: transparent;
+    --orb-2: transparent;
+    --orb-3: transparent;
   }
 }
 :root[data-theme="dark"][data-dark="grigio"] {
@@ -181,6 +217,9 @@
   --sky-2: #34343C;
   --glass: rgba(24, 24, 27, 0.84);
   --c-grigio: #B4B4BC;
+  --orb-1: rgba(148, 163, 184, 0.14);
+  --orb-2: rgba(100, 116, 139, 0.12);
+  --orb-3: rgba(203, 213, 225, 0.06);
 }
 :root[data-theme="dark"][data-dark="nero"] {
   --bg: #000000;
@@ -196,6 +235,9 @@
   --glass: rgba(0, 0, 0, 0.84);
   --shadow-card: 0 0 0 1px rgba(237, 237, 240, 0.06) inset;
   --c-grigio: #B4B4BC;
+  --orb-1: transparent;
+  --orb-2: transparent;
+  --orb-3: transparent;
 }
 @media (prefers-color-scheme: light) {
   :root:not([data-theme="dark"])[data-light="carta"] {
@@ -209,6 +251,9 @@
     --line: rgba(38, 33, 26, 0.11);
     --glass: rgba(248, 245, 238, 0.86);
     --shadow-card: 0 1px 2px rgba(38, 33, 26, 0.06), 0 8px 24px -16px rgba(38, 33, 26, 0.25);
+  --orb-1: rgba(251, 146, 60, 0.18);
+  --orb-2: rgba(234, 179, 8, 0.16);
+  --orb-3: rgba(244, 114, 182, 0.11);
   }
 }
 :root[data-theme="light"][data-light="carta"] {
@@ -222,8 +267,82 @@
   --line: rgba(38, 33, 26, 0.11);
   --glass: rgba(248, 245, 238, 0.86);
   --shadow-card: 0 1px 2px rgba(38, 33, 26, 0.06), 0 8px 24px -16px rgba(38, 33, 26, 0.25);
+  --orb-1: rgba(251, 146, 60, 0.18);
+  --orb-2: rgba(234, 179, 8, 0.16);
+  --orb-3: rgba(244, 114, 182, 0.11);
 }
 
+
+/* Solarized (#73), scuro e chiaro: i colori della palette di Ethan Schoonover, con testo un po'
+   più chiaro (o scuro) dell'originale per arrivare al contrasto AA come le altre varianti. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"])[data-dark="solarized"] {
+    --bg: #00212B;
+    --app-bg: #002B36;
+    --surface: #05303B;
+    --surface-2: #073642;
+    --ink: #EEE8D5;
+    --ink-2: #B3BDBC;
+    --ink-3: #9AA8A8;
+    --line: rgba(147, 161, 161, 0.16);
+    --sky-1: #01303B;
+    --sky-2: #0B4552;
+    --glass: rgba(0, 43, 54, 0.84);
+    --c-grigio: #9AA8A8;
+    --orb-1: rgba(38, 139, 210, 0.26);
+    --orb-2: rgba(42, 161, 152, 0.18);
+    --orb-3: rgba(211, 54, 130, 0.12);
+  }
+}
+:root[data-theme="dark"][data-dark="solarized"] {
+  --bg: #00212B;
+  --app-bg: #002B36;
+  --surface: #05303B;
+  --surface-2: #073642;
+  --ink: #EEE8D5;
+  --ink-2: #B3BDBC;
+  --ink-3: #9AA8A8;
+  --line: rgba(147, 161, 161, 0.16);
+  --sky-1: #01303B;
+  --sky-2: #0B4552;
+  --glass: rgba(0, 43, 54, 0.84);
+  --c-grigio: #9AA8A8;
+  --orb-1: rgba(38, 139, 210, 0.26);
+  --orb-2: rgba(42, 161, 152, 0.18);
+  --orb-3: rgba(211, 54, 130, 0.12);
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"])[data-light="solarized"] {
+    --bg: #EEE8D5;
+    --app-bg: #FDF6E3;
+    --surface: #FFFBF0;
+    --surface-2: #F5EEDA;
+    --ink: #073642;
+    --ink-2: #3D5A62;
+    --ink-3: #52686F;
+    --line: rgba(7, 54, 66, 0.12);
+    --glass: rgba(253, 246, 227, 0.86);
+    --shadow-card: 0 1px 2px rgba(7, 54, 66, 0.06), 0 8px 24px -16px rgba(7, 54, 66, 0.25);
+    --orb-1: rgba(38, 139, 210, 0.18);
+    --orb-2: rgba(42, 161, 152, 0.16);
+    --orb-3: rgba(181, 137, 0, 0.18);
+  }
+}
+:root[data-theme="light"][data-light="solarized"] {
+  --bg: #EEE8D5;
+  --app-bg: #FDF6E3;
+  --surface: #FFFBF0;
+  --surface-2: #F5EEDA;
+  --ink: #073642;
+  --ink-2: #3D5A62;
+  --ink-3: #52686F;
+  --line: rgba(7, 54, 66, 0.12);
+  --glass: rgba(253, 246, 227, 0.86);
+  --shadow-card: 0 1px 2px rgba(7, 54, 66, 0.06), 0 8px 24px -16px rgba(7, 54, 66, 0.25);
+  --orb-1: rgba(38, 139, 210, 0.18);
+  --orb-2: rgba(42, 161, 152, 0.16);
+  --orb-3: rgba(181, 137, 0, 0.18);
+}
 
 /* ---------- Colore principale ----------
    Ogni colore ha una variante per il tema chiaro e una per lo scuro, con contrasto AA
@@ -275,24 +394,28 @@
   }
 }
 
+/* «custom» (#74): il colore scelto con il selettore. Le varianti per il tema chiaro e scuro, con
+   contrasto AA, le calcola l'app (lib/color.js) e le mette nello stile di <html>. */
+
 /* ---------- Font ----------
-   galactic (predefinito): titoli in Unbounded, interfaccia nel font del sistema, articoli in Newsreader.
+   Uno per interfaccia e articoli (#75). galactic (predefinito): titoli in Plus Jakarta Sans, interfaccia
+   in Inter, articoli in Newsreader. classico: titoli e articoli in Newsreader.
    sistema: il font del dispositivo anche per i titoli (San Francisco su iPhone e Mac, Segoe UI su
    Windows, il font scelto in Linux e ChromeOS). Su Android i browser usano Roboto: i font del
    produttore o scelti nelle impostazioni del telefono non arrivano alle pagine web.
    inter e leggibile (Atkinson Hyperlegible): inclusi nell'app, funzionano anche offline. */
-:root[data-font="sistema"] { --font-ui: var(--font-system); --font-display: var(--font-system); }
+:root[data-font="classico"] { --font-display: var(--font-serif); }
+:root[data-font="sistema"] { --font-ui: var(--font-system); --font-display: var(--font-system); --font-read: var(--font-system); }
 :root[data-font="inter"] {
   --font-ui: "Inter Variable", "Inter", var(--font-system);
   --font-display: "Inter Variable", "Inter", var(--font-system);
+  --font-read: "Inter Variable", "Inter", var(--font-system);
 }
 :root[data-font="leggibile"] {
   --font-ui: "Atkinson Hyperlegible", var(--font-system);
   --font-display: "Atkinson Hyperlegible", var(--font-system);
+  --font-read: "Atkinson Hyperlegible", var(--font-system);
 }
-/* Testo degli articoli: serif (Newsreader, predefinito), lo stesso font dell'interfaccia, o quello del sistema. */
-:root[data-read="sans"] { --font-read: var(--font-ui); }
-:root[data-read="sistema"] { --font-read: var(--font-system); }
 
 *, *::before, *::after { box-sizing: border-box; }
 [hidden] { display: none !important; }
@@ -322,7 +445,7 @@ h1, h2, h3, h4 { text-wrap: balance; }
   flex: none;
   fill: none;
   stroke: currentColor;
-  stroke-width: 1.8;
+  stroke-width: 2.1;
   stroke-linecap: round;
   stroke-linejoin: round;
 }

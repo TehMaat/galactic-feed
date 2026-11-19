@@ -1,11 +1,11 @@
 <script>
   // Gestione dei tag delle fonti (#17): crea, rinomina, cambia colore, ordina, sceglie quali
-  // chip mostrare nel Flusso, unisce due tag, elimina.
+  // chip mostrare nei Filtri del Notiziario, unisce due tag, elimina.
   import Icon from "../components/Icon.svelte";
   import Sheet from "../components/Sheet.svelte";
   import { api } from "../lib/api.js";
   import { folderColor } from "../lib/format.js";
-  import { ask, data, loadCounts, loadSources, session, savePrefs, setFilter, stream, toast, ui } from "../lib/store.svelte.js";
+  import { ask, data, loadCounts, loadSources, session, savePrefs, toast, ui, dropFilterKey } from "../lib/store.svelte.js";
 
   let open = $state(null);
   let newName = $state("");
@@ -48,7 +48,7 @@
     const into = data.tags.find((x) => x.id === Number(intoId));
     if (!into || !(await ask(`Le fonti di #${t.name} prendono #${into.name}.`, { title: `Unire #${t.name} a #${into.name}?`, action: "Unisci", danger: false }))) return;
     if (await request(`/tags/${t.id}/merge`, { method: "POST", body: { into: into.id } }, `#${t.name} unito a #${into.name}`)) {
-      if (stream.tag === t.id) setFilter({ tag: null });
+      dropFilterKey(`t:${t.id}`);
       open = null;
     }
   }
@@ -56,7 +56,7 @@
   async function remove(t) {
     if (!(await ask("Le fonti restano, senza questo tag.", { title: `Eliminare il tag #${t.name}?` }))) return;
     if (await request(`/tags/${t.id}`, { method: "DELETE" }, `#${t.name} eliminato`)) {
-      if (stream.tag === t.id) setFilter({ tag: null });
+      dropFilterKey(`t:${t.id}`);
       open = null;
     }
   }
@@ -70,7 +70,7 @@
 </script>
 
 <Sheet name="tags" title="Tag delle fonti">
-  <p class="set-note top">Ogni fonte può avere più tag. Le chip dei tag accesi compaiono nel Flusso, nell'ordine di questa lista.</p>
+  <p class="set-note top">Ogni fonte può avere più tag. I tag accesi compaiono tra gli interessi nei Filtri del Notiziario, nell'ordine di questa lista.</p>
   {#if data.tags.length}
     <div class="set-group">
       {#each data.tags as t, i (t.id)}
@@ -79,8 +79,8 @@
             <button type="button" class="preset-name" aria-expanded={open === t.id} onclick={() => (open = open === t.id ? null : t.id)}>
               <b><span class="hash-c" style="--topic-c:{folderColor(t.color)}">#</span>{t.name}</b><small>{t.sources === 1 ? "1 fonte" : `${t.sources} fonti`}</small>
             </button>
-            <button type="button" class="switch" role="switch" aria-checked={t.in_feed} aria-label="Mostra #{t.name} nel Flusso"
-              onclick={() => patch(t, { in_feed: !t.in_feed }, t.in_feed ? `#${t.name} non è più nel Flusso` : `#${t.name} nel Flusso`)}></button>
+            <button type="button" class="switch" role="switch" aria-checked={t.in_feed} aria-label="Mostra #{t.name} nei Filtri del Notiziario"
+              onclick={() => patch(t, { in_feed: !t.in_feed }, t.in_feed ? `#${t.name} non è più nei Filtri` : `#${t.name} nei Filtri del Notiziario`)}></button>
           </div>
           {#if open === t.id}
             <div class="tag-edit">

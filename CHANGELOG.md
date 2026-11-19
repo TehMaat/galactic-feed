@@ -4,6 +4,30 @@ Tutte le versioni di Galactic Feed, dalla più recente. I numeri seguono [semver
 
 Per aggiornare basta scaricare la nuova immagine: le modifiche al database si applicano da sole all'avvio. Prima di saltare a una nuova versione minore conviene fare una copia del volume `/data` (vedi [Aggiornare e backup](docs/aggiornare-e-backup.md)).
 
+## [0.13.0] – 2026-11-19
+
+### Novità
+- **Nuovo aspetto in vetro sul telefono** (#64): superfici trasparenti e sfocate sopra aloni di colore, una barra in alto con il nome dell'app e la data, e una Dock a pillola che galleggia in basso con **Oggi · Notiziario · Cerca · Profilo**. Fonti, Interessi, Salvati, Impostazioni e Amministrazione si aprono dal Profilo. Spazi e allineamenti seguono una scala sola.
+- **Oggi con Edizioni e Notiziario nello stesso scroll** (#64): in alto le Edizioni di oggi (etichetta, nome, data, quante notizie ha e titolo d'apertura), sotto il Notiziario. Un'Edizione si apre come un articolo; «Indietro» dall'articolo torna all'Edizione. Senza Edizioni c'è solo il Notiziario e la Dock non ha la voce «Notiziario». Lo swipe tra Edizione e Flusso (#29) non serve più ed è stato tolto.
+- **Il Flusso si chiama Notiziario** (#77), con un'icona nuova: righe di notizie con un punto «in diretta». Le icone sono un po' più marcate (#72).
+- **Computer** (#65): barra in vetro con le sezioni, «Cerca», Impostazioni, Amministrazione e il tuo avatar; a sinistra Edizioni e Notiziario, a destra l'articolo o l'Edizione aperta. Il Profilo è una pagina larga con le statistiche.
+- **Card delle notizie con la foto grande** (#70): sopra la foto a tutta larghezza con il titolo e la fonte in alto a destra, sotto l'estratto e «salva». Niente più tempo di lettura, etichette e ore sulle card; nell'articolo aperto l'ora di pubblicazione è in alto a destra, accanto alla fonte.
+- **«X notizie · X da leggere»** (#66) sotto il titolo del Notiziario e in Cerca: segue il filtro e scende mentre leggi.
+- **Filtri a inclusione ed esclusione e preset** (#68): sulla riga del Notiziario ci sono solo i preset (Per te, Tutte, Non letti e quelli che crei tu), con sfumatura e freccia quando non ci stanno. Nel pannello **Filtri** interessi (tag e gruppi di parole), video, cartelle, nazioni e fonti si possono nascondere o tenere da soli; i filtri si salvano come preset con un nome e restano anche chiudendo l'app.
+- **Preset all'apertura** (#69): in Impostazioni → Lettura o nei Filtri scegli da quale preset parte il Notiziario; se non scegli niente, «Per te». Con «Per te» ancora vuoto l'app lo dice e propone di scegliere gli interessi.
+- **Cerca** è una sezione a parte, negli articoli e nei nomi delle fonti.
+- **Ricerca nelle impostazioni** (#67): filtra le voci sul posto, evidenzia la parola e capisce qualche sinonimo («dark», «token», «password»). Sul telefono sparisce scorrendo verso il basso e torna risalendo; sul computer sta nella colonna a sinistra.
+- **Palette Solarized** (#73), scura e chiara, tra le varianti dei temi.
+- **Colore personalizzato** (#74): l'ultimo pallino dei colori apre il selettore; l'app adatta il colore perché si legga in chiaro e in scuro. I colori stanno su una riga sola.
+- **Un solo font** (#75) per interfaccia e articoli: Galactic (titoli in Plus Jakarta Sans, testo in Inter, articoli in Newsreader), Classico, Inter, Sistema, Alta leggibilità.
+- **Nome e avatar** (#76): dal Profilo o da Impostazioni → Account cambi il nome e scegli una foto o le iniziali su un colore.
+- **Statistiche nel Profilo** (#78), su 7 o 30 giorni: articoli letti, salvati, giorni di fila, letti al giorno, interessi e fonti più letti, ore in cui leggi ed Edizioni aperte.
+
+### Da sapere per aggiornare
+- Una migrazione del database (avatar, articoli aperti per le statistiche, Edizioni aperte) si applica da sola all'avvio. Le statistiche contano gli articoli aperti da questa versione in poi.
+- Chi aveva scelto un font per il «Testo degli articoli» ora ha lo stesso font per interfaccia e articoli: quello scelto in «Font».
+- Il `docker-compose.yml` d'esempio ora usa `:0.13`: chi ha `:0.12` deve cambiare il numero per ricevere le novità (con `:0.12` arrivano solo le correzioni della 0.12).
+
 ## [0.12.1] – 2026-11-16
 
 ### Correzioni

@@ -24,10 +24,10 @@ Tutto quello che serve per installare, configurare e usare Galactic Feed, e per 
 
 | Pagina | Cosa trovi |
 |---|---|
-| [Usare l'app](usare-l-app.md) | Oggi e Flusso, fonti, interessi, tag, nazioni, aspetto, lettura e offline |
+| [Usare l'app](usare-l-app.md) | Oggi con Edizioni e Notiziario, preset e filtri, Cerca, Profilo e statistiche, fonti, interessi, aspetto, lettura e offline |
 | [AI, Edizioni e notifiche](ai-edizioni-notifiche.md) | Le tre funzioni facoltative, come accenderle e quanto costano |
 | [L'app sul telefono](app-sul-telefono.md) | Installare la PWA su iPhone, Android e computer; aggiornamenti |
-| [Glossario](glossario.md) | Edizione, Flusso, Per te, gruppi di parole… in una riga |
+| [Glossario](glossario.md) | Edizione, Notiziario, preset, Per te, gruppi di parole… in una riga |
 
 ## Per chi lavora sul codice
 

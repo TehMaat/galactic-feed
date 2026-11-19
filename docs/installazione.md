@@ -29,7 +29,7 @@ Galactic Feed è un solo container Docker che contiene il server e l'app. Gira s
    ```yaml
    services:
      galactic-feed:
-       image: ghcr.io/tehmaat/galactic-feed:0.12
+       image: ghcr.io/tehmaat/galactic-feed:0.13
        container_name: galactic-feed
        restart: unless-stopped
        ports:
@@ -51,7 +51,7 @@ Galactic Feed è un solo container Docker che contiene il server e l'app. Gira s
    docker compose up -d
    ```
 
-L'etichetta `:0.12` riceve da sola le correzioni della serie 0.12; come passare alla serie successiva è in [Aggiornare e backup](aggiornare-e-backup.md).
+L'etichetta `:0.13` riceve da sola le correzioni della serie 0.13; come passare alla serie successiva è in [Aggiornare e backup](aggiornare-e-backup.md).
 
 ## Primo avvio
 
@@ -97,7 +97,7 @@ docker volume create galactic-data
 ```
 
 ```bash
-docker run -d --name galactic-feed --restart unless-stopped -p 8080:8080 -e PUBLIC_URL=https://notizie.example.org -e TZ=Europe/Rome -v galactic-data:/data ghcr.io/tehmaat/galactic-feed:0.12
+docker run -d --name galactic-feed --restart unless-stopped -p 8080:8080 -e PUBLIC_URL=https://notizie.example.org -e TZ=Europe/Rome -v galactic-data:/data ghcr.io/tehmaat/galactic-feed:0.13
 ```
 
 Il codice di primo avvio si legge con `docker logs galactic-feed`.

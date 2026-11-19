@@ -119,6 +119,8 @@ class User:
     session_id: int | None = None
     created_at: int | None = None
     remember: bool = True  # la sessione in uso è «ricordata»
+    avatar_v: int = 0  # 0 = nessuna foto (#76)
+    avatar_color: int = 0
 
 
 def user_from_row(row: sqlite3.Row, session_id: int | None = None, remember: bool = True) -> User:
@@ -135,6 +137,8 @@ def user_from_row(row: sqlite3.Row, session_id: int | None = None, remember: boo
         session_id=session_id,
         created_at=row["created_at"],
         remember=remember,
+        avatar_v=row["avatar_v"] if "avatar_v" in row.keys() and row["avatar"] is not None else 0,
+        avatar_color=row["avatar_color"] if "avatar_color" in row.keys() else 0,
     )
 
 

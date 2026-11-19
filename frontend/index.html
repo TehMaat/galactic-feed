@@ -21,19 +21,23 @@
   // colori o font sbagliati. Li salva applyPrefs (src/lib/store.svelte.js).
   try {
     var d = document.documentElement.dataset, s = localStorage;
-    var t = s.getItem("gf-theme"), a = s.getItem("gf-accent"), f = s.getItem("gf-font"), r = s.getItem("gf-read");
+    var t = s.getItem("gf-theme"), a = s.getItem("gf-accent"), f = s.getItem("gf-font");
     var dk = s.getItem("gf-dark"), lt = s.getItem("gf-light");
-    if (dk === "grigio" || dk === "nero") d.dark = dk;
-    if (lt === "carta") d.light = lt;
+    if (dk === "grigio" || dk === "nero" || dk === "solarized") d.dark = dk;
+    if (lt === "carta" || lt === "solarized") d.light = lt;
     // Stessi colori di BAR_COLORS in store.svelte.js.
-    var bars = { dark: { grigio: "#18181B", nero: "#000000" }[dk] || "#0C0F1C", light: lt === "carta" ? "#F8F5EE" : "#F4F5F9" };
+    var bars = { dark: { grigio: "#18181B", nero: "#000000", solarized: "#002B36" }[dk] || "#0C0F1C", light: { carta: "#F8F5EE", solarized: "#FDF6E3" }[lt] || "#F4F5F9" };
     document.querySelectorAll('meta[name="theme-color"]').forEach(function (m) {
       m.content = t === "light" || t === "dark" ? bars[t] : bars[m.media.indexOf("dark") >= 0 ? "dark" : "light"];
     });
     if (t === "light" || t === "dark") d.theme = t;
     if (a && a !== "galassia") d.accent = a;
+    // Colore personalizzato (#74): le varianti calcolate da lib/color.js.
+    if (a === "custom") {
+      var v = JSON.parse(s.getItem("gf-accent-vars") || "{}");
+      for (var k in v) document.documentElement.style.setProperty(k, v[k]);
+    }
     if (f && f !== "galactic") d.font = f;
-    if (r && r !== "serif") d.read = r;
   } catch (e) {}
 </script>
 </head>
@@ -75,6 +79,16 @@
     <symbol id="i-share" viewBox="0 0 24 24"><path d="M12 15V4M7.5 8.5L12 4l4.5 4.5"/><path d="M8 11H6a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-7a1 1 0 0 0-1-1h-2"/></symbol>
     <symbol id="i-text" viewBox="0 0 24 24"><path d="M4 18l4.5-12L13 18M5.7 14h5.6"/><path d="M14 18l3-8 3 8M14.9 15.6h4.2"/></symbol>
     <symbol id="i-cloud-off" viewBox="0 0 24 24"><path d="M3 3l18 18"/><path d="M8.5 7.4A5 5 0 0 1 16.8 10H17a3.5 3.5 0 0 1 2.4 6M15.5 18H7a4 4 0 0 1-1.5-7.7"/></symbol>
+    <!-- Notiziario (#77): righe di notizie con un punto «in diretta». -->
+    <symbol id="i-notiziario" viewBox="0 0 24 24"><path d="M4 6.5h10.5M4 12h16M4 17.5h12"/><circle cx="19.2" cy="6.5" r="1.9" fill="currentColor" stroke="none"/></symbol>
+    <symbol id="i-filter" viewBox="0 0 24 24"><path d="M4 6h16M7 12h10M10 18h4"/></symbol>
+    <symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+    <symbol id="i-dot" viewBox="0 0 24 24"><circle cx="12" cy="12" r="2" fill="currentColor"/></symbol>
+    <symbol id="i-eye" viewBox="0 0 24 24"><path d="M3 12c1.6-3.5 5-6 9-6s7.4 2.5 9 6c-1.6 3.5-5 6-9 6s-7.4-2.5-9-6z"/><circle cx="12" cy="12" r="2.8"/></symbol>
+    <symbol id="i-camera" viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></symbol>
+    <symbol id="i-chart" viewBox="0 0 24 24"><path d="M5 19V11M10 19V6M15 19v-5M20 19V9"/></symbol>
+    <symbol id="i-checks" viewBox="0 0 24 24"><path d="M2.5 12.5l4 4L15 8"/><path d="M11.5 16l.5.5L21 8"/></symbol>
+    <symbol id="i-chev-down" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
   </defs>
 </svg>
 <div id="root"></div>

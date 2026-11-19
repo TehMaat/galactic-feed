@@ -357,6 +357,72 @@ def latest(
     }
 
 
+def _rules_label(conn: sqlite3.Connection, user_id: int, rules: dict) -> str:
+    """L'etichetta della card in Oggi: i nomi di tag, gruppi e cartelle delle regole («Spazio · Motori»)."""
+    names: list[str] = []
+
+    def add(table: str, ids: list[int]) -> None:
+        if ids:
+            marks = ",".join("?" * len(ids))
+            names.extend(r[0] for r in conn.execute(f"SELECT name FROM {table} WHERE user_id = ? AND id IN ({marks})", [user_id, *ids]))
+
+    add("tags", rules.get("tags") or [])
+    add("word_groups", rules.get("groups") or [])
+    folders = rules.get("folders") or []
+    add("folders", [int(f) for f in folders if f != "none"])
+    if "none" in folders:
+        names.append(NONE_TITLE)
+    return " · ".join(names[:3])
+
+
+@router.get("/editions/today")
+def editions_today(user: User = Depends(current_user), conn: sqlite3.Connection = Depends(get_db), ctx: AppContext = Depends(get_ctx)):
+    """Le Edizioni per la pagina Oggi (#64): l'ultima uscita di ogni Edizione accesa, dalla più recente.
+
+    Ogni card dice quante notizie ha e quante sono da leggere, con il titolo e l'immagine della
+    notizia d'apertura. Senza uscite l'elenco è vuoto e Oggi mostra solo il Notiziario.
+    """
+    edition.ensure_configs(conn, user.id)
+    rows = conn.execute(
+        "SELECT e.*, c.name AS config_name, c.rules AS config_rules, c.schedule AS config_schedule FROM editions e"
+        " JOIN edition_configs c ON c.id = e.config_id"
+        " WHERE e.user_id = ? AND c.active = 1"
+        " AND e.id = (SELECT id FROM editions WHERE config_id = c.id ORDER BY created_at DESC, id DESC LIMIT 1)"
+        " ORDER BY e.created_at DESC, e.id DESC",
+        (user.id,),
+    ).fetchall()
+    out = []
+    for row in rows:
+        items = conn.execute(
+            "SELECT ei.article_id, ei.section, ua.read_at, s.id AS sub_id, ua.saved_at FROM edition_items ei"
+            " JOIN articles a ON a.id = ei.article_id"
+            " LEFT JOIN subscriptions s ON s.feed_id = a.feed_id AND s.user_id = ?"
+            " LEFT JOIN user_articles ua ON ua.article_id = ei.article_id AND ua.user_id = ?"
+            " WHERE ei.edition_id = ? ORDER BY ei.position",
+            (user.id, user.id, row["id"]),
+        ).fetchall()
+        items = [i for i in items if i["sub_id"] is not None or i["saved_at"] is not None]
+        lead = next((i for i in items if i["section"] == "hero"), items[0] if items else None)
+        lead_payload = None
+        if lead is not None:
+            r = query.article_rows(conn, user.id, [lead["article_id"]]).get(lead["article_id"])
+            if r is not None:
+                lead_payload = item_payload(r, ctx.secret)
+        rules = json.loads(row["config_rules"] or "{}")
+        out.append({
+            "id": row["id"],
+            "config_id": row["config_id"],
+            "name": row["config_name"],
+            "number": row["config_number"] or row["number"],
+            "created_at": iso(row["created_at"]),
+            "label": _rules_label(conn, user.id, rules) or schedule.describe(json.loads(row["config_schedule"] or "{}")),
+            "count": len(items),
+            "unread": sum(1 for i in items if i["read_at"] is None),
+            "lead": lead_payload,
+        })
+    return {"editions": out}
+
+
 @router.get("/editions/{edition_id}")
 def get_edition(
     edition_id: int, user: User = Depends(current_user), conn: sqlite3.Connection = Depends(get_db), ctx: AppContext = Depends(get_ctx)
@@ -364,6 +430,10 @@ def get_edition(
     row = conn.execute("SELECT * FROM editions WHERE id = ? AND user_id = ?", (edition_id, user.id)).fetchone()
     if row is None:
         raise HTTPException(status_code=404, detail="Edizione non trovata.")
+    if row["opened_at"] is None:
+        # Prima apertura dell'uscita: conta nelle statistiche (#78).
+        with conn:
+            conn.execute("UPDATE editions SET opened_at = ? WHERE id = ?", (now(), edition_id))
     return {
         "edition": edition_payload(conn, user, ctx, row),
         "schedule": _schedule_summary(conn, user, ctx, row["config_id"]),

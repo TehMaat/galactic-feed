@@ -7,7 +7,7 @@
   import Page from "../components/Page.svelte";
   import AiSettings from "../sheets/AiSettings.svelte";
   import { api } from "../lib/api.js";
-  import { ACCENTS, DARK_STYLES, LIGHT_STYLES, COUNTRIES, FONTS, READ_FONTS, SIZES, bytesLabel, countryName, durationLabel, flag, initials, timeAgoLong } from "../lib/format.js";
+  import { ACCENTS, DARK_STYLES, LIGHT_STYLES, COUNTRIES, FONTS, SIZES, bytesLabel, countryName, durationLabel, flag, initials, timeAgoLong } from "../lib/format.js";
   import { ask, loadSources, session, toast, ui } from "../lib/store.svelte.js";
 
   let { active } = $props();
@@ -676,18 +676,10 @@
             </div>
           </div>
           <div class="set-block">
-            <span class="label" id="def-font">Font</span>
+            <span class="label" id="def-font">Font dell'interfaccia e degli articoli</span>
             <div class="tags" role="group" aria-labelledby="def-font">
               {#each FONTS as [k, label, family] (k)}
                 <button type="button" class="tag" style="font-family:{family}" aria-pressed={p.font === k} onclick={() => saveDefault({ font: k })}>{label}</button>
-              {/each}
-            </div>
-          </div>
-          <div class="set-block">
-            <span class="label" id="def-read">Testo degli articoli</span>
-            <div class="tags" role="group" aria-labelledby="def-read">
-              {#each READ_FONTS as [k, label, family] (k)}
-                <button type="button" class="tag" style="font-family:{family}" aria-pressed={p.font_read === k} onclick={() => saveDefault({ font_read: k })}>{label}</button>
               {/each}
             </div>
           </div>

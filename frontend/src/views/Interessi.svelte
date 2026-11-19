@@ -14,7 +14,7 @@
     try {
       data.interests = await promise;
       if (message) toast(message);
-      // Le regole cambiano cosa compare nel Flusso: si ricarica tutto.
+      // Le regole cambiano cosa compare nel Notiziario: si ricarica tutto.
       const [p] = await Promise.all([api("/interests/preview"), loadStream(true), loadCounts()]);
       data.preview = p;
     } catch (err) {
@@ -179,7 +179,7 @@
 
 <section class="view" class:is-entering={active} hidden={!active} aria-label="Interessi">
   <header class="large-title">
-    <div><h2>Interessi</h2><p class="subtitle">Quello che corrisponde finisce in «Per te». Il resto resta nel Flusso.</p></div>
+    <div><h2>Interessi</h2><p class="subtitle">Quello che corrisponde finisce in «Per te». Il resto resta nel Notiziario.</p></div>
   </header>
 
   {#if data.preview}
@@ -284,7 +284,7 @@
 
   <section class="panel">
     <h3>Silenzia</h3>
-    <p class="hint">Gli articoli che contengono queste parole spariscono dal Flusso. Puoi sempre mostrarli con un tocco.</p>
+    <p class="hint">Gli articoli che contengono queste parole spariscono dal Notiziario. Puoi sempre mostrarli con un tocco.</p>
     {#if data.interests.muted.length}
       <div class="tags">
         {#each data.interests.muted as w (w.id)}

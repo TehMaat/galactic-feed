@@ -13,7 +13,7 @@ export const CACHE = {
   imagesRecent: "gf-img", // immagini viste di recente (elenchi, copertine), a scadenza
   icons: "gf-icons", // icone delle fonti, tenute a lungo per vederle anche offline
   api: "gf-api", // stato dell'account, fonti, cartelle, interessi, contatori
-  lists: "gf-lists", // elenchi di articoli (Flusso, Salvati)
+  lists: "gf-lists", // elenchi di articoli (Notiziario, Salvati)
 };
 
 export const KEEP_READ = 300; // articoli letti (non salvati) da tenere offline

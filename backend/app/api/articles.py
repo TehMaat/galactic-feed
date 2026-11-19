@@ -36,6 +36,9 @@ def make_filter(
     tag: int | None = None,
     country: str | None = None,
     show_partial: bool = False,
+    include: list[str] | None = None,
+    exclude: list[str] | None = None,
+    unread: bool = False,
 ) -> ArticleFilter:
     if view not in VIEWS:
         raise HTTPException(status_code=422, detail="Filtro sconosciuto.")
@@ -52,7 +55,17 @@ def make_filter(
     f.dedupe = bool(prefs["dedupe"])
     f.hide_partial = bool(prefs["hide_partial"])
     f.show_partial = show_partial
+    try:
+        f.include = query.check_filter_keys(include)
+        f.exclude = query.check_filter_keys(exclude)
+    except ValueError as err:
+        raise HTTPException(status_code=422, detail=str(err))
+    f.unread = unread
     return f
+
+
+def _keys(raw: str) -> list[str]:
+    return [k for k in (raw or "").split(",") if k.strip()]
 
 
 def filter_params(
@@ -64,9 +77,12 @@ def filter_params(
     tag: int | None = Query(None, description="id del tag delle fonti"),
     country: str | None = Query(None, description="nazione delle fonti, per esempio IT"),
     show_partial: bool = Query(False, description="mostra anche gli articoli senza testo completo nascosti dalla preferenza"),
+    inc: str = Query("", max_length=2000, description="filtri inclusi, separati da virgole: t:3,g:5,f:none,s:12,c:IT,v"),
+    exc: str = Query("", max_length=2000, description="filtri esclusi, stesso formato di inc"),
+    unread: bool = Query(False, description="solo gli articoli da leggere"),
     user: User = Depends(current_user),
 ) -> ArticleFilter:
-    return make_filter(user, view, folder, source, q, show_muted, tag, country, show_partial)
+    return make_filter(user, view, folder, source, q, show_muted, tag, country, show_partial, _keys(inc), _keys(exc), unread)
 
 
 def _cursor(raw: str | None) -> tuple[int, int] | None:
@@ -143,6 +159,28 @@ def article_counts(
     return query.counts(conn, user.id, f)
 
 
+class TallyFilter(BaseModel):
+    view: str = "tutti"
+    unread: bool = False
+    inc: list[str] = Field(default_factory=list, max_length=60)
+    exc: list[str] = Field(default_factory=list, max_length=60)
+
+
+class TallyBody(BaseModel):
+    q: str = Field("", max_length=200)
+    filters: list[TallyFilter] = Field(default_factory=list, max_length=40)
+
+
+@router.post("/tally")
+def article_tally(body: TallyBody, user: User = Depends(current_user), conn: sqlite3.Connection = Depends(get_db)):
+    """Per ogni filtro (il Notiziario e i preset, #66 #68): quante notizie e quante da leggere."""
+    results = []
+    for item in body.filters:
+        f = make_filter(user, item.view, q=body.q, include=item.inc, exclude=item.exc, unread=item.unread)
+        results.append(query.tally(conn, user.id, f))
+    return {"results": results}
+
+
 def _visible_or_404(conn: sqlite3.Connection, user_id: int, article_id: int) -> None:
     if not query.is_visible(conn, user_id, article_id):
         raise HTTPException(status_code=404, detail=NOT_FOUND)
@@ -177,6 +215,15 @@ def article(
 
 
 # ---------- Letti e salvati ----------
+
+
+def log_reading(conn: sqlite3.Connection, user_id: int, article_id: int, ts: int | None = None) -> None:
+    """Articolo aperto (per le statistiche, #78): conta la prima volta, una sola."""
+    conn.execute(
+        "INSERT OR IGNORE INTO reading_log (user_id, article_id, feed_id, read_at)"
+        " SELECT ?, id, feed_id, ? FROM articles WHERE id = ?",
+        (user_id, ts or now(), article_id),
+    )
 
 
 def set_read(conn: sqlite3.Connection, user_id: int, article_id: int, read: bool, ts: int | None = None) -> None:
@@ -230,6 +277,8 @@ def _toggle(kind: str, value: bool):
         _visible_or_404(conn, user.id, article_id)
         with conn:
             (set_read if kind == "read" else set_saved)(conn, user.id, article_id, value)
+            if kind == "read" and value:
+                log_reading(conn, user.id, article_id)
         return _state(conn, user.id, article_id)
 
     return endpoint
@@ -248,6 +297,8 @@ class MarkRead(BaseModel):
     tag: int | None = None
     country: str | None = None
     q: str = ""
+    inc: list[str] = Field(default_factory=list, max_length=60)
+    exc: list[str] = Field(default_factory=list, max_length=60)
     # Solo gli articoli arrivati fino a questo momento (quello in cui l'elenco è stato caricato).
     before: str | None = None
 
@@ -255,7 +306,7 @@ class MarkRead(BaseModel):
 @router.post("/mark-read")
 def mark_read(body: MarkRead, user: User = Depends(current_user), conn: sqlite3.Connection = Depends(get_db)):
     """«Segna tutti come letti» sugli articoli del filtro in uso."""
-    f = make_filter(user, body.view, body.folder, body.source, body.q, tag=body.tag, country=body.country)
+    f = make_filter(user, body.view, body.folder, body.source, body.q, tag=body.tag, country=body.country, include=body.inc, exclude=body.exc)
     f.dedupe = False
     if body.before:
         from datetime import datetime
@@ -307,6 +358,8 @@ def sync(body: SyncBody, user: User = Depends(current_user), conn: sqlite3.Conne
                 continue
             if action.read is not None:
                 set_read(conn, user.id, action.id, action.read)
+                if action.read:
+                    log_reading(conn, user.id, action.id)
             if action.saved is not None:
                 set_saved(conn, user.id, action.id, action.saved)
             applied += 1
