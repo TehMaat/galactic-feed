@@ -116,23 +116,21 @@ export const DARK_STYLES = [
   ["notte", "Notte", "#0C0F1C", "#151A2D", "#ECEAF3"],
   ["grigio", "Grigio", "#18181B", "#232327", "#EDEDF0"],
   ["nero", "Nero", "#000000", "#121214", "#EDEDF0"],
+  ["solarized", "Solarized", "#002B36", "#05303B", "#EEE8D5"],
 ];
 export const LIGHT_STYLES = [
   ["neutro", "Neutro", "#F4F5F9", "#FFFFFF", "#13162A"],
   ["carta", "Carta", "#F8F5EE", "#FBF8F2", "#26211A"],
+  ["solarized", "Solarized", "#FDF6E3", "#FFFBF0", "#073642"],
 ];
 
-/** Font dell'interfaccia e del testo degli articoli: [chiave, nome, font per l'anteprima]. */
+/** Un solo font per interfaccia e articoli (#75): [chiave, nome, font per l'anteprima]. */
 export const FONTS = [
-  ["galactic", "Galactic", "var(--font-brand)"],
-  ["sistema", "Sistema", "var(--font-system)"],
+  ["galactic", "Galactic", '"Plus Jakarta Sans Variable", var(--font-system)'],
+  ["classico", "Classico", "var(--font-serif)"],
   ["inter", "Inter", '"Inter Variable", var(--font-system)'],
-  ["leggibile", "Alta leggibilità", '"Atkinson Hyperlegible", var(--font-system)'],
-];
-export const READ_FONTS = [
-  ["serif", "Serif", '"Newsreader", Georgia, serif'],
-  ["sans", "Come l'interfaccia", "var(--font-ui)"],
   ["sistema", "Sistema", "var(--font-system)"],
+  ["leggibile", "Alta leggibilità", '"Atkinson Hyperlegible", var(--font-system)'],
 ];
 export const SIZES = [[0.92, "Piccolo"], [1, "Normale"], [1.12, "Grande"]];
 
@@ -198,3 +196,15 @@ export function nextRun(iso, timeZone, now = Date.now()) {
   if (dayOf(d) === dayOf(now + 86400000)) return `domani alle ${time}`;
   return `${d.toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long", ...opts })} alle ${time}`;
 }
+
+/** Colori per le iniziali dell'avatar (#76): coppie di tinte per il gradiente. Il server ne accetta 8. */
+export const AVATAR_COLORS = [
+  ["#6366F1", "#06B6D4"],
+  ["#D946EF", "#8B5CF6"],
+  ["#F43F5E", "#F97316"],
+  ["#10B981", "#06B6D4"],
+  ["#F59E0B", "#EF4444"],
+  ["#3B82F6", "#6366F1"],
+  ["#14B8A6", "#84CC16"],
+  ["#64748B", "#334155"],
+];

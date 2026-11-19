@@ -7,12 +7,16 @@ import "@fontsource/unbounded/700.css";
 import "@fontsource/jetbrains-mono/400.css";
 // Font a scelta nelle Impostazioni: il browser li scarica solo se servono, il service worker li tiene per l'offline.
 import "@fontsource-variable/inter/wght.css";
+// Titoli dello stile «Galactic» (#75).
+import "@fontsource-variable/plus-jakarta-sans/wght.css";
 import "@fontsource/atkinson-hyperlegible/400.css";
 import "@fontsource/atkinson-hyperlegible/700.css";
 import "@fontsource/jetbrains-mono/500.css";
 import "./styles/base.css";
 import "./styles/app.css";
 import "./styles/extra.css";
+// Nuovo aspetto in vetro (#64, #65): viene per ultimo e ridisegna sopra gli stili precedenti.
+import "./styles/glass.css";
 
 import { mount } from "svelte";
 import App from "./App.svelte";

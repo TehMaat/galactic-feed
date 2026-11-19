@@ -12,8 +12,11 @@
   import Confirm from "./components/Confirm.svelte";
   import Icon from "./components/Icon.svelte";
   import Reader from "./components/Reader.svelte";
+  import Avatar from "./components/Avatar.svelte";
   import AddSource from "./sheets/AddSource.svelte";
   import EditionSheet from "./sheets/EditionSheet.svelte";
+  import FilterSheet from "./sheets/FilterSheet.svelte";
+  import ProfileSheet from "./sheets/ProfileSheet.svelte";
   import Admin from "./views/Admin.svelte";
   import FolderSheet from "./sheets/FolderSheet.svelte";
   import Settings from "./views/Settings.svelte";
@@ -22,24 +25,46 @@
   import { barsAfterScroll } from "./lib/bars.js";
   import { applyUpdate, pwa } from "./lib/pwa.svelte.js";
   import { COMPACT_QUERY } from "./lib/scroll.js";
-  import { closeReader, closeSheet, confirmation, data, goHome, openPage, session, switchTab, ui } from "./lib/store.svelte.js";
+  import { closeReader, closeSheet, confirmation, data, goHome, openPage, session, switchTab, today, ui } from "./lib/store.svelte.js";
+  import Cerca from "./views/Cerca.svelte";
   import Fonti from "./views/Fonti.svelte";
   import Interessi from "./views/Interessi.svelte";
   import Oggi from "./views/Oggi.svelte";
+  import Profilo from "./views/Profilo.svelte";
   import Salvati from "./views/Salvati.svelte";
 
-  // Su telefono e tablet la Dock ha tre tasti: Fonti si apre dalle Impostazioni. Sul computer
-  // la barra in alto ha spazio anche per Fonti.
-  const TABS = [
+  // Telefono e tablet (#64): Dock a pillola con Oggi, Notiziario (solo se ci sono Edizioni: scorre
+  // fino alla sezione), Cerca e Profilo; Fonti, Interessi, Salvati e Impostazioni si aprono dal
+  // Profilo. Computer (#65): barra in alto con le sezioni a sinistra, Cerca, Impostazioni,
+  // Amministrazione e l'avatar (Profilo) a destra.
+  const WIDE_TABS = [
     ["oggi", "edition", "Oggi"],
     ["fonti", "rss", "Fonti"],
     ["interessi", "spark", "Interessi"],
     ["salvati", "bookmark", "Salvati"],
   ];
-  // La capsula sotto la sezione attiva nella Dock (telefono e tablet): posizione tra i tre tasti
-  // visibili, o nessuna fuori da quelle sezioni (Fonti, Impostazioni, Amministrazione).
-  const DOCK = ["oggi", "interessi", "salvati"];
-  const dockIndex = $derived(DOCK.indexOf(ui.tab));
+  const hasEditions = $derived(today.editions.length > 0);
+  const dock = $derived([
+    ["oggi", hasEditions ? "edition" : "notiziario", "Oggi"],
+    ...(hasEditions ? [["notiziario", "notiziario", "Notiziario"]] : []),
+    ["cerca", "search", "Cerca"],
+    ["profilo", "user", "Profilo"],
+  ]);
+  const PROFILE_TABS = new Set(["profilo", "impostazioni", "amministrazione", "fonti", "interessi", "salvati"]);
+  function dockCurrent(key) {
+    if (key === "oggi") return ui.tab === "oggi" && !(hasEditions && ui.atNews);
+    if (key === "notiziario") return ui.tab === "oggi" && ui.atNews;
+    if (key === "profilo") return PROFILE_TABS.has(ui.tab);
+    return ui.tab === key;
+  }
+  function dockTap(key) {
+    if (key === "notiziario") {
+      if (ui.tab !== "oggi") switchTab("oggi");
+      ui.newsTick += 1;
+    } else if (key === "oggi" && ui.tab === "oggi") goHome();
+    else switchTab(key);
+  }
+  const todayLabel = new Intl.DateTimeFormat("it-IT", { weekday: "long", day: "numeric", month: "short" }).format(new Date()).replace(/^./, (c) => c.toUpperCase());
   const ts = $derived(session.user?.prefs?.text_size ?? 1);
   let scrimVisible = $state(false);
   let barsHidden = $state(false);
@@ -57,7 +82,7 @@
 
   // Un solo documento che scorre per tutte le sezioni: ognuna ricorda dove eri arrivato.
   // Impostazioni e Amministrazione ripartono sempre dalla cima, come le loro sottopagine.
-  const KEEP = new Set(["oggi", "fonti", "interessi", "salvati"]);
+  const KEEP = new Set(["oggi", "fonti", "interessi", "salvati", "cerca", "profilo"]);
   const positions = {};
   let shownTab = ui.tab;
   let seenHome = ui.homeTick;
@@ -84,7 +109,7 @@
   // Con il lettore, una scheda o una conferma aperti la lista sotto non scorre; alla chiusura
   // torna dov'era, anche se il browser l'ha spostata (per esempio per mostrare un campo).
   $effect(() => {
-    if (!docMode || !(ui.reader || ui.sheet || confirmation.open)) return;
+    if (!docMode || !(ui.reader || ui.edition || ui.sheet || confirmation.open)) return;
     const root = document.documentElement;
     const y = window.scrollY;
     root.classList.add("gf-lock");
@@ -100,6 +125,7 @@
   $effect(() => {
     ui.tab;
     ui.reader;
+    ui.edition;
     ui.sheet;
     ui.homeTick;
     ui.pageTick;
@@ -113,7 +139,7 @@
     // scorrimento non deve nasconderla di nuovo. (Un tocco lascia il focus sul pulsante, ma non
     // «visibile»: lì le barre continuano a nascondersi.)
     const focused = document.activeElement;
-    if (focused?.closest?.(".appbar, .tabbar") && focused.matches(":focus-visible")) {
+    if (focused?.closest?.(".appbar, .tabbar, .dock") && focused.matches(":focus-visible")) {
       barsRef = window.scrollY;
       barsHidden = false;
       return;
@@ -155,15 +181,17 @@
   function onKey(e) {
     if (e.key !== "Escape") return;
     if (ui.sheet) closeSheet();
-    else if (ui.reader) closeReader();
+    else if (ui.reader || ui.edition) closeReader();
   }
 </script>
 
 <svelte:window onkeydown={onKey} onscroll={onWindowScroll} />
 
-<div class="app" data-tab={ui.tab} data-reader={session.user?.prefs?.reader_layout === "pagina" ? "pagina" : "colonne"} data-bars={barsHidden ? "hidden" : undefined} style="--ts:{ts}">
+<div class="app" data-tab={ui.tab} data-open={ui.reader || ui.edition ? "yes" : undefined} data-reader={session.user?.prefs?.reader_layout === "pagina" ? "pagina" : "colonne"} data-bars={barsHidden ? "hidden" : undefined} style="--ts:{ts}">
   <main class="views" onfocusin={onViewFocus}>
     <Oggi active={ui.tab === "oggi"} />
+    <Cerca active={ui.tab === "cerca"} />
+    <Profilo active={ui.tab === "profilo"} />
     <Fonti active={ui.tab === "fonti"} />
     <Interessi active={ui.tab === "interessi"} />
     <Salvati active={ui.tab === "salvati"} />
@@ -172,28 +200,36 @@
   </main>
 
   <header class="appbar" onfocusin={showBars}>
-    <a class="wordmark" href="/" aria-label="galactic feed: vai a Oggi" title="Vai a Oggi" onclick={home}><Icon name="orbit" /><span>galactic feed</span></a>
-    <button type="button" class="icon-btn" aria-label="Impostazioni" aria-pressed={ui.tab === "impostazioni" || ui.tab === "amministrazione" || ui.tab === "fonti"} onclick={() => openPage("impostazioni")}><Icon name="sliders" /></button>
+    <a class="wordmark glass" href="/" aria-label="galactic feed: vai a Oggi" title="Vai a Oggi" onclick={home}><span class="wordmark-ico"><Icon name="orbit" /></span><span>galactic feed</span></a>
+    <span class="date-pill glass">{todayLabel}</span>
   </header>
 
+  <nav class="dock glass" aria-label="Sezioni" onfocusin={showBars}>
+    {#each dock as [key, icon, label] (key)}
+      <button type="button" aria-label={label} title={label} aria-current={dockCurrent(key) ? "page" : undefined} onclick={() => dockTap(key)}><Icon name={icon} /></button>
+    {/each}
+  </nav>
+
   <nav class="tabbar" aria-label="Sezioni" onfocusin={showBars}>
-    <a class="nav-brand wordmark" href="/" aria-label="galactic feed: vai a Oggi" title="Vai a Oggi" onclick={home}><Icon name="orbit" /><span>galactic feed</span></a>
-    <span class="tab-pill" class:is-off={dockIndex < 0} style="--i:{Math.max(dockIndex, 0)}" aria-hidden="true"></span>
-    {#each TABS as [key, icon, label]}
-      <button type="button" class:nav-wide-only={key === "fonti"} aria-current={ui.tab === key ? "page" : undefined} onclick={() => switchTab(key)}>
+    <a class="nav-brand wordmark" href="/" aria-label="galactic feed: vai a Oggi" title="Vai a Oggi" onclick={home}><span class="wordmark-ico"><Icon name="orbit" /></span><span>galactic feed</span></a>
+    {#each WIDE_TABS as [key, icon, label]}
+      <button type="button" aria-current={ui.tab === key ? "page" : undefined} onclick={() => switchTab(key)}>
         <Icon name={icon} /><span>{label}</span>
         {#if key === "salvati" && data.counts.salvati}<b class="tab-badge">{data.counts.salvati}</b>{/if}
       </button>
     {/each}
+    <button type="button" class="nav-search glass" aria-current={ui.tab === "cerca" ? "page" : undefined} onclick={() => switchTab("cerca")}>
+      <Icon name="search" /><span>Cerca notizie e fonti</span>
+    </button>
     <button type="button" class="nav-settings" aria-current={ui.tab === "impostazioni" ? "page" : undefined} onclick={() => openPage("impostazioni")}>
       <Icon name="sliders" /><span>Impostazioni</span>
     </button>
     {#if session.user?.is_admin}
-      <!-- Solo per gli amministratori; su telefono e tablet si apre dalle Impostazioni. -->
       <button type="button" class="nav-admin" aria-current={ui.tab === "amministrazione" ? "page" : undefined} onclick={() => openPage("amministrazione")}>
         <Icon name="shield" /><span>Amministrazione</span>
       </button>
     {/if}
+    <button type="button" class="nav-me" aria-label="Il tuo profilo" title="Il tuo profilo" aria-current={ui.tab === "profilo" ? "page" : undefined} onclick={() => switchTab("profilo")}><Avatar user={session.user} size="sm" /></button>
   </nav>
 
   <Reader />
@@ -205,6 +241,8 @@
   <TagsSheet />
   <EditionSheet />
   <FolderSheet />
+  <FilterSheet />
+  <ProfileSheet />
   <Confirm />
 
   <!-- Versione nuova dell'app pronta (#41): si attiva con un tocco, oppure da sola alla prossima apertura. -->

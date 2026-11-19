@@ -1,9 +1,9 @@
 <script>
-  // Edizione: testata con il cielo stellato, notizia in primo piano e sezioni per cartella,
-  // come nel mockup. La compone il server agli orari scelti nelle Impostazioni.
+  // Un'uscita dell'Edizione, aperta da Oggi (#64): testata con il cielo stellato, notizia in primo
+  // piano e sezioni per cartella. Si legge nel lettore: sopra Oggi sul telefono, a destra sul computer.
   import { paintStars } from "../lib/art.js";
-  import { folderColor, matchLabel, nextRun } from "../lib/format.js";
-  import { composeEdition, deleteEditionIssue, editEditionConfig, edition, foldersById, openArticle, session, showEdition, ui } from "../lib/store.svelte.js";
+  import { folderColor, nextRun } from "../lib/format.js";
+  import { deleteEditionIssue, editEditionConfig, edition, foldersById, openArticle, session, ui } from "../lib/store.svelte.js";
   import Icon from "./Icon.svelte";
   import SourceMeta from "./SourceMeta.svelte";
   import Thumb from "./Thumb.svelte";
@@ -38,19 +38,8 @@
   const color = (a) => foldersById()[a.source.folder_id]?.color || "indaco";
   const total = $derived(ed ? (ed.hero ? 1 : 0) + ed.sections.reduce((n, s) => n + s.items.length, 0) : 0);
   const mode = $derived(MODES[session.user?.prefs?.ai_mode || "parole"]);
-  // Più Edizioni (#18): selettore, dall'ultima uscita.
-  const many = $derived(edition.configs.length > 1);
-  const shownId = $derived(edition.config ?? ed?.config_id ?? null);
-  const kicker = $derived(ed ? (many || (ed.name && ed.name !== "La mia Edizione") ? `${ed.name} · n. ${ed.number}` : `Edizione delle ${ed.slot} · n. ${ed.number}`) : "");
+  const kicker = $derived(ed ? `${ed.name} · ${total === 1 ? "1 notizia" : `${total} notizie`}` : "");
 </script>
-
-{#if many}
-  <div class="ed-picker chips" role="tablist" aria-label="Edizioni">
-    {#each edition.configs as c (c.id)}
-      <button type="button" class="chip" role="tab" aria-selected={shownId === c.id} aria-pressed={shownId === c.id} onclick={() => showEdition(c.id)}>{c.name}</button>
-    {/each}
-  </div>
-{/if}
 
 {#if ed}
   <section class="masthead" aria-label="Edizione">
@@ -73,8 +62,7 @@
       aria-label={a.title} onclick={() => openArticle(a.id)} onkeydown={(e) => key(e, a.id)}>
       <Thumb article={a} color={color(a)} wide />
       <div class="hero-body">
-        <div class="hero-label"><span class="count">In primo piano</span>
-          {#if a.match}<span class="match"><Icon name="spark" />{matchLabel(a.match)}</span>{/if}</div>
+        <div class="hero-label"><span class="count">In primo piano</span></div>
         <h3 class="hero-title">{a.title}</h3>
         {#if a.excerpt}<p class="excerpt clamp-2">{a.excerpt}</p>{/if}
         <SourceMeta article={a} />
@@ -93,7 +81,7 @@
           aria-label={a.title} onclick={() => openArticle(a.id)} onkeydown={(e) => key(e, a.id)}>
           <div class="row-text">
             <h4 class="row-title clamp-3">{a.title}</h4>
-            <div class="row-foot"><SourceMeta article={a} />{#if a.match}<span class="match"><Icon name="spark" />{matchLabel(a.match)}</span>{/if}</div>
+            <div class="row-foot"><SourceMeta article={a} /></div>
           </div>
           <Thumb article={a} color={color(a)} />
         </article>
@@ -104,7 +92,7 @@
   <div class="edition-end">
     <Icon name="check" />
     {#if total}
-      <b>Sei in pari</b><span>{ed.stats.selected} notizie scelte tra {ed.stats.new}. Il resto è nel Flusso.</span>
+      <b>Sei in pari</b><span>{ed.stats.selected} notizie scelte tra {ed.stats.new}. Il resto è nel Notiziario.</span>
     {:else}
       <b>Niente di nuovo</b><span>Dall'edizione precedente non sono arrivate notizie.</span>
     {/if}
@@ -115,13 +103,6 @@
   </div>
 {:else if edition.error}
   <div class="empty"><Icon name="alert" /><h3>Non riesco a caricare l'Edizione</h3><p>{edition.error}</p></div>
-{:else if !edition.loading && edition.loaded}
-  <div class="empty">
-    <Icon name="edition" />
-    <h3>La prima Edizione è in arrivo</h3>
-    <p>Il server la compone {schedule?.next_at ? nextRun(schedule.next_at, schedule.timezone) : "alla prossima uscita"}. Se non vuoi aspettare, componila adesso.</p>
-    <button type="button" class="pill-btn" onclick={composeEdition}><Icon name="spark" />Componi adesso</button>
-  </div>
 {:else}
-  <p class="loading">Carico l'Edizione…</p>
+  <p class="loading">Apro l'Edizione…</p>
 {/if}

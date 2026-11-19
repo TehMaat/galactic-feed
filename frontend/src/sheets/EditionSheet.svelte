@@ -5,7 +5,7 @@
   import Sheet from "../components/Sheet.svelte";
   import { api } from "../lib/api.js";
   import { COUNTRIES, countryName, flag, folderColor, nextRun } from "../lib/format.js";
-  import { ask, closeSheet, data, editionConfigs, setEditionConfigs, showEdition, switchTab, toast, ui } from "../lib/store.svelte.js";
+  import { ask, closeSheet, data, editionConfigs, setEditionConfigs, switchTab, toast, ui, loadToday, openEdition } from "../lib/store.svelte.js";
 
   let config = $state(null);
   let preview = $state(null);
@@ -108,11 +108,11 @@
   async function composeNow() {
     busy = true;
     try {
-      await api("/editions", { method: "POST", body: { config_id: config.id } });
+      const r = await api("/editions", { method: "POST", body: { config_id: config.id } });
       closeSheet();
       switchTab("oggi");
-      ui.oggiMode = "edizione";
-      showEdition(config.id);
+      await loadToday();
+      openEdition(r.edition.id);
       toast(`«${config.name}» composta adesso`);
     } catch (err) {
       toast(err.message);

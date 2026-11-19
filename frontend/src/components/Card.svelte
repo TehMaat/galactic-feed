@@ -1,13 +1,17 @@
 <script>
-  // Articolo nel Flusso e nei Salvati: stessa struttura della «card» del mockup.
-  import { matchLabel, readingInfo } from "../lib/format.js";
+  // Notizia nel Notiziario, nei Salvati e in Cerca (#70): sopra la foto a tutta larghezza con il
+  // titolo sovrapposto e la fonte in alto a destra, sotto l'estratto e «salva». Niente tempo di
+  // lettura, etichette o ora: l'ora di pubblicazione è nell'articolo aperto.
+  import { cover } from "../lib/art.js";
+  import { sourceColor } from "../lib/format.js";
   import { foldersById, openArticle, setSaved, ui } from "../lib/store.svelte.js";
   import Icon from "./Icon.svelte";
-  import SourceMeta from "./SourceMeta.svelte";
-  import Thumb from "./Thumb.svelte";
+  import SourceIcon from "./SourceIcon.svelte";
 
   let { article } = $props();
+  let failed = $state(false);
   const folderColor = $derived(foldersById()[article.source.folder_id]?.color || "indaco");
+  const src = $derived(article.image && !failed ? article.image : cover(article.id, article.video ? "video" : folderColor, 640, 360));
 
   function open() {
     openArticle(article.id);
@@ -25,50 +29,37 @@
 </script>
 
 <div
-  class="card tap"
+  class="card glass tap"
   class:is-read={article.read}
   class:is-current={ui.reader === article.id}
   role="button"
   tabindex="0"
   onclick={open}
   onkeydown={key}
-  aria-label={article.title}
+  aria-label={article.read ? article.title : `${article.title}, da leggere`}
 >
-  <div class="card-top">
-    <SourceMeta {article} />
-    {#if article.video}<span class="type-tag video">Video</span>{/if}
+  <div class="card-media">
+    <img class="card-img" {src} alt="" decoding="async" loading="lazy" onerror={() => (failed = true)} />
+    {#if !article.read}<span class="unread-dot" title="Da leggere"></span>{/if}
+    <span class="src-pill">
+      <SourceIcon source={article.source} color={sourceColor(article.source, foldersById())} />
+      <span>{article.source.title}</span>
+    </span>
+    {#if article.video}<span class="card-play"><span><Icon name="play" /></span></span>{/if}
+    <h3 class="card-title">{article.title}</h3>
   </div>
-  <div class="card-main">
-    <div class="card-text">
-      <h3 class="card-title clamp-3">{article.title}</h3>
-      {#if article.excerpt}<p class="excerpt clamp-2">{article.excerpt}</p>{/if}
-    </div>
-    <Thumb {article} color={folderColor} />
-  </div>
-  <div class="card-foot">
-    <div class="stats">
-      <span>{readingInfo(article)}</span>
-      {#if article.also_on.length}
-        <span class="also">anche su {article.also_on.length === 1 ? article.also_on[0].title : `${article.also_on.length} fonti`}</span>
-      {/if}
-    </div>
-    <div class="foot-r">
-      {#if article.match}
-        <span class="match"><Icon name="spark" />{matchLabel(article.match)}</span>
-      {:else if article.muted}
-        <span class="match">Silenziato</span>
-      {/if}
-      <button
-        type="button"
-        class="save-btn"
-        class:is-on={article.saved}
-        aria-pressed={article.saved}
-        aria-label={article.saved ? "Rimuovi dai salvati" : "Salva"}
-        onclick={toggleSave}
-        onkeydown={(e) => e.stopPropagation()}
-      >
-        <Icon name="bookmark" />
-      </button>
-    </div>
+  <div class="card-body">
+    {#if article.excerpt}<p class="excerpt clamp-3">{article.excerpt}</p>{:else}<span></span>{/if}
+    <button
+      type="button"
+      class="save-btn"
+      class:is-on={article.saved}
+      aria-pressed={article.saved}
+      aria-label={article.saved ? "Rimuovi dai salvati" : "Salva"}
+      onclick={toggleSave}
+      onkeydown={(e) => e.stopPropagation()}
+    >
+      <Icon name="bookmark" />
+    </button>
   </div>
 </div>

@@ -65,6 +65,8 @@ describe("varianti dei temi", () => {
     ["scuro grigio", ':root[data-theme="dark"][data-dark="grigio"]', "acc-d", 0.14],
     ["scuro nero", ':root[data-theme="dark"][data-dark="nero"]', "acc-d", 0.14],
     ["chiaro carta", ':root[data-theme="light"][data-light="carta"]', "acc-l", 0.12],
+    ["scuro solarized", ':root[data-theme="dark"][data-dark="solarized"]', "acc-d", 0.14],
+    ["chiaro solarized", ':root[data-theme="light"][data-light="solarized"]', "acc-l", 0.12],
   ];
   for (const [name, selector, key, alpha] of variants) {
     const p = palette(selector);

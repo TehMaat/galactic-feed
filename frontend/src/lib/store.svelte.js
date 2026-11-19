@@ -3,10 +3,12 @@
 import { api, qs, setUnauthorizedHandler } from "./api.js";
 import { disablePush, setBadge } from "./push.js";
 import { clearAll, enqueue, flushQueue, hasPending, overlay, prepareForUser, refreshCopy, syncSaved } from "./offline.js";
+import { accentVars, applyCustomAccent } from "./color.js";
 
 // Le Impostazioni e l'Amministrazione sono pagine come le altre sezioni (non finestre sopra l'app).
 const TABS = {
   "/": "oggi", "/fonti": "fonti", "/interessi": "interessi", "/salvati": "salvati",
+  "/cerca": "cerca", "/profilo": "profilo",
   "/impostazioni": "impostazioni", "/amministrazione": "amministrazione",
 };
 const PATHS = Object.fromEntries(Object.entries(TABS).map(([path, tab]) => [tab, path]));
@@ -49,6 +51,7 @@ export function foldersById() {
 export const ui = $state({
   tab: "oggi",
   reader: null, // id dell'articolo aperto
+  edition: null, // id dell'uscita dell'Edizione aperta (#64): si legge come un articolo
   readerFromHistory: false,
   sheet: null, // add · source · folder · tags · edition-config
   sheetArg: null,
@@ -57,21 +60,29 @@ export const ui = $state({
   toast: "",
   toastOn: false,
   refreshing: false,
-  oggiMode: "edizione", // edizione · flusso (con l'Edizione accesa)
+  newsTick: 0, // cresce a ogni tocco su «Notiziario» nella Dock: Oggi scorre fino alla sezione
+  atNews: false, // in Oggi il Notiziario è arrivato in vista (la Dock lo accende)
+  settingsQuery: "", // ricerca nelle Impostazioni (#67)
+  settingsFocus: 0, // cresce quando dal Profilo si tocca «Cerca nelle impostazioni»
   online: typeof navigator === "undefined" ? true : navigator.onLine,
   homeTick: 0, // cresce a ogni tocco sul logo: Oggi torna in cima
 });
 
-// ---------- Flusso ----------
+// ---------- Notiziario ----------
+
+// Il filtro del Notiziario (#68): da dove si parte (per te o tutte), solo non letti, chiavi
+// incluse ed escluse («t:3» tag, «g:5» gruppo di parole, «f:2» cartella, «s:12» fonte, «c:IT»
+// nazione, «v» video). I preset sono filtri con un nome; tre sono pronti.
+export const BUILTIN_PRESETS = [
+  { id: "perte", name: "Per te", icon: "spark", builtin: true, filter: { scope: "perte", unread: false, inc: [], exc: [] } },
+  { id: "tutte", name: "Tutte", builtin: true, filter: { scope: "tutte", unread: false, inc: [], exc: [] } },
+  { id: "nonletti", name: "Non letti", icon: "eye", builtin: true, filter: { scope: "tutte", unread: true, inc: [], exc: [] } },
+];
 
 export const stream = $state({
-  view: "tutti", // tutti · perte · nonletti · video
-  folder: null, // id cartella, «none» o null
-  source: null, // id fonte o null
-  sourceTitle: "",
-  tag: null, // id del tag o null
-  country: null, // nazione delle fonti («IT») o null
-  q: "",
+  filter: { scope: "perte", unread: false, inc: [], exc: [] },
+  tally: null, // { total, unread } del filtro in uso (#66)
+  presetTally: {}, // id del preset → { total, unread }
   showMuted: false,
   showPartial: false, // mostra anche gli articoli senza testo completo nascosti dalla preferenza
   items: [],
@@ -85,6 +96,15 @@ export const stream = $state({
 });
 
 export const saved = $state({ items: [], cursor: null, loading: false, error: "", done: false });
+
+// Ricerca (sezione Cerca): negli articoli e nelle fonti.
+export const search = $state({ q: "", items: [], cursor: null, loading: false, error: "", done: false, tally: null });
+
+// Edizioni in Oggi (#64): l'ultima uscita di ogni Edizione accesa.
+export const today = $state({ editions: [], loaded: false });
+
+// Statistiche nel Profilo (#78).
+export const stats = $state({ days: 7, data: null, loading: false, error: "" });
 
 // ---------- Edizione ----------
 
@@ -101,7 +121,7 @@ export function editionOn() {
 function allLists() {
   const ed = edition.data;
   const fromEdition = ed ? [...(ed.hero ? [ed.hero] : []), ...ed.sections.flatMap((s) => s.items)] : [];
-  return [stream.items, saved.items, fromEdition];
+  return [stream.items, saved.items, search.items, fromEdition];
 }
 
 // ---------- Toast ----------
@@ -120,11 +140,13 @@ function readLocation() {
   const path = location.pathname.replace(/\/+$/, "") || "/";
   const params = new URLSearchParams(location.search);
   const id = Number(params.get("a"));
-  return { path, tab: TABS[path] || "oggi", article: Number.isFinite(id) && id > 0 ? id : null };
+  const ed = Number(params.get("e"));
+  return { path, tab: TABS[path] || "oggi", article: Number.isFinite(id) && id > 0 ? id : null, edition: Number.isFinite(ed) && ed > 0 ? ed : null };
 }
 
 function writeLocation(push) {
-  const url = PATHS[ui.tab] + (ui.reader ? `?a=${ui.reader}` : "");
+  const query = [ui.edition ? `e=${ui.edition}` : "", ui.reader ? `a=${ui.reader}` : ""].filter(Boolean).join("&");
+  const url = PATHS[ui.tab] + (query ? `?${query}` : "");
   if (url === location.pathname + location.search) return;
   history[push ? "pushState" : "replaceState"]({ gf: true }, "", url);
 }
@@ -132,7 +154,10 @@ function writeLocation(push) {
 export function switchTab(tab) {
   ui.tab = tab;
   ui.sheet = null;
-  if (!readerBeside()) ui.reader = null;
+  if (!readerBeside()) {
+    ui.reader = null;
+    ui.edition = null;
+  }
   writeLocation(true);
 }
 
@@ -153,6 +178,7 @@ export function goHome() {
   ui.sheet = null;
   ui.sheetArg = null;
   ui.reader = null;
+  ui.edition = null;
   ui.tab = "oggi";
   writeLocation(tabChanged);
   ui.homeTick += 1;
@@ -181,6 +207,10 @@ export async function boot() {
     const loc = readLocation();
     ui.tab = loc.tab;
     ui.reader = loc.article;
+    if (loc.edition !== ui.edition) {
+      ui.edition = loc.edition;
+      if (loc.edition) loadEditionIssue(loc.edition);
+    }
     ui.sheet = null;
   });
   window.addEventListener("online", () => {
@@ -192,7 +222,8 @@ export async function boot() {
   navigator.serviceWorker?.addEventListener("message", (event) => {
     if (event.data?.type !== "gf-push" || session.phase !== "ready") return;
     loadCounts();
-    if (event.data.data?.tag === "edizione") loadEdition();
+    loadTally();
+    if (event.data.data?.tag === "edizione") loadToday();
   });
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible" && session.phase === "ready") {
@@ -227,6 +258,7 @@ export async function boot() {
   }
   ui.tab = loc.tab;
   ui.reader = loc.article;
+  ui.edition = loc.edition;
   await checkSession();
   if (session.phase === "ready" && session.oidcError) toast(session.oidcError);
   else if (session.phase === "ready" && oidcLinked) toast("Account del provider collegato: ora puoi entrare anche con quello");
@@ -250,9 +282,11 @@ export function enter(user, { goHome = false } = {}) {
   session.user = user;
   session.phase = "ready";
   applyPrefs(user.prefs);
+  stream.filter = startFilter(user.prefs);
   if (goHome) {
     ui.tab = "oggi";
     ui.reader = null;
+    ui.edition = null;
     history.replaceState({ gf: true }, "", "/");
   }
   startData(user);
@@ -263,6 +297,7 @@ async function startData(user) {
   await prepareForUser(user.id);
   if (ui.online) await flushQueue();
   await loadAll();
+  if (ui.edition) loadEditionIssue(ui.edition);
   syncSaved();
 }
 
@@ -284,8 +319,12 @@ export async function logout() {
   data.loaded = false;
   stream.items = [];
   saved.items = [];
+  search.items = [];
+  today.editions = [];
+  stats.data = null;
   ui.sheet = null;
   ui.reader = null;
+  ui.edition = null;
   history.replaceState({ gf: true }, "", "/");
   // Uscita anche dal provider, se l'amministratore l'ha scelta.
   if (redirect) location.assign(redirect);
@@ -296,13 +335,16 @@ export async function logout() {
 export function applyPrefs(prefs) {
   if (!prefs) return;
   applyTheme(prefs.theme, prefs.dark_style, prefs.light_style);
-  applyLook({ accent: prefs.accent, font: prefs.font, font_read: prefs.font_read });
+  applyLook({ accent: prefs.accent, font: prefs.font });
+  const custom = prefs.accent === "custom" ? accentVars(prefs.accent_custom) : null;
+  applyCustomAccent(custom);
+  remember("gf-accent-vars", JSON.stringify(custom || {}));
 }
 
 // Colore della barra del browser (meta theme-color): segue lo sfondo del tema e della variante in uso.
 export const BAR_COLORS = {
-  light: { neutro: "#F4F5F9", carta: "#F8F5EE" },
-  dark: { notte: "#0C0F1C", grigio: "#18181B", nero: "#000000" },
+  light: { neutro: "#F4F5F9", carta: "#F8F5EE", solarized: "#FDF6E3" },
+  dark: { notte: "#0C0F1C", grigio: "#18181B", nero: "#000000", solarized: "#002B36" },
 };
 
 /** Tema (auto, light, dark) e varianti: scuro notte, grigio o nero; chiaro neutro o carta. */
@@ -330,7 +372,6 @@ export function applyTheme(theme, dark = "notte", light = "neutro") {
 const LOOK = {
   accent: ["accent", "gf-accent", "galassia"],
   font: ["font", "gf-font", "galactic"],
-  font_read: ["read", "gf-read", "serif"],
 };
 
 export function applyLook(values) {
@@ -384,17 +425,14 @@ export async function savePrefs(changes) {
     toast(err.message);
     return false;
   }
-  if ("edition" in changes || "edition_times" in changes) {
-    if (changes.edition) ui.oggiMode = "edizione";
-    if (editionOn()) loadEdition();
-  }
+  if ("edition" in changes || "edition_times" in changes) loadToday();
   return true;
 }
 
 // ---------- Caricamento ----------
 
 export async function loadAll() {
-  await Promise.all([loadSources(), loadInterests(), loadStream(true), loadCounts(), editionOn() ? loadEdition() : null]);
+  await Promise.all([loadSources(), loadInterests(), loadStream(true), loadCounts(), loadTally(), loadToday()]);
   data.loaded = true;
 }
 
@@ -424,8 +462,8 @@ export async function loadInterests() {
 
 export async function loadCounts() {
   try {
-    data.counts = await api("/articles/counts" + qs({ q: stream.q, show_muted: stream.showMuted, show_partial: stream.showPartial }));
-    if (!stream.q) setBadge(data.counts.nonletti);
+    data.counts = await api("/articles/counts" + qs({ show_muted: stream.showMuted, show_partial: stream.showPartial }));
+    setBadge(data.counts.nonletti);
   } catch {
     /* i contatori non sono essenziali */
   }
@@ -441,12 +479,7 @@ export async function loadStream(reset = false) {
     const r = await api(
       "/articles" +
         qs({
-          view: stream.view,
-          folder: stream.folder,
-          source: stream.source,
-          tag: stream.tag,
-          country: stream.country,
-          q: stream.q,
+          ...filterQuery(stream.filter),
           show_muted: stream.showMuted,
           show_partial: stream.showPartial,
           cursor: reset ? null : stream.cursor,
@@ -474,7 +507,186 @@ export function setFilter(changes) {
   stream.cursor = null;
   stream.done = false;
   loadStream(true);
-  if ("q" in changes || "showMuted" in changes || "showPartial" in changes) loadCounts();
+  loadTally();
+  if ("showMuted" in changes || "showPartial" in changes) loadCounts();
+}
+
+// ---------- Filtri e preset del Notiziario (#68, #69) ----------
+
+const emptyFilter = () => ({ scope: "perte", unread: false, inc: [], exc: [] });
+const sorted = (list) => [...(list || [])].sort();
+const filterKey = (f) => JSON.stringify([f.scope, !!f.unread, sorted(f.inc), sorted(f.exc)]);
+
+/** I parametri dell'API per un filtro. */
+export function filterQuery(f) {
+  return { view: f.scope === "perte" ? "perte" : "tutti", unread: f.unread || null, inc: f.inc.join(",") || null, exc: f.exc.join(",") || null };
+}
+
+/** I preset: i tre pronti e quelli dell'utente. */
+export function allPresets() {
+  return [...BUILTIN_PRESETS, ...(session.user?.prefs?.presets || [])];
+}
+
+/** Il preset che corrisponde al filtro in uso, se c'è. */
+export function currentPreset(f = stream.filter) {
+  const key = filterKey(f);
+  return allPresets().find((p) => filterKey(p.filter) === key) || null;
+}
+
+/** Il filtro all'apertura: il preset scelto (predefinito «Per te») o l'ultimo usato. */
+export function startFilter(prefs) {
+  if (prefs?.start_preset === "last" && prefs.last_filter) return { ...emptyFilter(), ...prefs.last_filter };
+  const p = [...BUILTIN_PRESETS, ...(prefs?.presets || [])].find((x) => x.id === prefs?.start_preset) || BUILTIN_PRESETS[0];
+  return structuredClone($state.snapshot(p.filter));
+}
+
+let lastTimer;
+/** Cambia il filtro del Notiziario. Il filtro, esclusioni comprese, resta salvato anche chiudendo l'app. */
+export function changeFilter(f) {
+  stream.filter = { ...emptyFilter(), ...f, inc: [...(f.inc || [])], exc: [...(f.exc || [])] };
+  setFilter({});
+  clearTimeout(lastTimer);
+  lastTimer = setTimeout(() => {
+    if (session.user) savePrefs({ last_filter: $state.snapshot(stream.filter) });
+  }, 800);
+}
+
+/** Toglie dal filtro in uso una voce che non c'è più (per esempio un tag eliminato). */
+export function dropFilterKey(key) {
+  const f = $state.snapshot(stream.filter);
+  if (f.inc.includes(key) || f.exc.includes(key)) changeFilter({ ...f, inc: f.inc.filter((k) => k !== key), exc: f.exc.filter((k) => k !== key) });
+}
+
+export function applyPreset(id) {
+  const p = allPresets().find((x) => x.id === id);
+  if (p) changeFilter(structuredClone($state.snapshot(p.filter)));
+}
+
+/** Stato di una chiave nel filtro in uso: «inc», «exc» o "". */
+export function keyState(key, f = stream.filter) {
+  return f.inc.includes(key) ? "inc" : f.exc.includes(key) ? "exc" : "";
+}
+
+/** Mette una chiave tra le incluse, le escluse o in nessuna delle due. */
+export function setKey(key, state) {
+  const f = $state.snapshot(stream.filter);
+  f.inc = f.inc.filter((k) => k !== key);
+  f.exc = f.exc.filter((k) => k !== key);
+  if (state === "inc") f.inc.push(key);
+  if (state === "exc") f.exc.push(key);
+  changeFilter(f);
+}
+
+function presetId(name) {
+  const base = name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 18) || "preset";
+  const used = new Set(allPresets().map((p) => p.id).concat("last"));
+  let id = base;
+  for (let n = 2; used.has(id); n++) id = `${base}-${n}`;
+  return id;
+}
+
+export async function savePreset(name) {
+  name = name.trim();
+  if (!name) return false;
+  const presets = [...(session.user.prefs.presets || []), { id: presetId(name), name, filter: $state.snapshot(stream.filter) }];
+  const ok = await savePrefs({ presets });
+  if (ok) {
+    toast(`Preset «${name}» salvato`);
+    loadTally();
+  }
+  return ok;
+}
+
+export async function deletePreset(id) {
+  const p = (session.user.prefs.presets || []).find((x) => x.id === id);
+  if (!p || !(await ask("Il preset sparisce dalla riga del Notiziario. I filtri in uso non cambiano.", { title: `Eliminare «${p.name}»?` }))) return;
+  if (await savePrefs({ presets: session.user.prefs.presets.filter((x) => x.id !== id) })) toast(`«${p.name}» eliminato`);
+}
+
+let tallyRequest = 0;
+/** «X notizie · X da leggere» per il filtro in uso e il numero di ogni preset (#66). */
+export async function loadTally() {
+  const ticket = ++tallyRequest;
+  const presets = allPresets();
+  const asBody = (f) => ({ view: f.scope === "perte" ? "perte" : "tutti", unread: !!f.unread, inc: f.inc, exc: f.exc });
+  try {
+    const r = await api("/articles/tally", { method: "POST", body: { filters: [asBody(stream.filter), ...presets.map((p) => asBody(p.filter))] } });
+    if (ticket !== tallyRequest) return;
+    stream.tally = r.results[0];
+    stream.presetTally = Object.fromEntries(presets.map((p, i) => [p.id, r.results[i + 1]]));
+  } catch {
+    /* i numeri non sono essenziali */
+  }
+}
+
+// ---------- Ricerca ----------
+
+let searchRequest = 0;
+export async function loadSearch(reset = false) {
+  if (!search.q.trim()) {
+    search.items = [];
+    search.tally = null;
+    search.done = true;
+    return;
+  }
+  if (!reset && (search.loading || search.done)) return;
+  const ticket = ++searchRequest;
+  search.loading = true;
+  search.error = "";
+  try {
+    const [r, t] = await Promise.all([
+      api("/articles" + qs({ view: "tutti", q: search.q.trim(), cursor: reset ? null : search.cursor })),
+      reset ? api("/articles/tally", { method: "POST", body: { q: search.q.trim(), filters: [{ view: "tutti" }] } }) : null,
+    ]);
+    if (ticket !== searchRequest) return;
+    overlay(r.items);
+    search.items = reset ? r.items : [...search.items, ...r.items];
+    search.cursor = r.next_cursor;
+    search.done = !r.next_cursor;
+    if (t) search.tally = t.results[0];
+  } catch (err) {
+    if (ticket === searchRequest) search.error = err.message;
+  } finally {
+    if (ticket === searchRequest) search.loading = false;
+  }
+}
+
+// ---------- Profilo e statistiche (#76, #78) ----------
+
+export async function loadStats(days = stats.days) {
+  stats.days = days;
+  stats.loading = true;
+  stats.error = "";
+  try {
+    stats.data = await api("/me/stats" + qs({ days }));
+  } catch (err) {
+    stats.error = err.message;
+  } finally {
+    stats.loading = false;
+  }
+}
+
+/** Nome e colore dell'avatar. */
+export async function saveProfile(changes) {
+  try {
+    session.user = (await api("/me", { method: "PATCH", body: changes })).user;
+    return true;
+  } catch (err) {
+    toast(err.message);
+    return false;
+  }
+}
+
+/** Foto del profilo (data: URL già ridotta), oppure null per tornare alle iniziali. */
+export async function setAvatar(dataUrl) {
+  try {
+    const r = dataUrl ? await api("/me/avatar", { method: "PUT", body: { data: dataUrl } }) : await api("/me/avatar", { method: "DELETE" });
+    session.user = r.user;
+    return true;
+  } catch (err) {
+    toast(err.message);
+    return false;
+  }
 }
 
 export async function loadSaved(reset = false) {
@@ -492,6 +704,50 @@ export async function loadSaved(reset = false) {
     saved.error = err.message;
   } finally {
     saved.loading = false;
+  }
+}
+
+/** Le Edizioni per Oggi: l'ultima uscita di ognuna, con quante notizie ha e quante da leggere. */
+export async function loadToday() {
+  try {
+    today.editions = (await api("/editions/today")).editions;
+  } catch {
+    /* senza rete resta quello che c'era */
+  } finally {
+    today.loaded = true;
+  }
+}
+
+/** Apre un'uscita dell'Edizione: su telefono sopra Oggi, sul computer nella colonna di destra. */
+export function openEdition(id) {
+  const push = !ui.edition && !ui.reader;
+  ui.reader = null;
+  ui.edition = id;
+  writeLocation(push);
+  loadEditionIssue(id);
+}
+
+export function closeEdition() {
+  if (!ui.edition) return;
+  ui.edition = null;
+  ui.reader = null;
+  writeLocation(false);
+}
+
+async function loadEditionIssue(id) {
+  if (edition.data?.id !== id) edition.data = null;
+  edition.loading = true;
+  edition.error = "";
+  try {
+    const r = await api(`/editions/${id}`);
+    if (ui.edition !== id) return;
+    edition.data = overlayEdition(r.edition);
+    edition.schedule = r.schedule;
+  } catch (err) {
+    edition.error = err.message;
+  } finally {
+    edition.loading = false;
+    edition.loaded = true;
   }
 }
 
@@ -525,6 +781,7 @@ export async function composeEdition() {
     edition.schedule = r.schedule;
     edition.configs = r.configs || [];
     edition.config = r.edition.config_id;
+    loadToday();
   } catch (err) {
     toast(err.message);
   } finally {
@@ -558,6 +815,11 @@ export async function deleteEditionIssue(ed) {
     edition.data = r.edition ? overlayEdition(r.edition) : null;
     edition.schedule = r.schedule;
     edition.configs = r.configs || [];
+    if (ui.edition === ed.id) {
+      ui.edition = r.edition ? r.edition.id : null;
+      writeLocation(false);
+    }
+    loadToday();
     toast("Uscita eliminata");
   } catch (err) {
     toast(err.message);
@@ -579,14 +841,14 @@ export async function setEditionConfigs(r) {
   if (edition.config && !r.configs.some((c) => c.id === edition.config)) edition.config = null;
   const active = r.configs.some((c) => c.active);
   if (session.user && Boolean(session.user.prefs.edition) !== active) session.user.prefs = { ...session.user.prefs, edition: active };
-  if (active) loadEdition();
+  loadToday();
 }
 
 let lastQuiet = 0;
 async function refreshQuietly() {
   if (Date.now() - lastQuiet < 60000) return;
   lastQuiet = Date.now();
-  await Promise.all([loadCounts(), loadSources(), editionOn() ? loadEdition() : null]);
+  await Promise.all([loadCounts(), loadTally(), loadSources(), loadToday()]);
 }
 
 export async function refreshAll() {
@@ -600,7 +862,7 @@ export async function refreshAll() {
     if (r.errors) parts.push(r.errors === 1 ? "1 con errori" : `${r.errors} con errori`);
     if (r.checked === 0 && r.skipped) toast("Fonti già controllate meno di un minuto fa");
     else toast(parts.join(" · "));
-    await Promise.all([loadStream(true), loadCounts(), loadSources()]);
+    await Promise.all([loadStream(true), loadCounts(), loadTally(), loadSources(), loadToday()]);
   } catch (err) {
     toast(err.message);
   } finally {
@@ -617,10 +879,12 @@ export function openArticle(id) {
   writeLocation(push);
 }
 
+/** Indietro dal lettore: dall'articolo all'Edizione da cui lo si è aperto, poi a Oggi. */
 export function closeReader() {
-  if (!ui.reader) return;
-  ui.reader = null;
-  writeLocation(false);
+  if (ui.reader) {
+    ui.reader = null;
+    writeLocation(false);
+  } else closeEdition();
 }
 
 /** Aggiorna i dati della fonte (per esempio l'icona) negli articoli già caricati. */
@@ -654,10 +918,13 @@ async function sendAction(id, key, value) {
   }
 }
 
+let readTimer;
 export async function setRead(article, read) {
   if (article.read === read) return;
   patchItems(article.id, { read });
   data.counts.nonletti = Math.max(0, data.counts.nonletti + (read ? -1 : 1));
+  clearTimeout(readTimer);
+  readTimer = setTimeout(() => Promise.all([loadTally(), loadToday()]), 600);
   try {
     await sendAction(article.id, "read", read);
   } catch (err) {
@@ -704,14 +971,15 @@ async function backOnline() {
 
 export async function markAllRead() {
   try {
+    const f = stream.filter;
     const r = await api("/articles/mark-read", {
       method: "POST",
-      body: { view: stream.view, folder: stream.folder ?? null, source: stream.source, tag: stream.tag, country: stream.country, q: stream.q, before: stream.serverTime },
+      body: { view: f.scope === "perte" ? "perte" : "tutti", inc: f.inc, exc: f.exc, before: stream.serverTime },
     });
     toast(r.marked === 1 ? "1 articolo segnato come letto" : `${r.marked} articoli segnati come letti`);
     for (const a of stream.items) a.read = true;
-    await Promise.all([loadCounts(), loadSources()]);
-    if (stream.view === "nonletti") loadStream(true);
+    await Promise.all([loadCounts(), loadTally(), loadSources(), loadToday()]);
+    if (f.unread) loadStream(true);
   } catch (err) {
     toast(err.message);
   }
@@ -734,7 +1002,8 @@ export function showSource(source) {
   ui.tab = "oggi";
   if (!readerBeside()) ui.reader = null;
   writeLocation(true);
-  setFilter({ view: "tutti", folder: null, tag: null, country: null, source: source.id, sourceTitle: source.title });
+  // Un filtro con solo questa fonte: «Salva come preset» o «Azzera» compaiono sotto la riga.
+  changeFilter({ scope: "tutte", unread: false, inc: [`s:${source.id}`], exc: [] });
 }
 
 // ---------- Conferme ----------

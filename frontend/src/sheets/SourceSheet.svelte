@@ -237,7 +237,7 @@
           <input bind:value={newTag} placeholder="Nuovo tag" autocomplete="off" aria-label="Nuovo tag per questa fonte" maxlength="30" />
           <button type="submit" disabled={tagBusy}>Aggiungi</button>
         </form>
-        <p class="hint">{source.tags.some((t) => t.origin === "auto") ? "I tag «auto» li ha proposti l'app: tienili o toglili, non torneranno." : "Una fonte può avere più tag: li usi come filtri nel Flusso e per le Edizioni."}
+        <p class="hint">{source.tags.some((t) => t.origin === "auto") ? "I tag «auto» li ha proposti l'app: tienili o toglili, non torneranno." : "Una fonte può avere più tag: li usi come filtri nel Notiziario e per le Edizioni."}
           <button type="button" class="link-btn" disabled={tagBusy} onclick={suggestTags}>Proponi i tag</button></p>
       </div>
 
@@ -248,7 +248,7 @@
           {#each countryChoices as c (c)}<option value={c}>{flag(c)} {countryName(c)}</option>{/each}
           <option value="">Nessuna nazione</option>
         </select>
-        <p class="hint">{source.language ? `Lingua: ${LANGUAGES[source.language] || source.language}. ` : ""}Serve per filtrare il Flusso e per le Edizioni (per esempio «Politica · Italia»). La tua scelta vale solo per te.</p>
+        <p class="hint">{source.language ? `Lingua: ${LANGUAGES[source.language] || source.language}. ` : ""}Serve per filtrare il Notiziario e per le Edizioni (per esempio «Politica · Italia»). La tua scelta vale solo per te.</p>
       </div>
 
       <div class="field">

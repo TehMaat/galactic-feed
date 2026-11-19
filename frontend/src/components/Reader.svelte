@@ -8,8 +8,9 @@
   import { barsAfterScroll } from "../lib/bars.js";
   import { explainDedupe } from "../lib/help.js";
   import { isAvailableOffline, overlay } from "../lib/offline.js";
-  import { matchLabel, sourceColor, timeAgoLong } from "../lib/format.js";
+  import { sourceColor, timeAgoLong } from "../lib/format.js";
   import { TEXT_SIZES, readerBeside, closeReader, foldersById, savePrefs, session, setRead, setSaved, stream, saved, ui, toast } from "../lib/store.svelte.js";
+  import Edition from "./Edition.svelte";
   import Icon from "./Icon.svelte";
   import SourceIcon from "./SourceIcon.svelte";
   import Thumb from "./Thumb.svelte";
@@ -28,8 +29,15 @@
   let progress = $state(0); // quanto dell'articolo è stato letto, da 0 a 1
   const canShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
 
-  const open = $derived(ui.reader !== null);
+  // Aperto con un articolo o con un'uscita dell'Edizione (#64); l'articolo, se c'è, sta sopra.
+  const open = $derived(ui.reader !== null || ui.edition !== null);
+  const showEdition = $derived(ui.reader === null && ui.edition !== null);
   const color = $derived(article ? foldersById()[article.source.folder_id]?.color || "indaco" : "indaco");
+
+  // Aprendo un'Edizione si parte dalla cima.
+  $effect(() => {
+    if (ui.edition !== null && ui.reader === null && scroller) scroller.scrollTop = 0;
+  });
 
   // Stato letto/salvato condiviso con gli elenchi.
   function listed(id) {
@@ -164,20 +172,18 @@
     window.open(a.href, "_blank", "noopener,noreferrer");
   }
 
-  const byline = $derived(
-    article
-      ? [article.author || article.source.title, timeAgoLong(article.published_at), article.reading_minutes ? `${article.reading_minutes} min di lettura` : article.video ? "video" : ""].filter(Boolean)
-      : [],
-  );
+  // Niente tempo di lettura (#70); l'ora di pubblicazione è in alto a destra, accanto alla fonte.
+  const byline = $derived(article ? [article.author, article.video ? "video" : ""].filter(Boolean) : []);
 </script>
 
 <svelte:document onpointerdown={onDocPointer} />
 
-<article class="reader" class:is-open={open} class:is-empty={!open} class:bar-hidden={barHidden} aria-label="Articolo" aria-hidden={!open && !readerBeside()}>
+<article class="reader" class:has-back={ui.edition !== null && ui.reader !== null} class:is-open={open} class:is-empty={!open} class:bar-hidden={barHidden} aria-label="Articolo" aria-hidden={!open && !readerBeside()}>
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div class="reader-bar" onfocusin={() => (barHidden = false)} onkeydown={onMenuKey}>
     <button type="button" class="back-btn" bind:this={backBtn} onclick={closeReader}><Icon name="back" /><span>Indietro</span></button>
-    <div class="reader-actions">
+    {#if showEdition}<span class="reader-where">Edizione</span>{/if}
+    <div class="reader-actions" hidden={showEdition}>
       <button type="button" class="icon-btn" class:is-on={article?.saved} aria-pressed={!!article?.saved} aria-label={article?.saved ? "Rimuovi dai salvati" : "Salva"} title={article?.saved ? "Rimuovi dai salvati" : "Salva"} onclick={toggleSave}><Icon name="bookmark" /></button>
       <button type="button" class="icon-btn more-btn" bind:this={menuBtn} aria-label="Altre azioni" title="Altre azioni" aria-haspopup="menu" aria-expanded={menuOpen} onclick={() => (menuOpen = !menuOpen)}><Icon name="more" /></button>
     </div>
@@ -199,26 +205,30 @@
     {#if !open}
       <!-- Si vede solo sul computer, con l'articolo accanto all'elenco. -->
       <div class="empty reader-empty"><Icon name="edition" /><h3>Scegli un articolo</h3><p>Lo leggi qui, con il testo completo e senza pubblicità.</p></div>
+    {:else if showEdition}
+      <div class="reader-edition"><Edition /></div>
     {:else if error}
       <div class="empty reader-empty"><Icon name="alert" /><h3>Articolo non disponibile</h3><p>{error}</p></div>
     {:else if article && article.id === ui.reader}
-      {#if article.video && article.url}
-        <a class="video-link" href={article.url} target="_blank" rel="noopener noreferrer" aria-label="Guarda su YouTube"><Thumb {article} {color} wide /></a>
-      {:else}
-        <Thumb {article} {color} wide />
-      {/if}
-      <div class="reader-kicker">
-        <div class="meta">
+      <div class="reader-cover">
+        {#if article.video && article.url}
+          <a class="video-link" href={article.url} target="_blank" rel="noopener noreferrer" aria-label="Guarda su YouTube"><Thumb {article} {color} wide /></a>
+        {:else}
+          <Thumb {article} {color} wide />
+        {/if}
+        <span class="src-pill">
           <SourceIcon source={article.source} color={sourceColor(article.source, foldersById())} />
-          <span class="src">{article.source.title}</span>
-        </div>
-        {#if article.match}<span class="match"><Icon name="spark" />{matchLabel(article.match)}</span>{/if}
-        {#if available}<span class="offline"><Icon name="check" />Disponibile offline</span>{/if}
+          <span>{article.source.title}</span>
+          <span class="src-time"><time datetime={article.published_at}>{timeAgoLong(article.published_at)}</time></span>
+        </span>
       </div>
       <h1 class="reader-title">{article.title}</h1>
-      <div class="byline">
-        {#each byline as part, i}{#if i}<span class="sep"></span>{/if}<span>{part}</span>{/each}
-      </div>
+      {#if byline.length || available}
+        <div class="byline">
+          {#each byline as part, i}{#if i}<span class="sep"></span>{/if}<span>{part}</span>{/each}
+          {#if available}<span class="offline"><Icon name="check" />Disponibile offline</span>{/if}
+        </div>
+      {/if}
       {#if article.also_on.length}
         <p class="also-on">Anche su: {article.also_on.map((o) => o.title).join(", ")}
           <button type="button" class="info-btn" aria-label="Come funzionano i doppioni" onclick={explainDedupe}><Icon name="info" /></button></p>

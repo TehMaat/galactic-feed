@@ -1,5 +1,6 @@
 <script>
-  import { sourceColor, timeAgo } from "../lib/format.js";
+  // Icona e nome della fonte. L'ora di pubblicazione è solo nell'articolo aperto (#70).
+  import { sourceColor } from "../lib/format.js";
   import { foldersById } from "../lib/store.svelte.js";
   import SourceIcon from "./SourceIcon.svelte";
 
@@ -10,6 +11,4 @@
 <div class="meta">
   <SourceIcon source={article.source} {color} />
   <span class="src">{article.source.title}</span>
-  <span class="sep"></span>
-  <span>{timeAgo(article.published_at)}</span>
 </div>

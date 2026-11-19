@@ -4,7 +4,7 @@
   import Icon from "./Icon.svelte";
   import { docScroll } from "../lib/scroll.js";
 
-  let { label, title, active, back = null, nav = null, current = null, onnav = null, scrollKey = "", children } = $props();
+  let { label, title, active, back = null, nav = null, current = null, onnav = null, scrollKey = "", navTop = null, children } = $props();
   let el = $state();
 
   // Cambiando sottopagina si torna in cima. Su telefono e tablet scorre il documento (#38): lo si sposta
@@ -22,6 +22,7 @@
     {#if nav}
       <nav class="page-nav" aria-label="Sezioni di {label}">
         <p class="page-nav-title">{label}</p>
+        {#if navTop && active}{@render navTop()}{/if}
         {#each nav as [key, icon, text] (key)}
           <button type="button" aria-current={current === key ? "page" : undefined} onclick={() => onnav?.(key)}><Icon name={icon} /><span>{text}</span></button>
         {/each}

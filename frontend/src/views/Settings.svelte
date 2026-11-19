@@ -2,14 +2,16 @@
   // Impostazioni personali, con le stesse sezioni del mockup. Quelle di tutta l'istanza
   // (utenti, accesso, AI, archivio…) sono nel pannello Amministrazione (Admin.svelte).
   import { tick } from "svelte";
+  import Avatar from "../components/Avatar.svelte";
   import Icon from "../components/Icon.svelte";
   import Page from "../components/Page.svelte";
+  import SettingsSearch from "../components/SettingsSearch.svelte";
   import { folderColor } from "../lib/format.js";
   import { disablePush, enablePush, isIos, isStandalone, syncPush, testPush as sendTestPush } from "../lib/push.js";
   import { api } from "../lib/api.js";
   import { APP_VERSION, applyUpdate, checkForUpdate, pwa } from "../lib/pwa.svelte.js";
-  import { ACCENTS, DARK_STYLES, LIGHT_STYLES, FONTS, READ_FONTS, SIZES, countryName, initials, timeAgoLong } from "../lib/format.js";
-  import { ask, data, editionConfigs, loadEditionConfigs, logout, openPage, openSheet, savePrefs, session, setEditionConfigs, setFilter, switchTab, systemAccentState, toast, ui } from "../lib/store.svelte.js";
+  import { ACCENTS, DARK_STYLES, LIGHT_STYLES, FONTS, SIZES, countryName, timeAgoLong } from "../lib/format.js";
+  import { allPresets, ask, data, editionConfigs, loadEditionConfigs, logout, openPage, openSheet, savePrefs, session, setEditionConfigs, setFilter, switchTab, systemAccentState, toast, ui } from "../lib/store.svelte.js";
 
   let { active } = $props();
   let page = $state("main"); // main · password · sessions · identities
@@ -45,12 +47,21 @@
     document.getElementById(`set-${key}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
+  // Dal Profilo: si apre direttamente una sezione (openPage("impostazioni", "aspetto")).
+  $effect(() => {
+    const key = ui.pageArg;
+    if (active && key && NAV.some(([k]) => k === key)) {
+      ui.pageArg = null;
+      tick().then(() => setTimeout(() => jump(key), 50));
+    }
+  });
+
   const me = $derived(session.user);
 
   // ---- Lettura ----
   async function toggleHidePartial() {
     await savePrefs({ hide_partial: !me.prefs.hide_partial });
-    // Ricarica Flusso e contatori; un «Mostra» di prima non vale più.
+    // Ricarica Notiziario e contatori; un «Mostra» di prima non vale più.
     setFilter({ showPartial: false });
   }
 
@@ -175,7 +186,14 @@
   };
   // Ogni scelta di font è scritta nel suo font, così si vede subito com'è (FONTS in format.js).
   const font = $derived(me?.prefs?.font || "galactic");
-  const fontRead = $derived(me?.prefs?.font_read || "serif");
+  const startPreset = $derived(me?.prefs?.start_preset || "perte");
+  let customTimer;
+  // Colore personalizzato (#74): si vede subito, si salva quando smetti di muovere il selettore.
+  function pickCustom(e) {
+    const value = e.target.value.toUpperCase();
+    clearTimeout(customTimer);
+    customTimer = setTimeout(() => savePrefs({ accent: "custom", accent_custom: value }), 250);
+  }
   const lastCheck = $derived(
     data.sources.map((s) => s.last_fetch_at).filter(Boolean).sort().at(-1) || null,
   );
@@ -265,9 +283,12 @@
   </div>
 {/snippet}
 
-<Page label="Impostazioni" title={TITLES[page]} {active} back={page === "main" ? null : () => go("main")} nav={NAV} current={page === "main" ? section : "account"} onnav={jump} scrollKey={page}>
+{#snippet searchInNav()}{#if page === "main"}<SettingsSearch place="nav" />{/if}{/snippet}
+
+<Page label="Impostazioni" title={TITLES[page]} {active} back={page === "main" ? null : () => go("main")} nav={NAV} current={page === "main" ? section : "account"} onnav={jump} scrollKey={page} navTop={searchInNav}>
   {#if me}
     {#if page === "main"}
+      <SettingsSearch />
       <!-- Su telefono e tablet Fonti non sta nella Dock: si apre da qui (sul computer è nella barra in alto). -->
       <div class="set-label compact-only" id="set-fonti">Fonti</div>
       <div class="set-group compact-only">
@@ -280,7 +301,8 @@
       <div class="set-label" id="set-account">Account</div>
       <div class="set-group">
         <div class="set-row">
-          <span class="who"><span class="user-av">{initials(me.display_name)}</span><span><b>{me.display_name}</b><br /><small>{me.is_admin ? "amministratore" : "utente"} · @{me.username}</small></span></span>
+          <span class="who"><Avatar user={me} size="sm" /><span><b>{me.display_name}</b><br /><small>{me.is_admin ? "amministratore" : "utente"} · @{me.username}</small></span></span>
+          <button type="button" class="btn-secondary small" onclick={() => openSheet("profile")}><Icon name="edit" />Nome e avatar</button>
         </div>
         {#if me.is_admin}
           <button type="button" class="link-row" onclick={() => openPage("amministrazione")}><Icon name="shield" />Amministrazione</button>
@@ -315,7 +337,7 @@
           </select>
         </div>
       </div>
-      <p class="set-note">{editionConfigs.list.length ? "Ogni Edizione è una selezione delle notizie con nome, regole (tag, cartelle, nazioni, gruppi di parole) e uscite proprie: ogni giorno, in alcuni giorni della settimana o una volta al mese. Si leggono in Oggi." : "Una selezione delle notizie per te, agli orari che scegli, da leggere nell'app (niente email). Senza Edizioni, Oggi mostra solo il Flusso."}</p>
+      <p class="set-note">{editionConfigs.list.length ? "Ogni Edizione è una selezione delle notizie con nome, regole (tag, cartelle, nazioni, gruppi di parole) e uscite proprie: ogni giorno, in alcuni giorni della settimana o una volta al mese. Si leggono in Oggi." : "Una selezione delle notizie per te, agli orari che scegli, da leggere nell'app (niente email). Senza Edizioni, Oggi mostra solo il Notiziario."}</p>
 
       <div class="set-label" id="set-notifiche">Notifiche</div>
       <div class="set-group">
@@ -372,26 +394,22 @@
         </div>
         <div class="set-block">
           <span class="label" id="accent-label">Colore</span>
-          <div class="swatches" role="group" aria-labelledby="accent-label">
+          <div class="swatches one-row" role="group" aria-labelledby="accent-label">
             {#each ACCENTS as c (c.key)}
               <button type="button" class="swatch" style="--sw-l:{c.light};--sw-d:{c.dark}" aria-pressed={accent === c.key} aria-label={c.name} title={c.name} onclick={() => savePrefs({ accent: c.key })}><Icon name="check" /></button>
             {/each}
             <button type="button" class="swatch is-system" aria-pressed={accent === "system"} aria-label="Colore del sistema" title="Colore del sistema" onclick={() => savePrefs({ accent: "system" })}><Icon name="check" /></button>
+            <label class="swatch is-custom" class:is-on={accent === "custom"} style="--sw-c:{me.prefs.accent_custom}" title="Colore personalizzato">
+              <Icon name="check" />
+              <input type="color" value={me.prefs.accent_custom || "#4F8CFF"} aria-label="Colore personalizzato" oninput={pickCustom} onclick={() => accent !== "custom" && savePrefs({ accent: "custom" })} />
+            </label>
           </div>
         </div>
         <div class="set-block">
-          <span class="label" id="font-label">Font</span>
+          <span class="label" id="font-label">Font dell'interfaccia e degli articoli</span>
           <div class="tags" role="group" aria-labelledby="font-label">
             {#each FONTS as [k, label, family] (k)}
               <button type="button" class="tag" style="font-family:{family}" aria-pressed={font === k} onclick={() => savePrefs({ font: k })}>{label}</button>
-            {/each}
-          </div>
-        </div>
-        <div class="set-block">
-          <span class="label" id="read-label">Testo degli articoli</span>
-          <div class="tags" role="group" aria-labelledby="read-label">
-            {#each READ_FONTS as [k, label, family] (k)}
-              <button type="button" class="tag" style="font-family:{family}" aria-pressed={fontRead === k} onclick={() => savePrefs({ font_read: k })}>{label}</button>
             {/each}
           </div>
         </div>
@@ -406,16 +424,27 @@
       <p class="set-note">
         {accent === "system"
           ? SYSTEM_NOTES[systemAccent]
-          : "Tema, colore, font e dimensione del testo valgono su tutti i tuoi dispositivi. La variante «Scuro» vale con il tema Scuro e con Auto quando il dispositivo è in modo scuro; «Nero» spegne i pixel degli schermi OLED. «Galactic» usa Unbounded per i titoli e il font del dispositivo per il resto; «Sistema» il font del dispositivo anche per i titoli. Sui telefoni Android il browser usa Roboto: i font scelti nelle impostazioni del telefono non arrivano alle app web."}
+          : "Tema, colore, font e dimensione del testo valgono su tutti i tuoi dispositivi. La variante «Scuro» vale con il tema Scuro e con Auto quando il dispositivo è in modo scuro; «Nero» spegne i pixel degli schermi OLED. L'ultimo pallino dei colori apre il selettore: l'app adatta il colore scelto perché si legga in chiaro e in scuro. «Galactic» usa Plus Jakarta Sans per i titoli, Inter per il resto e Newsreader per gli articoli; «Classico» un serif per titoli e articoli; «Sistema» il font del dispositivo ovunque. Sui telefoni Android il browser usa Roboto: i font scelti nelle impostazioni del telefono non arrivano alle app web."}
       </p>
 
       <div class="set-label" id="set-lettura">Lettura</div>
+      <div class="set-group">
+        <div class="set-block">
+          <span class="label" id="start-label">Preset all'apertura del Notiziario</span>
+          <div class="tags" role="group" aria-labelledby="start-label">
+            {#each [...allPresets().map((p) => [p.id, p.name]), ["last", "L'ultimo usato"]] as [id, label] (id)}
+              <button type="button" class="tag" aria-pressed={startPreset === id} onclick={() => savePrefs({ start_preset: id })}>{label}</button>
+            {/each}
+          </div>
+        </div>
+      </div>
+      <p class="set-note">I preset si creano e si cancellano dal pannello Filtri del Notiziario. Se non scegli niente, si parte da «Per te».</p>
       <div class="set-group">
         <div class="set-row"><span>Nascondi gli articoli senza testo completo</span>
           <button type="button" class="switch" role="switch" aria-checked={!!me.prefs.hide_partial} aria-label="Nascondi gli articoli senza testo completo" onclick={toggleHidePartial}></button>
         </div>
       </div>
-      <p class="set-note">Alcuni siti mettono nel feed solo un estratto e non lasciano leggere qui il resto. Con questa opzione i loro articoli non compaiono nel Flusso, nell'Edizione e nelle notifiche. Gli articoli salvati restano visibili e quelli appena arrivati si vedono subito, mentre il server prova a scaricare il testo completo.</p>
+      <p class="set-note">Alcuni siti mettono nel feed solo un estratto e non lasciano leggere qui il resto. Con questa opzione i loro articoli non compaiono nel Notiziario, nelle Edizioni e nelle notifiche. Gli articoli salvati restano visibili e quelli appena arrivati si vedono subito, mentre il server prova a scaricare il testo completo.</p>
       <div class="set-group">
         <div class="set-row"><span>Articolo sul computer</span>
           <div class="segmented" style="--cols:2" role="group" aria-label="Articolo sul computer">
