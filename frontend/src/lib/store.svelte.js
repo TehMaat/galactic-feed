@@ -63,7 +63,7 @@ export const ui = $state({
   newsTick: 0, // cresce a ogni tocco su «Notiziario» nella Dock: Oggi scorre fino alla sezione
   atNews: false, // in Oggi il Notiziario è arrivato in vista (la Dock lo accende)
   settingsQuery: "", // ricerca nelle Impostazioni (#67)
-  settingsFocus: 0, // cresce quando dal Profilo si tocca «Cerca nelle impostazioni»
+  settingsFocus: false, // dal Profilo «Cerca nelle impostazioni»: il campo prende il cursore (una volta)
   online: typeof navigator === "undefined" ? true : navigator.onLine,
   homeTick: 0, // cresce a ogni tocco sul logo: Oggi torna in cima
 });

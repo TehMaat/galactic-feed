@@ -38,6 +38,15 @@ async function tab(page, name) {
   const dock = page.locator(".dock");
   if (["Oggi", "Notiziario", "Cerca", "Profilo"].includes(name)) return barClick(dock.getByRole("button", { name, exact: true }));
   await barClick(dock.getByRole("button", { name: "Profilo", exact: true }));
+  // «Impostazioni» nel Profilo scorre alle sezioni qui sotto (#81). Si entra da «Cerca nelle
+  // impostazioni», che apre la pagina in cima senza scorrere: una sezione la farebbe scorrere in giù
+  // e le barre uscirebbero (#36). Poi il cursore lascia il campo.
+  if (name === "Impostazioni") {
+    await page.locator(".profilo-settings").getByRole("button", { name: "Cerca nelle impostazioni" }).click();
+    const search = page.locator(".settings-search.main input");
+    await expect(search).toBeFocused();
+    return search.blur();
+  }
   await page.locator(".shortcuts").getByRole("button", { name: new RegExp(`^${name}`) }).click();
 }
 
@@ -1034,6 +1043,18 @@ test("profilo: statistiche, nome e avatar, ricerca nelle impostazioni e colore p
   expect(field.x + field.width).toBeLessThanOrEqual(group.x + group.width + 0.5);
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(300);
   await page.setViewportSize(PHONE);
+
+  // «Impostazioni» nel Profilo (#81): sul telefono scorre alle sezioni qui sotto invece di aprire la
+  // pagina, e il cursore non torna nella ricerca riaprendo le Impostazioni.
+  await tab(page, "Profilo");
+  await prof.locator(".shortcuts").getByRole("button", { name: "Impostazioni" }).click();
+  await expect(page).toHaveURL(/\/profilo$/);
+  await expect(prof.locator("#h-imp")).toBeFocused();
+  await expect(prof.locator("#h-imp")).toBeInViewport();
+  await prof.locator(".profilo-settings").getByRole("button", { name: /^Aspetto/ }).click();
+  await expect(page).toHaveURL(/\/impostazioni$/);
+  await expect(settings.getByRole("group", { name: "Tema", exact: true })).toBeVisible();
+  await expect(search).not.toBeFocused();
 
   // Colore personalizzato (#74): l'ultimo pallino apre il selettore; l'app adatta il colore.
   const saved = page.waitForResponse((r) => r.url().endsWith("/api/me") && r.request().method() === "PATCH" && r.request().postData().includes("accent_custom"));
