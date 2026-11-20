@@ -38,21 +38,16 @@ async function tab(page, name) {
   const dock = page.locator(".dock");
   if (["Oggi", "Notiziario", "Cerca", "Profilo"].includes(name)) return barClick(dock.getByRole("button", { name, exact: true }));
   await barClick(dock.getByRole("button", { name: "Profilo", exact: true }));
-  // «Impostazioni» nel Profilo scorre alle sezioni qui sotto (#81): si entra dalla prima, Account.
+  // «Impostazioni» nel Profilo scorre alle sezioni qui sotto (#81). Si entra da «Cerca nelle
+  // impostazioni», che apre la pagina in cima senza scorrere: una sezione la farebbe scorrere in giù
+  // e le barre uscirebbero (#36). Poi il cursore lascia il campo.
   if (name === "Impostazioni") {
-    await page.locator(".profilo-settings").getByRole("button", { name: /^Account/ }).click();
-    return scrollSettled(page);
+    await page.locator(".profilo-settings").getByRole("button", { name: "Cerca nelle impostazioni" }).click();
+    const search = page.locator(".settings-search.main input");
+    await expect(search).toBeFocused();
+    return search.blur();
   }
   await page.locator(".shortcuts").getByRole("button", { name: new RegExp(`^${name}`) }).click();
-}
-
-// Aspetta che lo scorrimento animato verso una sezione sia finito: mentre scorre in giù le barre
-// escono (#36) e un tocco sulla Dock arriverebbe a vuoto.
-async function scrollSettled(page) {
-  await page.waitForFunction(() => new Promise((done) => {
-    const y = window.scrollY;
-    setTimeout(() => done(window.scrollY === y), 250);
-  }));
 }
 
 // Un preset del Notiziario (#68), dalla riga sopra le notizie.
@@ -941,9 +936,10 @@ test("telefono: scorre la pagina, e ogni sezione ricorda dove eri arrivato (#38)
 
   // Con il lettore aperto la lista sotto non scorre; chiudendolo (anche con Indietro) resta dov'era.
   // Si tocca una scheda già in vista, così la pagina non si sposta prima di aprirla.
+  // Sopra le notizie c'è la card dell'Edizione, alta (#80): si cerca la prima notizia che si vede.
   const point = await oggi.locator(".card").evaluateAll((cards) => {
-    const c = cards.find((x) => x.getBoundingClientRect().top < 260 && x.getBoundingClientRect().bottom > 260);
-    return c ? { x: c.getBoundingClientRect().left + 40, y: 260 } : null;
+    const c = cards.find((x) => x.getBoundingClientRect().top > 80 && x.getBoundingClientRect().top < window.innerHeight - 60);
+    return c ? { x: c.getBoundingClientRect().left + 40, y: c.getBoundingClientRect().top + 30 } : null;
   });
   await page.mouse.click(point.x, point.y);
   await expect(page.locator(".reader.is-open")).toBeVisible();

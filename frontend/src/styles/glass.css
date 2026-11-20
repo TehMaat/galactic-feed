@@ -100,23 +100,29 @@ html, body { background: var(--app-bg); }
 .oggi-stack { display: grid; gap: 40px; }
 .oggi-sec { display: grid; gap: 16px; min-width: 0; }
 .ed-list { display: grid; gap: 12px; }
-.ed-card {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 92px;
-  gap: 16px;
-  width: 100%;
-  padding: 14px 14px 14px 16px;
-  border-radius: 24px;
-  text-align: left;
-  color: inherit;
-}
-.ed-text { display: flex; flex-direction: column; gap: 4px; min-width: 0; padding-block: 2px; }
-.ed-tag { align-self: flex-start; max-width: 100%; height: 22px; display: inline-flex; align-items: center; padding: 0 9px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-size: 11px; font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ed-name { margin-top: 6px; font-family: var(--font-display); font-size: 19px; font-weight: 750; line-height: 1.2; letter-spacing: -0.015em; }
-.ed-meta { font-size: 12.5px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
-.ed-lead { margin-top: 8px; padding-top: 10px; border-top: 1px solid var(--line); font-size: 12.5px; line-height: 1.45; color: var(--ink-2); }
-.ed-cover { width: 92px; height: 100%; min-height: 124px; object-fit: cover; border-radius: 16px; background: var(--surface-2); }
-.ed-card.is-read .ed-name { color: var(--ink-2); }
+/* Edizione (#80): più grande di una notizia, perché è la rassegna e viene prima. Copertina a tutta
+   larghezza e più alta della foto delle notizie (196px), nome grande sopra la foto. */
+.ed-card { display: flex; flex-direction: column; width: 100%; padding: 0; overflow: hidden; border-radius: 26px; text-align: left; color: inherit; }
+.ed-media { position: relative; display: block; height: 264px; overflow: hidden; background: var(--surface-2); }
+.ed-cover { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.ed-media::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(3, 5, 12, 0.4) 0, transparent 30%, transparent 38%, rgba(3, 5, 12, 0.9) 100%); }
+.ed-top { position: absolute; top: 14px; left: 14px; right: 14px; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.ed-tag, .ed-unread { min-width: 0; height: 28px; display: inline-flex; align-items: center; gap: 6px; padding: 0 11px; border-radius: 999px; font-size: 12px; font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
+.ed-tag { background: rgba(5, 8, 15, 0.55); color: #FFFFFF; }
+.ed-tag .ico { width: 15px; height: 15px; flex: none; }
+.ed-unread { flex: none; margin-left: auto; background: var(--accent); color: var(--on-accent); }
+.ed-head { position: absolute; left: 18px; right: 18px; bottom: 16px; z-index: 1; display: flex; flex-direction: column; gap: 4px; color: #FFFFFF; text-shadow: 0 1px 12px rgba(0, 0, 0, 0.35); }
+.ed-meta { font-size: 13px; font-weight: 550; color: rgba(255, 255, 255, 0.82); font-variant-numeric: tabular-nums; }
+.ed-name { font-family: var(--font-display); font-size: calc(28px * var(--ts)); font-weight: 800; line-height: 1.12; letter-spacing: -0.02em; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+.ed-body { display: grid; grid-template-columns: minmax(0, 1fr) 36px; gap: 10px; align-items: center; padding: 14px 10px 14px 18px; }
+.ed-lead-wrap { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.ed-kicker { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); }
+.ed-lead { font-size: calc(15px * var(--ts)); font-weight: 600; line-height: 1.4; color: var(--ink); }
+.ed-go { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 50%; color: var(--ink-2); }
+.ed-go .ico { width: 20px; height: 20px; }
+.ed-card.is-read .ed-cover { filter: saturate(0.45) brightness(0.8); }
+.ed-card.is-read .ed-name { color: rgba(255, 255, 255, 0.8); }
+.ed-card.is-read .ed-lead { color: var(--ink-2); }
 .ed-card.is-current { box-shadow: inset 0 0 0 2px var(--accent), var(--glass-shadow); }
 
 /* Riga dei preset: «Filtri» fermo a sinistra, i preset scorrono con il bordo sfumato e la freccia. */
@@ -342,11 +348,6 @@ html, body { background: var(--app-bg); }
   .preset-wrap { margin-right: -24px; }
   .oggi-stack { gap: 36px; }
   .sec-title { font-size: 25px; }
-  .ed-card { grid-template-columns: 64px minmax(0, 1fr); padding: 12px; border-radius: 20px; align-items: center; }
-  .ed-card .ed-text { order: 2; }
-  .ed-card .ed-cover { order: 1; width: 64px; height: 76px; min-height: 0; border-radius: 12px; }
-  .ed-card .ed-name { margin-top: 2px; font-size: 16px; }
-  .ed-card .ed-lead { margin-top: 2px; padding-top: 0; border-top: 0; -webkit-line-clamp: 1; }
   .reader { background: transparent; -webkit-backdrop-filter: none; backdrop-filter: none; }
   .reader.has-back .reader-bar .back-btn { visibility: visible; }
   .reader-scroll { padding-left: 56px; padding-right: 56px; }

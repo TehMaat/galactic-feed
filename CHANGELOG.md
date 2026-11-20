@@ -4,11 +4,19 @@ Tutte le versioni di Galactic Feed, dalla più recente. I numeri seguono [semver
 
 Per aggiornare basta scaricare la nuova immagine: le modifiche al database si applicano da sole all'avvio. Prima di saltare a una nuova versione minore conviene fare una copia del volume `/data` (vedi [Aggiornare e backup](docs/aggiornare-e-backup.md)).
 
-## [0.13.1] – 2026-11-20
+## [0.14.1] – 2026-11-20
 
 ### Correzioni
 - **«Impostazioni» nel Profilo** (#81): sul telefono e sul tablet porta alle sezioni delle Impostazioni più in basso nel Profilo invece di aprire la pagina con la ricerca. Sul computer apre la pagina come prima.
 - La ricerca nelle impostazioni prende il cursore solo quando tocchi «Cerca nelle impostazioni» (#81). Prima, dopo averla usata una volta, la tastiera si riapriva a ogni apertura delle Impostazioni.
+
+## [0.14.0] – 2026-11-20
+
+### Novità
+- **Edizioni più grandi delle notizie** (#80): in Oggi la card di un'Edizione ha la copertina a tutta larghezza, più alta della foto delle notizie, con il nome grande sopra la foto, l'etichetta delle regole, «X da leggere», la data e quante notizie ha; sotto il titolo d'apertura. Prima era una riga con una miniatura, più piccola delle notizie, e l'occhio andava sul Notiziario. Stesso formato su telefono, tablet e computer; un'Edizione già letta ha la foto spenta, come le notizie lette.
+
+### Da sapere per aggiornare
+- Il `docker-compose.yml` d'esempio ora usa `:0.14`: chi ha `:0.13` deve cambiare il numero per ricevere le novità (con `:0.13` arrivano solo le correzioni della 0.13).
 
 ## [0.13.0] – 2026-11-19
 

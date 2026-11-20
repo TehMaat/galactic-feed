@@ -13,7 +13,7 @@
 
 ## Oggi: Edizioni e Notiziario
 
-**Oggi** è la schermata principale. In alto ci sono le **Edizioni di oggi**: per ogni [Edizione](ai-edizioni-notifiche.md#edizioni) accesa l'ultima uscita, con l'etichetta delle sue regole, il nome, la data, quante notizie ha, il titolo d'apertura e la copertina. Si apre con un tocco, come un articolo: sopra Oggi sul telefono, a destra sul computer. Da un articolo dell'Edizione «Indietro» riporta all'Edizione.
+**Oggi** è la schermata principale. In alto ci sono le **Edizioni di oggi**: per ogni [Edizione](ai-edizioni-notifiche.md#edizioni) accesa l'ultima uscita, in una card più grande di quelle delle notizie: la copertina a tutta larghezza con sopra l'etichetta delle sue regole, quante notizie restano da leggere, la data, quante notizie ha e il nome; sotto, il titolo d'apertura. Un'Edizione già letta ha la foto spenta. Si apre con un tocco, come un articolo: sopra Oggi sul telefono, a destra sul computer. Da un articolo dell'Edizione «Indietro» riporta all'Edizione.
 
 Sotto, nello stesso scroll, c'è il **Notiziario**: tutti gli articoli delle tue fonti, in ordine di arrivo. Sotto il titolo c'è quante notizie ci sono con i filtri in uso e quante sono da leggere («24 notizie · 7 da leggere»); il numero scende mentre leggi. Il pulsante tondo accanto controlla subito le fonti. Senza Edizioni Oggi mostra solo il Notiziario.
 
