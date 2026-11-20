@@ -15,6 +15,12 @@ Per aggiornare basta scaricare la nuova immagine: le modifiche al database si ap
 ### Da sapere per aggiornare
 - Il `docker-compose.yml` d'esempio ora usa `:0.15`: chi ha `:0.14` deve cambiare il numero per ricevere le novità (con `:0.14` arrivano solo le correzioni della 0.14).
 
+## [0.14.1] – 2026-11-20
+
+### Correzioni
+- **La barra «Cerca nelle impostazioni» non esce più dallo schermo** (#84): sui telefoni stretti o con il testo ingrandito era più larga della pagina; ora resta nei margini come le card.
+- **Vetro uguale ovunque** (#85): barre, pillole, card, Edizioni, gruppi delle impostazioni, sheet e lettore usano lo stesso fondo e la stessa sfocatura della Dock. La barra di ricerca delle impostazioni e le pillole in alto non lasciano più leggere il testo che ci scorre sotto.
+
 ## [0.14.0] – 2026-11-20
 
 ### Novità
