@@ -927,9 +927,10 @@ test("telefono: scorre la pagina, e ogni sezione ricorda dove eri arrivato (#38)
 
   // Con il lettore aperto la lista sotto non scorre; chiudendolo (anche con Indietro) resta dov'era.
   // Si tocca una scheda già in vista, così la pagina non si sposta prima di aprirla.
+  // Sopra le notizie c'è la card dell'Edizione, alta (#80): si cerca la prima notizia che si vede.
   const point = await oggi.locator(".card").evaluateAll((cards) => {
-    const c = cards.find((x) => x.getBoundingClientRect().top < 260 && x.getBoundingClientRect().bottom > 260);
-    return c ? { x: c.getBoundingClientRect().left + 40, y: 260 } : null;
+    const c = cards.find((x) => x.getBoundingClientRect().top > 80 && x.getBoundingClientRect().top < window.innerHeight - 60);
+    return c ? { x: c.getBoundingClientRect().left + 40, y: c.getBoundingClientRect().top + 30 } : null;
   });
   await page.mouse.click(point.x, point.y);
   await expect(page.locator(".reader.is-open")).toBeVisible();
