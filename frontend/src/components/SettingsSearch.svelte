@@ -158,10 +158,15 @@
     };
   });
 
-  // Dal Profilo, «Cerca nelle impostazioni»: il cursore va nel campo.
+  // Dal Profilo, «Cerca nelle impostazioni»: il cursore va nel campo, una volta sola (#81). La
+  // richiesta si consuma subito, altrimenti ogni apertura successiva delle Impostazioni (che
+  // rimonta questo campo) aprirebbe di nuovo la tastiera.
   $effect(() => {
-    if (ui.settingsFocus && input && place === "main" && window.matchMedia("(max-width: 1099.98px)").matches) input.focus();
-    else if (ui.settingsFocus && input && place === "nav" && window.matchMedia("(min-width: 1100px)").matches) input.focus();
+    if (!ui.settingsFocus || !input) return;
+    const wide = window.matchMedia("(min-width: 1100px)").matches;
+    if ((place === "nav") !== wide) return;
+    ui.settingsFocus = false;
+    input.focus();
   });
 
   // Telefono: sparisce scorrendo giù, torna risalendo (o in cima).

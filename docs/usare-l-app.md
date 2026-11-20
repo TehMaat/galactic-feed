@@ -53,7 +53,7 @@ Il **Profilo** (nella Dock sul telefono, l'avatar in alto a destra sul computer)
 
 - **Nome e avatar**: tocca l'avatar (o **Impostazioni → Account → Nome e avatar**) per cambiare il nome e scegliere una foto o le iniziali su un colore. La foto viene ridotta dall'app prima di arrivare al server. Il nome utente per entrare non cambia.
 - **Statistiche**, sugli ultimi 7 o 30 giorni: articoli letti (con il confronto con il periodo prima), salvati, giorni di fila con almeno un articolo letto, un grafico dei letti al giorno, interessi e fonti più letti, le ore del giorno in cui leggi e quante uscite delle Edizioni hai aperto. Contano gli articoli che apri, una volta sola; «Segna tutti come letti» no. L'app non misura quanto tempo leggi.
-- Sul telefono sotto le statistiche ci sono le sezioni delle **Impostazioni** e «Cerca nelle impostazioni».
+- Sul telefono sotto le statistiche ci sono le sezioni delle **Impostazioni** e «Cerca nelle impostazioni»: la scorciatoia «Impostazioni» in alto porta qui. Sul computer apre la pagina delle Impostazioni.
 
 <p align="center">
   <img src="img/screenshot/profilo-telefono-chiaro.webp" width="280" alt="Il Profilo sul telefono: nome, avatar, scorciatoie e statistiche">

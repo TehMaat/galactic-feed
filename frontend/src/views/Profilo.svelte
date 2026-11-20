@@ -26,8 +26,18 @@
   ];
 
   function searchSettings() {
-    ui.settingsFocus += 1;
+    ui.settingsFocus = true;
     openPage("impostazioni");
+  }
+
+  // «Impostazioni» tra le scorciatoie (#81): sul telefono e sul tablet le sezioni delle Impostazioni
+  // sono qui sotto, quindi la pagina scorre fin lì; sul computer non ci sono e si apre la pagina.
+  let settingsTitle = $state();
+  function openSettings() {
+    if (!settingsTitle?.getClientRects().length) return openPage("impostazioni");
+    const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    settingsTitle.scrollIntoView({ behavior: still ? "auto" : "smooth", block: "start" });
+    settingsTitle.focus({ preventScroll: true });
   }
 </script>
 
@@ -49,7 +59,7 @@
           <button type="button" class="shortcut glass" onclick={() => switchTab("salvati")}><Icon name="bookmark" /><span>Salvati</span>{#if data.counts.salvati}<b>{data.counts.salvati}</b>{/if}</button>
           <button type="button" class="shortcut glass" onclick={() => switchTab("fonti")}><Icon name="rss" /><span>Fonti</span><b>{data.sources.length}</b></button>
           <button type="button" class="shortcut glass" onclick={() => switchTab("interessi")}><Icon name="spark" /><span>Interessi</span></button>
-          <button type="button" class="shortcut glass" onclick={() => openPage("impostazioni")}><Icon name="sliders" /><span>Impostazioni</span></button>
+          <button type="button" class="shortcut glass" onclick={openSettings}><Icon name="sliders" /><span>Impostazioni</span></button>
           {#if me.is_admin}
             <button type="button" class="shortcut glass" onclick={() => openPage("amministrazione")}><Icon name="shield" /><span>Amministrazione</span></button>
           {/if}
@@ -61,7 +71,7 @@
 
         <!-- Sul telefono le Impostazioni sono qui sotto; sul computer sono nella barra in alto. -->
         <section class="compact-only profilo-settings" aria-labelledby="h-imp">
-          <h2 class="sec-title small" id="h-imp">Impostazioni</h2>
+          <h2 class="sec-title small" id="h-imp" tabindex="-1" bind:this={settingsTitle}>Impostazioni</h2>
           <button type="button" class="search-field glass as-button" onclick={searchSettings}><Icon name="search" /><span>Cerca nelle impostazioni</span></button>
           <div class="set-group glass-group">
             {#each SECTIONS as [key, icon, title, sub] (key)}

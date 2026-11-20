@@ -229,6 +229,9 @@ html, body { background: var(--app-bg); }
 .shortcut .ico { width: 19px; height: 19px; color: var(--accent); }
 .shortcut b { margin-left: auto; font-size: 12.5px; font-weight: 600; color: var(--ink-3); font-variant-numeric: tabular-nums; }
 .profilo-settings { display: grid; gap: 12px; margin-top: 16px; }
+/* La scorciatoia «Impostazioni» scorre fin qui (#81): il titolo non finisce sotto la barra in alto. */
+#h-imp { scroll-margin-top: calc(var(--appbar-h) + 12px); }
+#h-imp:focus { outline: none; }
 .section-row { gap: 12px; }
 .section-ico { width: 36px; height: 36px; flex: none; display: grid; place-items: center; border-radius: 12px; background: var(--accent-soft); color: var(--accent); }
 .section-ico .ico { width: 18px; height: 18px; }

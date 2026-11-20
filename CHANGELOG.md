@@ -4,6 +4,12 @@ Tutte le versioni di Galactic Feed, dalla più recente. I numeri seguono [semver
 
 Per aggiornare basta scaricare la nuova immagine: le modifiche al database si applicano da sole all'avvio. Prima di saltare a una nuova versione minore conviene fare una copia del volume `/data` (vedi [Aggiornare e backup](docs/aggiornare-e-backup.md)).
 
+## [0.13.1] – 2026-11-20
+
+### Correzioni
+- **«Impostazioni» nel Profilo** (#81): sul telefono e sul tablet porta alle sezioni delle Impostazioni più in basso nel Profilo invece di aprire la pagina con la ricerca. Sul computer apre la pagina come prima.
+- La ricerca nelle impostazioni prende il cursore solo quando tocchi «Cerca nelle impostazioni» (#81). Prima, dopo averla usata una volta, la tastiera si riapriva a ogni apertura delle Impostazioni.
+
 ## [0.13.0] – 2026-11-19
 
 ### Novità

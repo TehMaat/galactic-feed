@@ -38,7 +38,21 @@ async function tab(page, name) {
   const dock = page.locator(".dock");
   if (["Oggi", "Notiziario", "Cerca", "Profilo"].includes(name)) return barClick(dock.getByRole("button", { name, exact: true }));
   await barClick(dock.getByRole("button", { name: "Profilo", exact: true }));
+  // «Impostazioni» nel Profilo scorre alle sezioni qui sotto (#81): si entra dalla prima, Account.
+  if (name === "Impostazioni") {
+    await page.locator(".profilo-settings").getByRole("button", { name: /^Account/ }).click();
+    return scrollSettled(page);
+  }
   await page.locator(".shortcuts").getByRole("button", { name: new RegExp(`^${name}`) }).click();
+}
+
+// Aspetta che lo scorrimento animato verso una sezione sia finito: mentre scorre in giù le barre
+// escono (#36) e un tocco sulla Dock arriverebbe a vuoto.
+async function scrollSettled(page) {
+  await page.waitForFunction(() => new Promise((done) => {
+    const y = window.scrollY;
+    setTimeout(() => done(window.scrollY === y), 250);
+  }));
 }
 
 // Un preset del Notiziario (#68), dalla riga sopra le notizie.
@@ -1017,6 +1031,18 @@ test("profilo: statistiche, nome e avatar, ricerca nelle impostazioni e colore p
   await expect(page.locator(".search-count")).toContainText("Nessuna impostazione");
   await search.fill("");
   await expect(settings.getByRole("switch", { name: "Nascondi gli articoli senza testo completo" })).toBeVisible();
+
+  // «Impostazioni» nel Profilo (#81): sul telefono scorre alle sezioni qui sotto invece di aprire la
+  // pagina, e il cursore non torna nella ricerca riaprendo le Impostazioni.
+  await tab(page, "Profilo");
+  await prof.locator(".shortcuts").getByRole("button", { name: "Impostazioni" }).click();
+  await expect(page).toHaveURL(/\/profilo$/);
+  await expect(prof.locator("#h-imp")).toBeFocused();
+  await expect(prof.locator("#h-imp")).toBeInViewport();
+  await prof.locator(".profilo-settings").getByRole("button", { name: /^Aspetto/ }).click();
+  await expect(page).toHaveURL(/\/impostazioni$/);
+  await expect(settings.getByRole("group", { name: "Tema", exact: true })).toBeVisible();
+  await expect(search).not.toBeFocused();
 
   // Colore personalizzato (#74): l'ultimo pallino apre il selettore; l'app adatta il colore.
   const saved = page.waitForResponse((r) => r.url().endsWith("/api/me") && r.request().method() === "PATCH" && r.request().postData().includes("accent_custom"));
