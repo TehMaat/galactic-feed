@@ -1028,6 +1028,14 @@ test("profilo: statistiche, nome e avatar, ricerca nelle impostazioni e colore p
   await search.fill("");
   await expect(settings.getByRole("switch", { name: "Nascondi gli articoli senza testo completo" })).toBeVisible();
 
+  // Su uno schermo stretto (o con il testo ingrandito) la barra resta nei margini della pagina (#84).
+  await page.setViewportSize({ width: 300, height: 700 });
+  const field = await page.locator(".settings-search.main .search-field").boundingBox();
+  const group = await settings.locator(".set-group").first().boundingBox();
+  expect(field.x + field.width).toBeLessThanOrEqual(group.x + group.width + 0.5);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(300);
+  await page.setViewportSize(PHONE);
+
   // «Impostazioni» nel Profilo (#81): sul telefono scorre alle sezioni qui sotto invece di aprire la
   // pagina, e il cursore non torna nella ricerca riaprendo le Impostazioni.
   await tab(page, "Profilo");

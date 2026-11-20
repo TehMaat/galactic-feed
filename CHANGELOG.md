@@ -4,11 +4,17 @@ Tutte le versioni di Galactic Feed, dalla più recente. I numeri seguono [semver
 
 Per aggiornare basta scaricare la nuova immagine: le modifiche al database si applicano da sole all'avvio. Prima di saltare a una nuova versione minore conviene fare una copia del volume `/data` (vedi [Aggiornare e backup](docs/aggiornare-e-backup.md)).
 
-## [0.14.1] – 2026-11-20
+## [0.14.2] – 2026-11-20
 
 ### Correzioni
 - **«Impostazioni» nel Profilo** (#81): sul telefono e sul tablet porta alle sezioni delle Impostazioni più in basso nel Profilo invece di aprire la pagina con la ricerca. Sul computer apre la pagina come prima.
 - La ricerca nelle impostazioni prende il cursore solo quando tocchi «Cerca nelle impostazioni» (#81). Prima, dopo averla usata una volta, la tastiera si riapriva a ogni apertura delle Impostazioni.
+
+## [0.14.1] – 2026-11-20
+
+### Correzioni
+- **La barra «Cerca nelle impostazioni» non esce più dallo schermo** (#84): sui telefoni stretti o con il testo ingrandito era più larga della pagina; ora resta nei margini come le card.
+- **Vetro uguale ovunque** (#85): barre, pillole, card, Edizioni, gruppi delle impostazioni, sheet e lettore usano lo stesso fondo e la stessa sfocatura della Dock. La barra di ricerca delle impostazioni e le pillole in alto non lasciano più leggere il testo che ci scorre sotto.
 
 ## [0.14.0] – 2026-11-20
 

@@ -10,14 +10,14 @@
 .list,
 .card,
 .empty-card {
-  background: var(--glass-1);
+  background: var(--glass-bg);
   border: 1px solid var(--glass-bd);
   box-shadow: var(--glass-shadow), inset 0 1px 0 var(--glass-hl);
 }
 @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   .glass, .set-group, .list, .card {
-    -webkit-backdrop-filter: blur(22px) saturate(160%);
-    backdrop-filter: blur(22px) saturate(160%);
+    -webkit-backdrop-filter: var(--glass-blur);
+    backdrop-filter: var(--glass-blur);
   }
 }
 /* Dove il vetro non sfoca, la superficie resta piena: il testo si legge sempre. */
@@ -80,7 +80,6 @@ html, body { background: var(--app-bg); }
   gap: 4px;
   padding: 6px;
   border-radius: 999px;
-  background: var(--glass-2);
   transform: translateX(-50%);
 }
 .dock button { width: 58px; height: 48px; display: grid; place-items: center; border-radius: 999px; color: var(--ink-2); transition: background-color 0.2s, color 0.2s; }
@@ -107,7 +106,7 @@ html, body { background: var(--app-bg); }
 .ed-cover { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .ed-media::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(3, 5, 12, 0.4) 0, transparent 30%, transparent 38%, rgba(3, 5, 12, 0.9) 100%); }
 .ed-top { position: absolute; top: 14px; left: 14px; right: 14px; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.ed-tag, .ed-unread { min-width: 0; height: 28px; display: inline-flex; align-items: center; gap: 6px; padding: 0 11px; border-radius: 999px; font-size: 12px; font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
+.ed-tag, .ed-unread { min-width: 0; height: 28px; display: inline-flex; align-items: center; gap: 6px; padding: 0 11px; border-radius: 999px; font-size: 12px; font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); }
 .ed-tag { background: rgba(5, 8, 15, 0.55); color: #FFFFFF; }
 .ed-tag .ico { width: 15px; height: 15px; flex: none; }
 .ed-unread { flex: none; margin-left: auto; background: var(--accent); color: var(--on-accent); }
@@ -154,14 +153,14 @@ html, body { background: var(--app-bg); }
 .card-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .card-media::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(3, 5, 12, 0.35) 0, transparent 28%, transparent 40%, rgba(3, 5, 12, 0.86) 100%); }
 .card-title { position: absolute; left: 16px; right: 16px; bottom: 14px; z-index: 1; margin: 0; color: #FFFFFF; font-family: var(--font-display); font-size: calc(17px * var(--ts)); font-weight: 750; line-height: 1.28; letter-spacing: -0.01em; text-shadow: 0 1px 12px rgba(0, 0, 0, 0.35); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; }
-.src-pill { position: absolute; top: 12px; right: 12px; z-index: 1; max-width: calc(100% - 52px); height: 26px; display: inline-flex; align-items: center; gap: 6px; padding: 0 10px 0 4px; border-radius: 999px; background: rgba(5, 8, 15, 0.55); color: #FFFFFF; font-size: 12px; font-weight: 600; -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
+.src-pill { position: absolute; top: 12px; right: 12px; z-index: 1; max-width: calc(100% - 52px); height: 26px; display: inline-flex; align-items: center; gap: 6px; padding: 0 10px 0 4px; border-radius: 999px; background: rgba(5, 8, 15, 0.55); color: #FFFFFF; font-size: 12px; font-weight: 600; -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); }
 .src-pill > span:not(.mono-av) { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .src-pill .mono-av, .src-pill .is-icon { width: 18px; height: 18px; border-radius: 6px; flex: none; }
 .src-time { flex: none; opacity: 0.78; font-weight: 500; }
 .src-time::before { content: "· "; }
 .unread-dot { position: absolute; top: 21px; left: 16px; z-index: 1; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 3px rgba(5, 8, 15, 0.35); }
 .card-play { position: absolute; inset: 0 0 40px; z-index: 1; display: grid; place-items: center; color: #FFFFFF; }
-.card-play span { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 50%; background: rgba(0, 0, 0, 0.45); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+.card-play span { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 50%; background: rgba(0, 0, 0, 0.45); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); }
 .card-play .ico { width: 20px; height: 20px; fill: currentColor; stroke: none; }
 .card-body { display: grid; grid-template-columns: minmax(0, 1fr) 36px; gap: 10px; align-items: end; padding: 14px 10px 12px 16px; }
 .card-body .excerpt { margin: 0; font-size: calc(14px * var(--ts)); line-height: 1.5; color: var(--ink-2); }
@@ -173,7 +172,7 @@ html, body { background: var(--app-bg); }
 /* ---------- Lettore ---------- */
 .reader { background: color-mix(in srgb, var(--app-bg) 94%, transparent); }
 @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .reader { -webkit-backdrop-filter: blur(30px); backdrop-filter: blur(30px); }
+  .reader { -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); }
 }
 .reader-bar { border-bottom: 0; background: linear-gradient(var(--app-bg) 40%, color-mix(in srgb, var(--app-bg) 0%, transparent)); -webkit-backdrop-filter: none; backdrop-filter: none; }
 .reader-where { position: absolute; left: 50%; transform: translateX(-50%); font-size: 12px; font-weight: 650; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-2); }
@@ -205,7 +204,7 @@ html, body { background: var(--app-bg); }
 /* ---------- Cerca ---------- */
 .search-field { display: flex; align-items: center; gap: 10px; height: 48px; padding: 0 8px 0 15px; border-radius: 16px; color: var(--ink-3); }
 .search-field .ico { width: 18px; height: 18px; flex: none; }
-.search-field input { flex: 1; min-width: 0; border: 0; outline: none; background: transparent; font-size: 16px; color: var(--ink); }
+.search-field input { flex: 1; width: 0; min-width: 0; border: 0; outline: none; background: transparent; font-size: 16px; color: var(--ink); }
 .search-field input::-webkit-search-cancel-button { display: none; }
 .search-field:focus-within { border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
 .search-field.as-button { width: 100%; font-size: 15px; text-align: left; }
@@ -295,7 +294,7 @@ html, body { background: var(--app-bg); }
 .row-actions > * { flex: 1; }
 
 /* ---------- Impostazioni: ricerca (#67), colori su una riga (#74) ---------- */
-.settings-search { position: sticky; top: calc(var(--appbar-h) + 4px); z-index: 20; display: grid; gap: 8px; padding: 6px 0 4px; transition: transform 0.28s ease, opacity 0.2s ease; }
+.settings-search { position: sticky; top: calc(var(--appbar-h) + 4px); z-index: 20; display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; padding: 6px 0 4px; transition: transform 0.28s ease, opacity 0.2s ease; }
 .settings-search.is-hidden { transform: translateY(calc(-100% - var(--appbar-h))); opacity: 0; pointer-events: none; }
 .settings-search.nav { position: static; padding: 0 0 14px; }
 .search-count { margin: 0 4px; font-size: 13px; color: var(--ink-2); }
@@ -322,9 +321,9 @@ html, body { background: var(--app-bg); }
 /* ---------- Sheet e finestre ---------- */
 .sheet { background: color-mix(in srgb, var(--app-bg) 90%, transparent); border: 1px solid var(--glass-bd); }
 @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .sheet { -webkit-backdrop-filter: blur(30px) saturate(160%); backdrop-filter: blur(30px) saturate(160%); }
+  .sheet { -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); }
 }
-.sheet .set-group { background: var(--glass-2); }
+.sheet .set-group { background: var(--glass-bg); }
 
 /* ---------- Tablet (da 700 a 1099px) ---------- */
 @media (min-width: 700px) and (max-width: 1099.98px) {
@@ -334,9 +333,9 @@ html, body { background: var(--app-bg); }
 
 /* ---------- Computer (da 1100px, #65): barra in vetro, lista a sinistra, lettura a destra ---------- */
 @media (min-width: 1100px) {
-  .tabbar { background: var(--glass-1); border-bottom: 1px solid var(--glass-bd); }
+  .tabbar { background: var(--glass-bg); border-bottom: 1px solid var(--glass-bd); }
   .tabbar .nav-brand { gap: 10px; }
-  .tabbar button[aria-current="page"] { background: var(--glass-2); color: var(--ink); box-shadow: inset 0 0 0 1px var(--glass-bd); }
+  .tabbar button[aria-current="page"] { background: color-mix(in srgb, var(--surface) 90%, transparent); color: var(--ink); box-shadow: inset 0 0 0 1px var(--glass-bd); }
   .tabbar button[aria-current="page"] .ico { color: var(--accent); }
   .tabbar .nav-search { margin-left: auto; width: 260px; height: 38px; padding: 0 14px; border-radius: 999px; font-size: 13.5px; font-weight: 500; color: var(--ink-3); }
   .tabbar .nav-search[aria-current="page"] { color: var(--ink); }
