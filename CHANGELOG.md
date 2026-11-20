@@ -4,7 +4,7 @@ Tutte le versioni di Galactic Feed, dalla più recente. I numeri seguono [semver
 
 Per aggiornare basta scaricare la nuova immagine: le modifiche al database si applicano da sole all'avvio. Prima di saltare a una nuova versione minore conviene fare una copia del volume `/data` (vedi [Aggiornare e backup](docs/aggiornare-e-backup.md)).
 
-## [Da pubblicare]
+## [0.15.0] – 2026-11-20
 
 ### Novità
 - **Statistiche per settimana, mese, anno o di sempre** (#83): nel Profilo il periodo si sceglie tra quattro voci. Sull'anno il grafico dei letti va per mese; «di sempre» parte dal primo articolo aperto o salvato e va per giorno, per mese o per anno secondo quanto tempo è passato.
