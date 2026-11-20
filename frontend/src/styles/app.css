@@ -516,9 +516,9 @@ a.wordmark:active { opacity: 0.7; }
   padding-left: max(16px, env(safe-area-inset-left, 0px));
   padding-right: max(8px, env(safe-area-inset-right, 0px));
   border-bottom: 1px solid var(--line);
-  background: var(--glass);
-  -webkit-backdrop-filter: saturate(1.6) blur(20px);
-  backdrop-filter: saturate(1.6) blur(20px);
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
 }
 .appbar .wordmark { font-size: 17px; }
 .appbar .wordmark .ico { width: 26px; height: 26px; }
@@ -539,9 +539,9 @@ a.wordmark:active { opacity: 0.7; }
   padding: 0 6px;
   border: 1px solid var(--line);
   border-radius: 26px;
-  background: var(--glass);
-  -webkit-backdrop-filter: saturate(1.8) blur(24px);
-  backdrop-filter: saturate(1.8) blur(24px);
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
   box-shadow: 0 12px 32px -14px rgba(0, 0, 0, 0.35), 0 2px 6px -2px rgba(0, 0, 0, 0.12);
 }
 .tabbar button { position: relative; display: grid; justify-items: center; gap: 3px; padding: 3px 0; font-size: 10.5px; font-weight: 600; color: var(--ink-3); }
@@ -590,9 +590,9 @@ a.wordmark:active { opacity: 0.7; }
   padding-left: max(16px, env(safe-area-inset-left, 0px));
   padding-right: max(16px, env(safe-area-inset-right, 0px));
   border-bottom: 1px solid var(--line);
-  background: var(--glass);
-  -webkit-backdrop-filter: saturate(1.6) blur(20px);
-  backdrop-filter: saturate(1.6) blur(20px);
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
 }
 .back-btn { display: inline-flex; align-items: center; gap: 2px; height: 40px; margin-left: -8px; padding-right: 8px; font-size: 17px; color: var(--accent); }
 .reader-actions { display: flex; gap: 2px; }
@@ -795,13 +795,7 @@ a.wordmark:active { opacity: 0.7; }
   .appbar, .tabbar, .reader, .scrim, .sheet, .toast { position: fixed; }
 }
 
-/* ---------- Telefono e tablet: Dock più trasparente e barre a scomparsa (#36) ---------- */
-/* Più trasparente solo dove il vetro sfoca davvero; altrimenti resta il vetro pieno. */
-@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) and (background: color-mix(in srgb, red 50%, transparent)) {
-  @media (max-width: 1099.98px) {
-    .tabbar { background: color-mix(in srgb, var(--glass) 72%, transparent); }
-  }
-}
+/* ---------- Telefono e tablet: barre a scomparsa (#36) ---------- */
 @media (max-width: 1099.98px) {
   /* Entrata: parte veloce e rallenta, la dissolvenza è all'inizio. L'uscita (sotto) è lo stesso
      movimento all'indietro: parte piano, accelera e svanisce alla fine. Le curve dell'uscita sono

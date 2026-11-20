@@ -30,7 +30,6 @@
   --sky-ink: #F3F0FA;
   --sky-ink-2: rgba(243, 240, 250, 0.72);
   --sky-star: #F2C46B;
-  --glass: rgba(244, 245, 249, 0.84);
   --scrim: rgba(10, 12, 26, 0.38);
   --shadow-card: 0 1px 2px rgba(19, 22, 42, 0.06), 0 8px 24px -16px rgba(19, 22, 42, 0.25);
 
@@ -57,9 +56,10 @@
   /* Vetro (#64): superfici semitrasparenti e sfocate sopra tre aloni di colore sullo sfondo.
      Le superfici derivano da --surface, così valgono per ogni tema e variante; gli aloni
      (--orb-*) cambiano con il tema e la variante, più sotto. */
-  --glass-1: color-mix(in srgb, var(--surface) 64%, transparent);
-  --glass-2: color-mix(in srgb, var(--surface) 86%, transparent);
+  --glass-bg: color-mix(in srgb, var(--surface) 86%, transparent);
   --glass-bd: color-mix(in srgb, var(--ink) 9%, transparent);
+  /* Il vetro è uno solo, quello della Dock (#85): stesso fondo e stessa sfocatura ovunque. */
+  --glass-blur: blur(22px) saturate(160%);
   --glass-hl: rgba(255, 255, 255, 0.7);
   --glass-shadow: 0 12px 30px -18px rgba(30, 40, 80, 0.32);
   --orb-1: rgba(99, 102, 241, 0.22);
@@ -95,7 +95,6 @@
     --danger: #FF7B72;
     --sky-1: #0E1230;
     --sky-2: #2A1F57;
-    --glass: rgba(12, 15, 28, 0.82);
     --scrim: rgba(0, 0, 0, 0.55);
     --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 10px 30px -18px rgba(0, 0, 0, 0.8);
     --c-indaco: #98A0FF;
@@ -107,8 +106,7 @@
     --c-ambra: #F2B35B;
     --c-azzurro: #5CC8E8;
     --c-grigio: #A8ACC3;
-    --glass-1: color-mix(in srgb, var(--surface) 52%, transparent);
-    --glass-2: color-mix(in srgb, var(--surface) 80%, transparent);
+    --glass-bg: color-mix(in srgb, var(--surface) 80%, transparent);
     --glass-bd: rgba(255, 255, 255, 0.11);
     --glass-hl: rgba(255, 255, 255, 0.10);
     --glass-shadow: 0 14px 34px -16px rgba(0, 0, 0, 0.75);
@@ -138,7 +136,6 @@
   --danger: #FF7B72;
   --sky-1: #0E1230;
   --sky-2: #2A1F57;
-  --glass: rgba(12, 15, 28, 0.82);
   --scrim: rgba(0, 0, 0, 0.55);
   --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 10px 30px -18px rgba(0, 0, 0, 0.8);
   --c-indaco: #98A0FF;
@@ -150,8 +147,7 @@
   --c-ambra: #F2B35B;
   --c-azzurro: #5CC8E8;
   --c-grigio: #A8ACC3;
-  --glass-1: color-mix(in srgb, var(--surface) 52%, transparent);
-  --glass-2: color-mix(in srgb, var(--surface) 80%, transparent);
+  --glass-bg: color-mix(in srgb, var(--surface) 80%, transparent);
   --glass-bd: rgba(255, 255, 255, 0.11);
   --glass-hl: rgba(255, 255, 255, 0.10);
   --glass-shadow: 0 14px 34px -16px rgba(0, 0, 0, 0.75);
@@ -179,7 +175,6 @@
     --line: rgba(237, 237, 240, 0.10);
     --sky-1: #1E1E23;
     --sky-2: #34343C;
-    --glass: rgba(24, 24, 27, 0.84);
     --c-grigio: #B4B4BC;
     --orb-1: rgba(148, 163, 184, 0.14);
     --orb-2: rgba(100, 116, 139, 0.12);
@@ -196,7 +191,6 @@
     --line: rgba(237, 237, 240, 0.12);
     --sky-1: #0B0B0E;
     --sky-2: #222229;
-    --glass: rgba(0, 0, 0, 0.84);
     --shadow-card: 0 0 0 1px rgba(237, 237, 240, 0.06) inset;
     --c-grigio: #B4B4BC;
     --orb-1: transparent;
@@ -215,7 +209,6 @@
   --line: rgba(237, 237, 240, 0.10);
   --sky-1: #1E1E23;
   --sky-2: #34343C;
-  --glass: rgba(24, 24, 27, 0.84);
   --c-grigio: #B4B4BC;
   --orb-1: rgba(148, 163, 184, 0.14);
   --orb-2: rgba(100, 116, 139, 0.12);
@@ -232,7 +225,6 @@
   --line: rgba(237, 237, 240, 0.12);
   --sky-1: #0B0B0E;
   --sky-2: #222229;
-  --glass: rgba(0, 0, 0, 0.84);
   --shadow-card: 0 0 0 1px rgba(237, 237, 240, 0.06) inset;
   --c-grigio: #B4B4BC;
   --orb-1: transparent;
@@ -249,7 +241,6 @@
     --ink-2: #574E40;
     --ink-3: #6E6555;
     --line: rgba(38, 33, 26, 0.11);
-    --glass: rgba(248, 245, 238, 0.86);
     --shadow-card: 0 1px 2px rgba(38, 33, 26, 0.06), 0 8px 24px -16px rgba(38, 33, 26, 0.25);
   --orb-1: rgba(251, 146, 60, 0.18);
   --orb-2: rgba(234, 179, 8, 0.16);
@@ -265,7 +256,6 @@
   --ink-2: #574E40;
   --ink-3: #6E6555;
   --line: rgba(38, 33, 26, 0.11);
-  --glass: rgba(248, 245, 238, 0.86);
   --shadow-card: 0 1px 2px rgba(38, 33, 26, 0.06), 0 8px 24px -16px rgba(38, 33, 26, 0.25);
   --orb-1: rgba(251, 146, 60, 0.18);
   --orb-2: rgba(234, 179, 8, 0.16);
@@ -287,7 +277,6 @@
     --line: rgba(147, 161, 161, 0.16);
     --sky-1: #01303B;
     --sky-2: #0B4552;
-    --glass: rgba(0, 43, 54, 0.84);
     --c-grigio: #9AA8A8;
     --orb-1: rgba(38, 139, 210, 0.26);
     --orb-2: rgba(42, 161, 152, 0.18);
@@ -305,7 +294,6 @@
   --line: rgba(147, 161, 161, 0.16);
   --sky-1: #01303B;
   --sky-2: #0B4552;
-  --glass: rgba(0, 43, 54, 0.84);
   --c-grigio: #9AA8A8;
   --orb-1: rgba(38, 139, 210, 0.26);
   --orb-2: rgba(42, 161, 152, 0.18);
@@ -321,7 +309,6 @@
     --ink-2: #3D5A62;
     --ink-3: #52686F;
     --line: rgba(7, 54, 66, 0.12);
-    --glass: rgba(253, 246, 227, 0.86);
     --shadow-card: 0 1px 2px rgba(7, 54, 66, 0.06), 0 8px 24px -16px rgba(7, 54, 66, 0.25);
     --orb-1: rgba(38, 139, 210, 0.18);
     --orb-2: rgba(42, 161, 152, 0.16);
@@ -337,7 +324,6 @@
   --ink-2: #3D5A62;
   --ink-3: #52686F;
   --line: rgba(7, 54, 66, 0.12);
-  --glass: rgba(253, 246, 227, 0.86);
   --shadow-card: 0 1px 2px rgba(7, 54, 66, 0.06), 0 8px 24px -16px rgba(7, 54, 66, 0.25);
   --orb-1: rgba(38, 139, 210, 0.18);
   --orb-2: rgba(42, 161, 152, 0.16);
