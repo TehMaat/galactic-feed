@@ -976,8 +976,16 @@ test("profilo: statistiche, nome e avatar, ricerca nelle impostazioni e colore p
   const prof = page.locator("section[aria-label='Profilo']");
   await expect(prof.locator(".tile").first()).toContainText("Letti");
   await expect.poll(async () => Number(await prof.locator(".tile b").first().textContent())).toBeGreaterThan(0);
-  await prof.getByRole("group", { name: "Periodo" }).getByRole("button", { name: "30 giorni" }).click();
+  const periodo = prof.getByRole("group", { name: "Periodo" });
+  await periodo.getByRole("button", { name: "Mese" }).click();
   await expect(prof.locator(".bar-col")).toHaveCount(30);
+  // Anno e di sempre (#83): l'anno va per mese, dodici barre.
+  await periodo.getByRole("button", { name: "Anno" }).click();
+  await expect(prof.locator(".bar-col")).toHaveCount(12);
+  await expect(prof.locator(".stat-card h3").first()).toContainText("Letti al mese");
+  await periodo.getByRole("button", { name: "Sempre" }).click();
+  await expect(periodo.getByRole("button", { name: "Sempre" })).toHaveAttribute("aria-pressed", "true");
+  await expect(prof.locator(".tile small").nth(1)).toHaveText("da sempre");
 
   // Nome e avatar (#76).
   await prof.getByRole("button", { name: "Cambia nome e avatar" }).click();

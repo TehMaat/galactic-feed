@@ -103,8 +103,8 @@ export const search = $state({ q: "", items: [], cursor: null, loading: false, e
 // Edizioni in Oggi (#64): l'ultima uscita di ogni Edizione accesa.
 export const today = $state({ editions: [], loaded: false });
 
-// Statistiche nel Profilo (#78).
-export const stats = $state({ days: 7, data: null, loading: false, error: "" });
+// Statistiche nel Profilo (#78). Periodo (#83): settimana, mese, anno o sempre.
+export const stats = $state({ period: "settimana", data: null, loading: false, error: "" });
 
 // ---------- Edizione ----------
 
@@ -653,12 +653,12 @@ export async function loadSearch(reset = false) {
 
 // ---------- Profilo e statistiche (#76, #78) ----------
 
-export async function loadStats(days = stats.days) {
-  stats.days = days;
+export async function loadStats(period = stats.period) {
+  stats.period = period;
   stats.loading = true;
   stats.error = "";
   try {
-    stats.data = await api("/me/stats" + qs({ days }));
+    stats.data = await api("/me/stats" + qs({ period }));
   } catch (err) {
     stats.error = err.message;
   } finally {

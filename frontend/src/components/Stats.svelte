@@ -1,6 +1,7 @@
 <script>
-  // Statistiche di lettura (#78): articoli aperti, salvati, giorni di fila, letti al giorno,
-  // interessi e fonti più letti, ore del giorno, Edizioni aperte. Periodo: 7 o 30 giorni.
+  // Statistiche di lettura (#78): articoli aperti, salvati, giorni di fila, letti nel tempo,
+  // interessi e fonti più letti, ore del giorno, Edizioni aperte. Periodo (#83): settimana, mese,
+  // anno o di sempre; il grafico va per giorno, per mese o per anno.
   // Una serie sola per grafico, nel colore principale; i numeri sono nel testo, non solo nel colore.
   import { loadStats, stats } from "../lib/store.svelte.js";
 
@@ -8,15 +9,36 @@
   const s = $derived(stats.data);
   const WD = ["dom", "lun", "mar", "mer", "gio", "ven", "sab"];
   const MONTHS = ["gen", "feb", "mar", "apr", "mag", "giu", "lug", "ago", "set", "ott", "nov", "dic"];
+  const PERIODS = [
+    ["settimana", "Settimana"],
+    ["mese", "Mese"],
+    ["anno", "Anno"],
+    ["sempre", "Sempre"],
+  ];
+  // Come si dice il periodo nei riquadri e nel confronto con quello prima.
+  const SPAN = { settimana: "negli ultimi 7 giorni", mese: "negli ultimi 30 giorni", anno: "negli ultimi 12 mesi", sempre: "da sempre" };
+  const BEFORE = { settimana: "sui 7 giorni prima", mese: "sui 30 giorni prima", anno: "sui 12 mesi prima" };
+  const PER = { day: "Letti al giorno", month: "Letti al mese", year: "Letti all'anno" };
 
+  const articles = (n) => (n === 1 ? "1 articolo" : `${n} articoli`);
   const days = $derived(
     s
-      ? s.per_day.map((d, i) => {
-          const date = new Date(d.date + "T12:00:00");
-          const last = i === s.per_day.length - 1;
-          const label = s.days === 7 ? (last ? "oggi" : WD[date.getDay()]) : last ? "oggi" : i % 10 === 0 ? `${date.getDate()} ${MONTHS[date.getMonth()]}` : "";
-          const tip = `${last ? "Oggi" : `${WD[date.getDay()]} ${date.getDate()} ${MONTHS[date.getMonth()]}`}: ${d.n === 1 ? "1 articolo" : `${d.n} articoli`}`;
-          return { ...d, label, tip, last };
+      ? s.series.map((d, i, all) => {
+          const date = new Date(d.start + "T12:00:00");
+          const last = i === all.length - 1;
+          const n = all.length;
+          let label, when;
+          if (s.unit === "year") {
+            label = when = String(date.getFullYear());
+          } else if (s.unit === "month") {
+            const step = n > 12 ? 3 : n > 6 ? 2 : 1;
+            label = (n - 1 - i) % step === 0 ? MONTHS[date.getMonth()] : "";
+            when = `${MONTHS[date.getMonth()]} ${date.getFullYear()}`;
+          } else {
+            label = last ? "oggi" : n <= 7 ? WD[date.getDay()] : i % 10 === 0 ? `${date.getDate()} ${MONTHS[date.getMonth()]}` : "";
+            when = last ? "Oggi" : `${WD[date.getDay()]} ${date.getDate()} ${MONTHS[date.getMonth()]}`;
+          }
+          return { ...d, label, tip: `${when}: ${articles(d.n)}`, last };
         })
       : [],
   );
@@ -38,9 +60,10 @@
 <section class="stats" class:is-wide={wide} aria-labelledby="h-stats">
   <div class="sec-head">
     <h2 class="sec-title small" id="h-stats">Statistiche</h2>
-    <div class="segmented" style="--cols:2" role="group" aria-label="Periodo">
-      <button type="button" aria-pressed={stats.days === 7} onclick={() => loadStats(7)}>7 giorni</button>
-      <button type="button" aria-pressed={stats.days === 30} onclick={() => loadStats(30)}>30 giorni</button>
+    <div class="segmented" style="--cols:4" role="group" aria-label="Periodo">
+      {#each PERIODS as [key, name] (key)}
+        <button type="button" aria-pressed={stats.period === key} onclick={() => loadStats(key)}>{name}</button>
+      {/each}
     </div>
   </div>
 
@@ -50,15 +73,15 @@
     <div class="stat-grid">
       <div class="tiles span-2">
         <div class="tile glass"><span>Letti</span><b>{s.read}</b>
-          <small>{delta === null ? `negli ultimi ${s.days} giorni` : `${delta >= 0 ? "+" : "−"}${Math.abs(delta)}% sui ${s.days} giorni prima`}</small></div>
-        <div class="tile glass"><span>Salvati</span><b>{s.saved}</b><small>negli ultimi {s.days} giorni</small></div>
+          <small>{delta === null ? SPAN[s.period] : `${delta >= 0 ? "+" : "−"}${Math.abs(delta)}% ${BEFORE[s.period]}`}</small></div>
+        <div class="tile glass"><span>Salvati</span><b>{s.saved}</b><small>{SPAN[s.period]}</small></div>
         <div class="tile glass"><span>Giorni di fila</span><b>{s.streak}</b><small>record: {s.best_streak}</small></div>
       </div>
 
       <div class="stat-card glass span-2">
-        <h3>Letti al giorno<small>media {avg}</small></h3>
-        <div class="bars" role="img" aria-label="Articoli letti al giorno: {days.map((d) => d.tip).join('; ')}">
-          {#each days as d (d.date)}
+        <h3>{PER[s.unit]}<small>media {avg} al giorno</small></h3>
+        <div class="bars" role="img" aria-label="{PER[s.unit]}: {days.map((d) => d.tip).join('; ')}">
+          {#each days as d (d.start)}
             <div class="bar-col" class:is-today={d.last} title={d.tip}>
               <div class="bar-well"><span class="bar" style="height:{(d.n / max) * 100}%">{#if d.n && (d.last || d.n === max)}<span class="bar-v">{d.n}</span>{/if}</span></div>
               <span class="bar-l">{d.label}</span>
