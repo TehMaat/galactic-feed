@@ -116,7 +116,7 @@ Tutti sotto `/api`; salvo `auth`, `invites` e `health` richiedono l'accesso. Gli
 |---|---|
 | Accesso | `GET auth/state` · `POST auth/setup` · `POST auth/login` · `POST auth/logout` · `GET auth/oidc/start` · `GET auth/oidc/callback` · `GET`/`DELETE me/identities[/{id}]` · `GET`/`PUT admin/oidc` · `POST admin/oidc/test` |
 | Inviti | `GET invites/{token}` · `POST invites/{token}/accept` (anche per il reset della password) |
-| Profilo | `GET`/`PATCH me` · `POST me/password` · `GET me/sessions` · `DELETE me/sessions/{id}` · `PUT`/`DELETE me/avatar` · `GET avatars/{id}` · `GET me/stats?days=7` (o 30) |
+| Profilo | `GET`/`PATCH me` · `POST me/password` · `GET me/sessions` · `DELETE me/sessions/{id}` · `PUT`/`DELETE me/avatar` · `GET avatars/{id}` · `GET me/stats?period=settimana` (o `mese`, `anno`, `sempre`) |
 | Admin | `GET admin/users` · `PATCH`/`DELETE admin/users/{id}` · `POST admin/users/{id}/reset` · `GET`/`POST admin/invites` · `DELETE admin/invites/{id}` · `GET admin/status` · `GET`/`PATCH admin/settings` (impostazioni dell'istanza) · `GET`/`PUT admin/defaults` (preferenze dei nuovi utenti) |
 | Cartelle | `GET`/`POST folders` · `PATCH`/`DELETE folders/{id}` |
 | Fonti | `POST sources/discover` · `GET`/`POST sources` · `PATCH`/`DELETE sources/{id}` · `POST sources/{id}/refresh` · `POST sources/refresh` · `PUT sources/{id}/icon` · `POST sources/{id}/icon/refresh` |

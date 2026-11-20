@@ -105,13 +105,37 @@ def test_stats_count_opened_articles(admin, app):
     admin.put(f"/api/articles/{space[0]}/read")  # di nuovo: conta una volta sola
     admin.post("/api/articles/mark-read", json={})  # «Segna tutti come letti» non conta
     admin.put(f"/api/articles/{space[1]}/saved")
-    s = admin.get("/api/me/stats", params={"days": 7}).json()
-    assert s["days"] == 7 and s["read"] == 3 and s["saved"] == 1
+    s = admin.get("/api/me/stats", params={"period": "settimana"}).json()
+    assert s["period"] == "settimana" and s["days"] == 7 and s["unit"] == "day"
+    assert s["read"] == 3 and s["saved"] == 1 and s["read_prev"] == 0
     assert s["streak"] == 1 and s["best_streak"] == 1
-    assert len(s["per_day"]) == 7 and s["per_day"][-1]["n"] == 3 and sum(s["hours"]) == 3
+    assert len(s["series"]) == 7 and s["series"][-1]["n"] == 3 and sum(s["hours"]) == 3
     assert s["interests"][0] == {"name": "Spazio", "n": 2, "share": 67}
     assert [x["title"] for x in s["sources"]] == ["Cronache di Orione", "Bollettino di Vesta"]
-    assert len(admin.get("/api/me/stats", params={"days": 30}).json()["per_day"]) == 30
+    # Il vecchio parametro days vale ancora.
+    assert admin.get("/api/me/stats", params={"days": 7}).json()["period"] == "settimana"
+    month = admin.get("/api/me/stats", params={"days": 30}).json()
+    assert month["period"] == "mese" and len(month["series"]) == 30
+    # Anno (#83): dodici mesi, uno per barra.
+    year = admin.get("/api/me/stats", params={"period": "anno"}).json()
+    assert year["unit"] == "month" and len(year["series"]) == 12 and year["series"][-1]["n"] == 3 and year["read"] == 3
+    # Di sempre: dal primo articolo aperto, senza confronto con il periodo prima.
+    ever = admin.get("/api/me/stats", params={"period": "sempre"}).json()
+    assert ever["read"] == 3 and ever["saved"] == 1 and ever["read_prev"] is None
+    assert ever["unit"] == "day" and ever["days"] == 1 and ever["series"][-1]["n"] == 3
+
+
+def test_stats_series_units():
+    from collections import Counter
+    from datetime import date
+
+    from app.api.stats import _series
+
+    reads = Counter({date(2024, 12, 30): 2, date(2025, 1, 2): 1, date(2026, 11, 20): 4})
+    months = _series(date(2025, 12, 1), date(2026, 11, 20), reads, "month")
+    assert len(months) == 12 and months[0]["start"] == "2025-12-01" and months[-1] == {"start": "2026-11-01", "n": 4}
+    years = _series(date(2024, 12, 30), date(2026, 11, 20), reads, "year")
+    assert years == [{"start": "2024-01-01", "n": 2}, {"start": "2025-01-01", "n": 1}, {"start": "2026-01-01", "n": 4}]
 
 
 def test_editions_for_today(admin, app):

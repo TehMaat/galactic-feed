@@ -4,6 +4,17 @@ Tutte le versioni di Galactic Feed, dalla più recente. I numeri seguono [semver
 
 Per aggiornare basta scaricare la nuova immagine: le modifiche al database si applicano da sole all'avvio. Prima di saltare a una nuova versione minore conviene fare una copia del volume `/data` (vedi [Aggiornare e backup](docs/aggiornare-e-backup.md)).
 
+## [0.15.0] – 2026-11-20
+
+### Novità
+- **Statistiche per settimana, mese, anno o di sempre** (#83): nel Profilo il periodo si sceglie tra quattro voci. Sull'anno il grafico dei letti va per mese; «di sempre» parte dal primo articolo aperto o salvato e va per giorno, per mese o per anno secondo quanto tempo è passato.
+
+### Correzioni
+- Nel Profilo sul telefono «Amministrazione» non riempie più tutto il riquadro (#82): il testo delle scorciatoie scende un po' sugli schermi stretti e, se non ci sta, finisce con i puntini.
+
+### Da sapere per aggiornare
+- Il `docker-compose.yml` d'esempio ora usa `:0.15`: chi ha `:0.14` deve cambiare il numero per ricevere le novità (con `:0.14` arrivano solo le correzioni della 0.14).
+
 ## [0.14.1] – 2026-11-20
 
 ### Correzioni
