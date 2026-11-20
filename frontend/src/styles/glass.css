@@ -48,6 +48,9 @@ html, body { background: var(--app-bg); }
 .sec-sub b { color: var(--accent); font-weight: 650; }
 .sec-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
 .sec-head .segmented { width: auto; min-width: 180px; margin: 0; }
+/* Quattro periodi nelle Statistiche (#83): se accanto al titolo non ci stanno, vanno sotto a tutta larghezza. */
+.stats .sec-head { flex-wrap: wrap; }
+.stats .sec-head .segmented { flex: 1 1 300px; max-width: 380px; }
 .sec-actions { display: flex; align-items: center; gap: 8px; }
 .lbl { margin: 18px 4px 8px; font-size: 11px; font-weight: 650; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-3); }
 .round-btn { width: 40px; height: 40px; flex: none; display: grid; place-items: center; border-radius: 50%; color: var(--ink-2); }
@@ -230,8 +233,11 @@ html, body { background: var(--app-bg); }
 .me-who { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-3); }
 .me-role { height: 22px; display: inline-flex; align-items: center; padding: 0 9px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-size: 11px; font-weight: 650; }
 .shortcuts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-.shortcut { display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 0 14px; border-radius: 18px; font-size: 14.5px; font-weight: 600; text-align: left; }
-.shortcut .ico { width: 19px; height: 19px; color: var(--accent); }
+/* Su telefono le colonne sono strette: il testo scende un po' con lo schermo, così anche
+   «Amministrazione» resta nel riquadro (#82); se non basta, finisce con i puntini. */
+.shortcut { display: flex; align-items: center; gap: 9px; min-height: 52px; padding: 0 12px 0 14px; border-radius: 18px; font-size: clamp(12.5px, 3.4vw, 14.5px); font-weight: 600; text-align: left; }
+.shortcut .ico { width: 19px; height: 19px; flex: none; color: var(--accent); }
+.shortcut span { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .shortcut b { margin-left: auto; font-size: 12.5px; font-weight: 600; color: var(--ink-3); font-variant-numeric: tabular-nums; }
 .profilo-settings { display: grid; gap: 12px; margin-top: 16px; }
 /* La scorciatoia «Impostazioni» scorre fin qui (#81): il titolo non finisce sotto la barra in alto. */

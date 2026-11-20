@@ -1,6 +1,6 @@
 [project]
 name = "galactic-feed"
-version = "0.14.2"
+version = "0.15.1"
 description = "Lettore di notizie self-hosted e multiutente"
 requires-python = ">=3.12"
 
