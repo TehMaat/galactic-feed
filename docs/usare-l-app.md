@@ -9,6 +9,7 @@
 - [Tag e nazioni delle fonti](#tag-e-nazioni-delle-fonti)
 - [Leggere, salvare e offline](#leggere-salvare-e-offline)
 - [Aspetto](#aspetto)
+- [Scorciatoie da tastiera](#scorciatoie-da-tastiera)
 - [Telefono, tablet e computer](#telefono-tablet-e-computer)
 
 ## Oggi: Edizioni e Notiziario
@@ -102,6 +103,7 @@ In cima, il riquadro dice quante notizie delle ultime 24 ore sarebbero per te co
 
 - **Testo completo**: se il feed dà solo un estratto, il server prova a estrarre il testo dalla pagina del sito, ripulito da pubblicità e script. Sui siti a pagamento resta l'estratto.
 - **Nascondere gli articoli senza testo completo**: in **Impostazioni → Lettura**. Non compaiono nel Notiziario, nelle Edizioni e nelle notifiche; i salvati restano. Nel Notiziario un avviso dice quanti sono e li mostra con un tocco; nella scheda della fonte c'è scritto «Spesso solo estratto».
+- **Nascondere le notizie lette**: in **Impostazioni → Lettura**. Il Notiziario mostra solo quelle da leggere, con qualsiasi preset o filtro, e nei Filtri «Solo da leggere» resta acceso. Una notizia che leggi resta al suo posto finché l'elenco non si ricarica (aprendo l'app, controllando le fonti, cambiando filtro), così non sparisce mentre scorri. Salvati, Cerca ed Edizioni mostrano anche quelle lette.
 - **Salvati**: restano finché non li togli, anche dopo il periodo di conservazione degli articoli e anche se smetti di seguire la fonte.
 - **Offline**: i salvati e gli ultimi 300 articoli letti restano leggibili senza rete, con le loro immagini. Quello che segni o salvi senza rete parte quando la rete torna.
 - **Il lettore**: in cima c'è la foto, con la fonte e l'ora di pubblicazione in alto a destra. In alto ci sono solo Indietro, Salva e «⋯». Nel menu «⋯» trovi la dimensione del testo, Condividi (dove il dispositivo lo permette), Apri l'originale e Segna come non letto; in fondo all'articolo c'è «Leggi su …». Scorrendo verso il basso la barra esce dallo schermo e rientra tornando su; una riga sottile in alto mostra quanto hai letto.
@@ -129,6 +131,21 @@ In **Impostazioni → Aspetto** ognuno sceglie tema (automatico, chiaro, scuro),
 <p align="center">
   <img src="img/screenshot/impostazioni-ricerca-telefono-chiaro.webp" width="280" alt="Cerca nelle impostazioni: con «dark» restano tema e varianti, con la parola trovata">
 </p>
+
+## Scorciatoie da tastiera
+
+Con una tastiera (sul computer, ma anche su un tablet) si legge senza mouse. Le scorciatoie non valgono mentre scrivi in un campo e lasciano stare Ctrl, Alt e ⌘.
+
+| Tasto | Cosa fa |
+|---|---|
+| `j` / `k` | Apre la notizia successiva / precedente dell'elenco che stai guardando (Notiziario, Salvati, Cerca o l'Edizione aperta). In fondo carica le altre. |
+| `s` | Salva o toglie dai salvati l'articolo aperto |
+| `m` | Segna l'articolo aperto come letto o da leggere, senza chiuderlo |
+| `o` (o `v`) | Apre l'originale in una nuova scheda |
+| `r` | Controlla subito le fonti |
+| `/` | Va a Cerca, con il cursore nel campo |
+| `?` | Mostra (e chiude) l'elenco delle scorciatoie |
+| `Esc` | Chiude la finestra aperta o l'articolo |
 
 ## Telefono, tablet e computer
 

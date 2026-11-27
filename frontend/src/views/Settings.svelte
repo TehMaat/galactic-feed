@@ -65,6 +65,12 @@
     setFilter({ showPartial: false });
   }
 
+  async function toggleHideRead() {
+    await savePrefs({ hide_read: !me.prefs.hide_read });
+    // Ricarica il Notiziario e i suoi contatori con la scelta nuova (#95).
+    setFilter({});
+  }
+
   // ---- Notifiche ----
   let pushOn = $state(false);
   let pushBusy = $state(false);
@@ -439,6 +445,12 @@
         </div>
       </div>
       <p class="set-note">I preset si creano e si cancellano dal pannello Filtri del Notiziario. Se non scegli niente, si parte da «Per te».</p>
+      <div class="set-group">
+        <div class="set-row"><span>Nascondi le notizie lette</span>
+          <button type="button" class="switch" role="switch" aria-checked={!!me.prefs.hide_read} aria-label="Nascondi le notizie lette" onclick={toggleHideRead}></button>
+        </div>
+      </div>
+      <p class="set-note">Il Notiziario mostra solo le notizie da leggere, con qualsiasi preset o filtro. Quelle che leggi restano dove sono finché non aggiorni l'elenco, così non spariscono mentre scorri. Salvati, Cerca ed Edizioni mostrano anche quelle lette.</p>
       <div class="set-group">
         <div class="set-row"><span>Nascondi gli articoli senza testo completo</span>
           <button type="button" class="switch" role="switch" aria-checked={!!me.prefs.hide_partial} aria-label="Nascondi gli articoli senza testo completo" onclick={toggleHidePartial}></button>

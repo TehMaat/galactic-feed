@@ -51,6 +51,7 @@ class PrefsPatch(BaseModel):
     reader_layout: str | None = None
     dedupe: bool | None = None
     hide_partial: bool | None = None
+    hide_read: bool | None = None
     auto_tags: bool | None = None
     edition: bool | None = None
     edition_times: list[str] | None = None

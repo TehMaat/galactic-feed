@@ -94,7 +94,7 @@ ENV_ONLY = {
 }
 
 # Preferenze che l'amministratore può impostare per i nuovi utenti.
-DEFAULT_PREFS = ("theme", "dark_style", "light_style", "accent", "font", "font_read", "text_size", "reader_layout", "dedupe", "hide_partial", "edition", "edition_times", "summaries")
+DEFAULT_PREFS = ("theme", "dark_style", "light_style", "accent", "font", "font_read", "text_size", "reader_layout", "dedupe", "hide_partial", "hide_read", "edition", "edition_times", "summaries")
 
 
 def _env_value(settings: Settings, key: str) -> Any:

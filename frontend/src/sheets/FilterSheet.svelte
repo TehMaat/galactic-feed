@@ -20,6 +20,8 @@
   const start = $derived(session.user?.prefs?.start_preset || "perte");
   // Le fonti sono tante: si mostrano solo se se ne apre l'elenco (o se una è già nel filtro).
   let showSources = $state(false);
+  // «Nascondi le notizie lette» nelle Impostazioni (#95): «Solo da leggere» è sempre acceso.
+  const hideRead = $derived(!!session.user?.prefs?.hide_read);
 
   $effect(() => {
     if (ui.sheet === "filters" && ui.sheetArg === "save") setTimeout(() => saveBox?.scrollIntoView({ block: "center", behavior: "smooth" }), 320);
@@ -49,9 +51,10 @@
         </div>
       </div>
       <div class="set-row"><span>Solo da leggere</span>
-        <button type="button" class="switch" role="switch" aria-checked={stream.filter.unread} aria-label="Solo da leggere" onclick={toggleUnread}></button>
+        <button type="button" class="switch" role="switch" aria-checked={hideRead || stream.filter.unread} aria-label="Solo da leggere" disabled={hideRead} onclick={toggleUnread}></button>
       </div>
     </div>
+    {#if hideRead}<p class="set-note">Sempre acceso: le notizie lette sono nascoste in Impostazioni → Lettura.</p>{/if}
 
     {#each groups as group (group.id)}
       {#if group.id !== "fonti" || showSources || group.items.some((i) => keyState(i.key))}

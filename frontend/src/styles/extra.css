@@ -516,3 +516,10 @@ a.oidc-btn { text-decoration: none; }
   }
   .tab-pill.is-off { opacity: 0; }
 }
+
+/* Scorciatoie da tastiera (#94) */
+.kbd {
+  min-width: 2em; padding: 2px 8px; border-radius: 8px; text-align: center;
+  font: 600 0.85rem/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--ink); border: 1px solid var(--line); background: var(--accent-soft);
+}

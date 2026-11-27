@@ -137,6 +137,8 @@ class Prefs(BaseModel):
     dedupe: bool = True
     # Nasconde gli articoli di cui il sito non lascia leggere il testo completo (solo l'estratto).
     hide_partial: bool = False
+    # Nel Notiziario solo le notizie da leggere, con qualsiasi preset (#95).
+    hide_read: bool = False
     # Tag proposti in automatico per le fonti nuove.
     auto_tags: bool = True
     # Edizione: accesa o spenta e orari (nel fuso dell'istanza).

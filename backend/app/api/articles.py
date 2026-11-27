@@ -60,7 +60,8 @@ def make_filter(
         f.exclude = query.check_filter_keys(exclude)
     except ValueError as err:
         raise HTTPException(status_code=422, detail=str(err))
-    f.unread = unread
+    # «Nascondi le notizie lette» (#95) vale per il Notiziario: Salvati e Cerca mostrano anche le lette.
+    f.unread = unread or (bool(prefs["hide_read"]) and view != "salvati" and not f.q.strip())
     return f
 
 

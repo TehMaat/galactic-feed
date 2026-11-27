@@ -31,6 +31,7 @@
     ["notifiche", "push avvisi"],
     ["notifica di prova", "test push"],
     ["fornitore", "ai chiave api token modello intelligenza artificiale"],
+    ["notizie lette", "letti lette gia viste non letti da leggere"],
     ["nascondi gli articoli", "estratto parziale testo completo"],
     ["articolo sul computer", "lettore colonne pagina intera desktop"],
     ["esporta", "opml backup"],

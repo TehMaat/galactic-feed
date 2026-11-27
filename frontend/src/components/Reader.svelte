@@ -6,10 +6,11 @@
   // schermo e rientra tornando su, come le barre delle sezioni (#36).
   import { api } from "../lib/api.js";
   import { barsAfterScroll } from "../lib/bars.js";
+  import { shortcutFor } from "../lib/keys.js";
   import { explainDedupe } from "../lib/help.js";
   import { isAvailableOffline, overlay } from "../lib/offline.js";
   import { sourceColor, timeAgoLong } from "../lib/format.js";
-  import { TEXT_SIZES, readerBeside, closeReader, foldersById, savePrefs, session, setRead, setSaved, stream, saved, ui, toast } from "../lib/store.svelte.js";
+  import { TEXT_SIZES, readerBeside, closeReader, confirmation, foldersById, savePrefs, session, setRead, setSaved, stream, saved, ui, toast } from "../lib/store.svelte.js";
   import Edition from "./Edition.svelte";
   import Icon from "./Icon.svelte";
   import SourceIcon from "./SourceIcon.svelte";
@@ -130,6 +131,26 @@
     if (article?.url) window.open(article.url, "_blank", "noopener,noreferrer");
   }
 
+  // Scorciatoie sull'articolo aperto (#94): «s» salva, «m» letto o da leggere, «o» l'originale.
+  // Con l'articolo aperto si resta sull'articolo: «m» non lo chiude, come fa invece il menu.
+  function onKey(e) {
+    if (!article || ui.reader !== article.id || ui.sheet || confirmation.open) return;
+    const key = shortcutFor(e);
+    if (key === "s") {
+      e.preventDefault();
+      toggleSave();
+    } else if (key === "m") {
+      e.preventDefault();
+      const read = !article.read;
+      setRead(listed(article.id) || article, read);
+      article.read = read;
+      toast(read ? "Segnato come letto" : "Segnato come da leggere");
+    } else if (key === "o") {
+      e.preventDefault();
+      openOriginal();
+    }
+  }
+
   async function share() {
     menuOpen = false;
     if (!article?.url) return;
@@ -177,6 +198,7 @@
 </script>
 
 <svelte:document onpointerdown={onDocPointer} />
+<svelte:window onkeydown={onKey} />
 
 <article class="reader" class:has-back={ui.edition !== null && ui.reader !== null} class:is-open={open} class:is-empty={!open} class:bar-hidden={barHidden} aria-label="Articolo" aria-hidden={!open && !readerBeside()}>
   <!-- svelte-ignore a11y_no_static_element_interactions -->
