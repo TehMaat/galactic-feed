@@ -1105,3 +1105,96 @@ test("aggiornamenti: la versione nuova si annuncia e si attiva con «Aggiorna» 
     fs.writeFileSync(sw, original);
   }
 });
+
+async function login(page, size) {
+  await page.setViewportSize(size);
+  await page.goto("/");
+  await page.getByLabel("Nome utente").fill("anna");
+  await page.getByLabel("Password").fill(PASSWORD);
+  await page.getByRole("button", { name: "Entra" }).click();
+}
+
+test("computer: scorciatoie da tastiera (#94)", async ({ page }) => {
+  await login(page, { width: 1440, height: 900 });
+  await preset(page, "Tutte");
+  const cards = page.locator("section[aria-label='Oggi'] .card");
+  await expect(cards.nth(2)).toBeVisible();
+  const titles = await page.locator("section[aria-label='Oggi'] .card .card-title").allTextContents();
+
+  // «?» mostra l'elenco e lo richiude.
+  await page.keyboard.press("?");
+  const sheet = page.locator(".sheet.is-open");
+  await expect(sheet).toContainText("Scorciatoie da tastiera");
+  await expect(sheet).toContainText("Notizia successiva");
+  await page.keyboard.press("?");
+  await expect(page.locator(".sheet.is-open")).toHaveCount(0);
+
+  // «j» e «k» passano da una notizia all'altra.
+  await page.keyboard.press("j");
+  await expect(page.locator(".reader .reader-title")).toHaveText(titles[0]);
+  await expect(cards.nth(0)).toHaveClass(/is-current/);
+  await page.keyboard.press("j");
+  await expect(page.locator(".reader .reader-title")).toHaveText(titles[1]);
+  await expect(cards.nth(1)).toHaveClass(/is-current/);
+  await page.keyboard.press("k");
+  await expect(page.locator(".reader .reader-title")).toHaveText(titles[0]);
+
+  // «s» salva e toglie, «m» segna da leggere e di nuovo letto.
+  await page.keyboard.press("s");
+  await expect(page.locator(".toast")).toContainText("Salvato");
+  await expect(cards.nth(0).locator(".save-btn")).toHaveAttribute("aria-pressed", "true");
+  await page.keyboard.press("s");
+  await expect(page.locator(".toast")).toContainText("Rimosso dai salvati");
+  await page.keyboard.press("m");
+  await expect(page.locator(".toast")).toContainText("Segnato come da leggere");
+  await expect(cards.nth(0)).not.toHaveClass(/is-read/);
+  await page.keyboard.press("m");
+  await expect(page.locator(".toast")).toContainText("Segnato come letto");
+  await expect(cards.nth(0)).toHaveClass(/is-read/);
+
+  // «/» porta a Cerca: lì le lettere si scrivono nel campo, non sono scorciatoie.
+  await page.keyboard.press("/");
+  const input = page.locator(".cerca-view input");
+  await expect(input).toBeFocused();
+  await page.keyboard.type("jk");
+  await expect(input).toHaveValue("jk");
+  await input.fill("");
+  await page.keyboard.press("Escape");
+});
+
+test("lettura: le notizie lette si nascondono dalle Impostazioni (#95)", async ({ page }) => {
+  await login(page, PHONE);
+  await tab(page, "Impostazioni");
+  const toggle = page.locator(SETTINGS).getByRole("switch", { name: "Nascondi le notizie lette" });
+  await expect(toggle).toHaveAttribute("aria-checked", "false");
+  await toggle.click();
+  await expect(toggle).toHaveAttribute("aria-checked", "true");
+
+  // Nel Notiziario restano solo quelle da leggere, con qualsiasi preset.
+  await tab(page, "Oggi");
+  await preset(page, "Tutte");
+  const oggi = page.locator("section[aria-label='Oggi']");
+  await expect(oggi.locator(".card").first()).toBeVisible();
+  await expect(oggi.locator(".card.is-read")).toHaveCount(0);
+  // Una notizia letta adesso resta al suo posto finché l'elenco non si ricarica.
+  const first = oggi.locator(".card").first();
+  const title = await first.locator(".card-title").textContent();
+  await first.click();
+  await expect(page.locator(".reader.is-open .reader-title")).toHaveText(title);
+  await page.locator(".reader.is-open").getByRole("button", { name: "Indietro" }).click();
+  await expect(oggi.locator(".card", { hasText: title })).toHaveClass(/is-read/);
+  await page.reload();
+  await expect(oggi.locator(".card").first()).toBeVisible();
+  await expect(oggi.locator(".card", { hasText: title })).toHaveCount(0);
+  // Nei Filtri «Solo da leggere» è sempre acceso.
+  await page.locator(".filter-btn").click();
+  const unread = page.locator(".sheet.is-open").getByRole("switch", { name: "Solo da leggere" });
+  await expect(unread).toHaveAttribute("aria-checked", "true");
+  await expect(unread).toBeDisabled();
+  await page.keyboard.press("Escape");
+
+  // Spenta di nuovo, per non cambiare gli altri test.
+  await tab(page, "Impostazioni");
+  await toggle.click();
+  await expect(toggle).toHaveAttribute("aria-checked", "false");
+});

@@ -4,6 +4,15 @@ Tutte le versioni di Galactic Feed, dalla più recente. I numeri seguono [semver
 
 Per aggiornare basta scaricare la nuova immagine: le modifiche al database si applicano da sole all'avvio. Prima di saltare a una nuova versione minore conviene fare una copia del volume `/data` (vedi [Aggiornare e backup](docs/aggiornare-e-backup.md)).
 
+## [0.16.0] – 2026-11-27
+
+### Novità
+- **Scorciatoie da tastiera sul computer** (#94): `j` e `k` aprono la notizia successiva e quella precedente (in fondo all'elenco caricano le altre), `s` salva o toglie dai salvati l'articolo aperto, `m` lo segna come letto o da leggere, `o` apre l'originale, `r` controlla subito le fonti e `/` porta a Cerca. `?` mostra l'elenco. Valgono nel Notiziario, nei Salvati, in Cerca e nelle Edizioni, e non quando stai scrivendo in un campo.
+- **Nascondi le notizie lette** (#95): in **Impostazioni → Lettura** il Notiziario mostra solo le notizie da leggere, con qualsiasi preset o filtro. Quelle che leggi restano al loro posto finché l'elenco non si ricarica, così non spariscono mentre scorri; Salvati, Cerca ed Edizioni mostrano anche le lette. L'amministratore la può accendere tra i predefiniti dei nuovi utenti.
+
+### Da sapere per aggiornare
+- Il `docker-compose.yml` d'esempio ora usa `:0.16`: chi ha `:0.15` deve cambiare il numero per ricevere le novità (con `:0.15` arrivano solo le correzioni della 0.15).
+
 ## [0.15.1] – 2026-11-20
 
 ### Correzioni

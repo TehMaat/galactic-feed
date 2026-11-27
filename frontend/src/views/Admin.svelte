@@ -697,6 +697,9 @@
           <div class="set-row"><span>Unisci i doppioni</span>
             <button type="button" class="switch" role="switch" aria-checked={p.dedupe} aria-label="Unisci i doppioni" onclick={() => saveDefault({ dedupe: !p.dedupe })}></button>
           </div>
+          <div class="set-row"><span>Nascondi le notizie lette</span>
+            <button type="button" class="switch" role="switch" aria-checked={p.hide_read} aria-label="Nascondi le notizie lette" onclick={() => saveDefault({ hide_read: !p.hide_read })}></button>
+          </div>
           <div class="set-row"><span>Nascondi gli articoli senza testo completo</span>
             <button type="button" class="switch" role="switch" aria-checked={p.hide_partial} aria-label="Nascondi gli articoli senza testo completo" onclick={() => saveDefault({ hide_partial: !p.hide_partial })}></button>
           </div>

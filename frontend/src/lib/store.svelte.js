@@ -4,6 +4,7 @@ import { api, qs, setUnauthorizedHandler } from "./api.js";
 import { disablePush, setBadge } from "./push.js";
 import { clearAll, enqueue, flushQueue, hasPending, overlay, prepareForUser, refreshCopy, syncSaved } from "./offline.js";
 import { accentVars, applyCustomAccent } from "./color.js";
+import { neighbour } from "./keys.js";
 
 // Le Impostazioni e l'Amministrazione sono pagine come le altre sezioni (non finestre sopra l'app).
 const TABS = {
@@ -879,6 +880,33 @@ export function openArticle(id) {
   writeLocation(push);
 }
 
+// L'elenco che si sta leggendo, per le scorciatoie «j» e «k» (#94): l'Edizione aperta, oppure
+// l'elenco della sezione (Notiziario, Salvati, Cerca), con come caricarne altri.
+function currentList() {
+  if (ui.edition !== null && edition.data) {
+    const ed = edition.data;
+    return { items: [...(ed.hero ? [ed.hero] : []), ...ed.sections.flatMap((s) => s.items)], more: null };
+  }
+  if (ui.tab === "salvati") return { items: saved.items, more: saved.done ? null : () => loadSaved() };
+  if (ui.tab === "cerca") return { items: search.items, more: search.done ? null : () => loadSearch() };
+  if (ui.tab === "oggi") return { items: stream.items, more: stream.done ? null : () => loadStream() };
+  return { items: [], more: null };
+}
+
+/** Apre l'articolo dopo (1) o prima (-1) di quello aperto; in fondo carica la pagina successiva. */
+export async function stepArticle(step) {
+  let list = currentList();
+  let id = neighbour(list.items, ui.reader, step);
+  if (id === null && step > 0 && list.more && list.items.length) {
+    await list.more();
+    list = currentList();
+    id = neighbour(list.items, ui.reader, step);
+  }
+  if (id === null) return false;
+  openArticle(id);
+  return true;
+}
+
 /** Indietro dal lettore: dall'articolo all'Edizione da cui lo si è aperto, poi a Oggi. */
 export function closeReader() {
   if (ui.reader) {
@@ -979,7 +1007,7 @@ export async function markAllRead() {
     toast(r.marked === 1 ? "1 articolo segnato come letto" : `${r.marked} articoli segnati come letti`);
     for (const a of stream.items) a.read = true;
     await Promise.all([loadCounts(), loadTally(), loadSources(), loadToday()]);
-    if (f.unread) loadStream(true);
+    if (f.unread || session.user?.prefs?.hide_read) loadStream(true);
   } catch (err) {
     toast(err.message);
   }

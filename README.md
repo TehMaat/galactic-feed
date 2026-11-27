@@ -36,7 +36,7 @@ Interfaccia e documentazione in italiano.
 
 Serve Docker con il plugin Compose.
 
-1. Scarica il [`docker-compose.yml`](docker-compose.yml) in una cartella e cambia `PUBLIC_URL` con l'indirizzo da cui aprirai l'app (per esempio `https://notizie.example.org`). L'immagine è `ghcr.io/tehmaat/galactic-feed:0.15`.
+1. Scarica il [`docker-compose.yml`](docker-compose.yml) in una cartella e cambia `PUBLIC_URL` con l'indirizzo da cui aprirai l'app (per esempio `https://notizie.example.org`). L'immagine è `ghcr.io/tehmaat/galactic-feed:0.16`.
 2. Avvia e leggi il codice di primo avvio nel log:
 
    ```bash

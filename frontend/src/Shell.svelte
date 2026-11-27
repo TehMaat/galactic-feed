@@ -16,6 +16,7 @@
   import AddSource from "./sheets/AddSource.svelte";
   import EditionSheet from "./sheets/EditionSheet.svelte";
   import FilterSheet from "./sheets/FilterSheet.svelte";
+  import KeysSheet from "./sheets/KeysSheet.svelte";
   import ProfileSheet from "./sheets/ProfileSheet.svelte";
   import Admin from "./views/Admin.svelte";
   import FolderSheet from "./sheets/FolderSheet.svelte";
@@ -25,7 +26,8 @@
   import { barsAfterScroll } from "./lib/bars.js";
   import { applyUpdate, pwa } from "./lib/pwa.svelte.js";
   import { COMPACT_QUERY } from "./lib/scroll.js";
-  import { closeReader, closeSheet, confirmation, data, goHome, openPage, session, switchTab, today, ui } from "./lib/store.svelte.js";
+  import { shortcutFor } from "./lib/keys.js";
+  import { closeReader, closeSheet, confirmation, data, goHome, openPage, openSheet, refreshAll, session, stepArticle, switchTab, today, ui } from "./lib/store.svelte.js";
   import Cerca from "./views/Cerca.svelte";
   import Fonti from "./views/Fonti.svelte";
   import Interessi from "./views/Interessi.svelte";
@@ -179,9 +181,38 @@
   });
 
   function onKey(e) {
-    if (e.key !== "Escape") return;
-    if (ui.sheet) closeSheet();
-    else if (ui.reader || ui.edition) closeReader();
+    if (e.key === "Escape") {
+      if (ui.sheet) closeSheet();
+      else if (ui.reader || ui.edition) closeReader();
+      return;
+    }
+    // Scorciatoie da tastiera (#94). Con una finestra aperta valgono solo Esc e «?» per chiudere l'elenco.
+    const key = shortcutFor(e);
+    if (!key || confirmation.open) return;
+    if (ui.sheet) {
+      if (key === "?" && ui.sheet === "keys") {
+        e.preventDefault();
+        closeSheet();
+      }
+      return;
+    }
+    if (key === "j" || key === "k") {
+      e.preventDefault();
+      stepArticle(key === "j" ? 1 : -1).then((moved) => {
+        if (moved) tick().then(() => document.querySelector(".card.is-current")?.scrollIntoView({ block: "nearest", behavior: "smooth" }));
+      });
+    } else if (key === "r") {
+      e.preventDefault();
+      refreshAll();
+    } else if (key === "/") {
+      e.preventDefault();
+      switchTab("cerca");
+      tick().then(() => document.querySelector(".cerca-view input")?.focus({ preventScroll: true }));
+    } else if (key === "?") {
+      e.preventDefault();
+      openSheet("keys");
+    }
+    // «s», «m» e «o» riguardano l'articolo aperto: li gestisce il lettore.
   }
 </script>
 
@@ -242,6 +273,7 @@
   <EditionSheet />
   <FolderSheet />
   <FilterSheet />
+  <KeysSheet />
   <ProfileSheet />
   <Confirm />
 
